@@ -9,29 +9,37 @@
 <body>
 <header class="bar">
   <strong class="brand">omni</strong>
-  <label class="field">mode <select id="mode"></select></label>
-  <span id="status" class="status" title="connection">●</span>
-  <div class="budget" title="tokens used today / daily budget"><div id="budget-fill"></div><span id="budget-text">–</span></div>
-  <span id="models" class="muted"></span>
+  <label class="field" title="A mode is a personality: its own prompt, tools, permissions and memory, with one ongoing conversation.">Mode <select id="mode"></select></label>
+  <span id="model-label" class="muted"></span>
+  <span class="spacer"></span>
+  <span id="imessage-label" class="muted"></span>
+  <div class="budget" title="Free OpenAI tokens used today. Past 85% the agent switches to the light model; at 100% it stops until midnight UTC."><div id="budget-fill"></div><span id="budget-text">–</span></div>
+  <span id="status" class="status">connecting…</span>
 </header>
 <main class="grid">
   <section class="pane" id="thread-pane">
-    <h2>Thread <button id="reset" class="ghost" title="forget this mode's conversation">reset</button></h2>
+    <h2>Conversation <span class="sub">one thread per mode, shared with iMessage</span> <button id="reset" class="ghost" title="Forget this mode's conversation. Memory cartridges are kept.">forget</button></h2>
+    <div id="banner"></div>
     <div id="messages" class="scroll"></div>
-    <form id="composer"><textarea id="input" rows="2" placeholder="Message… (Enter sends, Shift+Enter newline)"></textarea><button id="send">Send</button></form>
+    <form id="composer"><textarea id="input" rows="2" placeholder="Say something… (Enter sends, Shift+Enter for a new line)"></textarea><button id="send">Send</button></form>
   </section>
   <section class="pane" id="operation-pane">
-    <h2>Operation <span id="counter" class="muted"></span></h2>
+    <h2>Operation <span class="sub">every step the agent takes, as it happens</span> <span id="counter" class="muted"></span></h2>
     <div id="filters" class="filters"></div>
     <div id="live" class="live"></div>
     <div id="events" class="scroll"></div>
   </section>
   <aside class="pane" id="side-pane">
-    <details open><summary>Approvals <span id="approval-count" class="pill"></span></summary><div id="approvals"></div></details>
-    <details open><summary>Cartridges</summary><div id="cartridges"></div><form id="new-cartridge" class="row"><input id="cart-name" placeholder="name"><input id="cart-desc" placeholder="description"><button>New</button></form></details>
-    <details open><summary>Mode file <span id="mode-file" class="muted"></span></summary><textarea id="mode-raw" rows="18" spellcheck="false"></textarea><div class="row"><button id="save-mode">Save</button><span id="mode-save-status" class="muted"></span></div></details>
-    <details><summary>Schedules</summary><div id="schedules"></div></details>
-    <details><summary>Skills <span id="skill-count" class="muted"></span></summary><div id="skills"></div></details>
+    <nav class="tabs" id="tabs">
+      <button data-tab="approvals">Approvals <span id="approval-count" class="pill"></span></button>
+      <button data-tab="mode">Mode</button>
+      <button data-tab="memory">Memory</button>
+      <button data-tab="more">More</button>
+    </nav>
+    <div class="tab scroll" id="tab-approvals"></div>
+    <div class="tab scroll" id="tab-mode" hidden></div>
+    <div class="tab scroll" id="tab-memory" hidden></div>
+    <div class="tab scroll" id="tab-more" hidden></div>
   </aside>
 </main>
 <script type="module" src="/app.js"></script>

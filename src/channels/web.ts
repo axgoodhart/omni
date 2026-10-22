@@ -9,6 +9,7 @@ import { read as readMemory } from '../memory/files.ts';
 import * as modes from '../modes/registry.ts';
 import * as scheduler from '../scheduler/index.ts';
 import * as skills from '../skills/loader.ts';
+import { DEFAULT_TOOLS, TOOL_INFO } from '../agent/tools.ts';
 import * as store from '../threads/store.ts';
 import * as outbound from './outbound.ts';
 
@@ -27,6 +28,8 @@ api.get('/api/state', (c) => c.json({
   usage: budget.todayUsage(),
   schedules: scheduler.list(),
   channels: outbound.channels(),
+  tools: { defaults: DEFAULT_TOOLS, info: TOOL_INFO },
+  imessage: outbound.channels().includes('imessage'),
 }));
 
 api.get('/api/threads/:mode', (c) => {
@@ -45,6 +48,12 @@ api.put('/api/threads/:mode/cartridges', async (c) => {
   try { return c.json({ inserted: runner.setCartridges(c.req.param('mode'), list ?? []) }); } catch (e) { return bad(c, e); }
 });
 
+api.get('/api/tools', (c) => c.json({ defaults: DEFAULT_TOOLS, info: TOOL_INFO }));
+api.get('/api/modes/:name', (c) => { try { return c.json(modes.readParsed(c.req.param('name'))); } catch (e) { return bad(c, e, 404); } });
+api.put('/api/modes/:name', async (c) => {
+  const { data, body } = await c.req.json<{ data: Record<string, any>; body: string }>();
+  try { modes.writeParsed(c.req.param('name'), data, body); return c.json({ ok: true }); } catch (e) { return bad(c, e); }
+});
 api.get('/api/modes/:name/raw', (c) => { try { return c.json({ text: modes.readRaw(c.req.param('name')) }); } catch (e) { return bad(c, e, 404); } });
 api.put('/api/modes/:name/raw', async (c) => {
   const { text } = await c.req.json<{ text: string }>();

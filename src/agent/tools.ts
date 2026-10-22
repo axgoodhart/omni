@@ -21,6 +21,22 @@ export const DEFAULT_TOOLS = [
   ...(IMESSAGE_ENABLED ? ['imessage_send'] : []),
 ];
 
+export const TOOL_INFO: Record<string, string> = {
+  memory_view: 'Read its memory notes',
+  memory_search: 'Search its memory',
+  memory_write: 'Write a memory note',
+  memory_edit: 'Edit a memory note',
+  memory_delete: 'Delete a memory note (asks you first)',
+  read_file: 'Read a file in workspace/',
+  write_file: 'Write a file in workspace/ (asks you first)',
+  shell: 'Run a terminal command in workspace/ (asks when it looks destructive)',
+  fetch_url: 'Read a web page',
+  skill_read: "Read a skill's instructions",
+  notify: 'Push a message to you (iMessage or here)',
+  imessage_send: 'Send an iMessage (asks unless it is to you)',
+  web_search: 'OpenAI web search (billed per call, outside the free tokens)',
+};
+
 export type ToolCtx = { mode: Mode; inserted: string[] };
 
 export function buildTools(ctx: ToolCtx): ToolSet {

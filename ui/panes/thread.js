@@ -6,10 +6,34 @@ let streaming = null, buffer = '';
 export function renderThread() {
   const box = $('#messages');
   const msgs = state.thread?.messages ?? [];
-  box.innerHTML = msgs.map(renderMessage).join('') || '<div class="muted">No messages yet in this mode.</div>';
+  renderBanner();
+  box.innerHTML = msgs.length ? msgs.map(renderMessage).join('') : intro();
   box.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => { const pre = c.nextElementSibling; if (pre) pre.hidden = !pre.hidden; }));
   if (streaming) box.appendChild(streaming);
   box.scrollTop = box.scrollHeight;
+}
+
+function intro() {
+  const m = state.data?.modes.find((x) => x.name === state.mode);
+  const mem = m?.inserted?.length ? m.inserted.join(', ') : 'none inserted';
+  return `<div class="intro">
+<b>This is the "${esc(state.mode)}" mode's conversation.</b> One ongoing thread: what you say here and what you text it over iMessage land in the same place.
+<ul>
+<li><b>Operation</b> (middle) shows every step while it works: the prompt it was given, its reasoning, each tool it used, what was allowed or blocked, and what it cost.</li>
+<li><b>Mode</b> (right) is its personality: the prompt, model, tools and permissions. Edit and save, it reloads instantly.</li>
+<li><b>Memory</b> (right) is what it knows long-term, as cartridges you insert or eject. Right now: ${esc(mem)}.</li>
+</ul>
+Try: <i>"remember my coffee order is a flat white"</i>, then eject the cartridge and ask what your order is.
+</div>`;
+}
+
+function renderBanner() {
+  const pending = (state.data?.pending ?? []).filter((p) => p.thread === state.mode);
+  const b = $('#banner');
+  if (!pending.length) { b.innerHTML = ''; return; }
+  const p = pending[0];
+  b.innerHTML = `<div class="banner"><span>Paused: it wants to run <b>${esc(p.toolName)}</b>${p.reason ? ` — ${esc(p.reason)}` : ''}.</span><span class="spacer"></span><button data-ok="1">Allow</button><button class="danger" data-ok="0">Deny</button></div>`;
+  b.querySelectorAll('button').forEach((btn) => btn.addEventListener('click', () => api(`/api/approvals/${encodeURIComponent(p.approvalId)}`, { method: 'POST', body: { approved: btn.dataset.ok === '1' } })));
 }
 
 function renderMessage(m) {
@@ -24,9 +48,9 @@ function renderMessage(m) {
 }
 
 function chip(p) {
-  if (p.type === 'tool-call') return `<span class="chip call">→ ${esc(p.toolName)}</span><pre hidden>${esc(JSON.stringify(p.input, null, 2))}</pre>`;
-  if (p.type === 'tool-result') return `<span class="chip">← ${esc(p.toolName)}</span><pre hidden>${esc(typeof p.output === 'string' ? p.output : JSON.stringify(p.output, null, 2))}</pre>`;
-  if (p.type === 'approval') return `<span class="chip approval">${p.approved ? 'approved' : 'denied'}${p.reason ? `: ${esc(p.reason)}` : ''}</span>`;
+  if (p.type === 'tool-call') return `<span class="chip call" title="click for details">used ${esc(p.toolName)}</span><pre hidden>${esc(JSON.stringify(p.input, null, 2))}</pre>`;
+  if (p.type === 'tool-result') return `<span class="chip" title="click for details">${esc(p.toolName)} result</span><pre hidden>${esc(typeof p.output === 'string' ? p.output : JSON.stringify(p.output, null, 2))}</pre>`;
+  if (p.type === 'approval') return `<span class="chip approval">you ${p.approved ? 'allowed' : 'denied'} it${p.reason ? `: ${esc(p.reason)}` : ''}</span>`;
   return `<span class="chip">${esc(p.type)}</span>`;
 }
 
@@ -48,6 +72,7 @@ form.addEventListener('submit', async (e) => {
   if (!text || !state.mode || state.busy) return;
   input.value = ''; state.busy = true; send.disabled = true;
   const box = $('#messages');
+  if (box.querySelector('.intro')) box.innerHTML = '';
   const u = document.createElement('div'); u.className = 'msg user'; u.textContent = text; box.appendChild(u);
   startStreaming();
   try { await api(`/api/threads/${encodeURIComponent(state.mode)}/messages`, { method: 'POST', body: { text } }); }

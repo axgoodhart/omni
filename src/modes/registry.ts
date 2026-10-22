@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { MAX_STEPS, MODEL_MAIN, MODES_DIR } from '../config.ts';
 import { emit } from '../events/log.ts';
-import { parseFrontmatter } from '../lib/frontmatter.ts';
+import { parseFrontmatter, stringifyFrontmatter } from '../lib/frontmatter.ts';
 
 export type Level = 'ask-always' | 'ask-destructive' | 'no-asking';
 export type Override = 'allow' | 'ask' | 'deny';
@@ -70,6 +70,12 @@ export function get(name: string): Mode {
   return m;
 }
 export const readRaw = (name: string) => fs.readFileSync(path.join(MODES_DIR, get(name).file), 'utf8');
+export function readParsed(name: string) { return parseFrontmatter(readRaw(name)); }
+export function writeParsed(name: string, data: Record<string, any>, body: string) {
+  const clean = Object.fromEntries(Object.entries(data ?? {}).filter(([, v]) => v !== undefined && v !== null && v !== ''));
+  fs.writeFileSync(path.join(MODES_DIR, `${name}.md`), stringifyFrontmatter(clean, body ?? ''));
+  load();
+}
 export function writeRaw(name: string, text: string) {
   parseFrontmatter(text); // throws before anything is written
   fs.writeFileSync(path.join(MODES_DIR, `${name}.md`), text);

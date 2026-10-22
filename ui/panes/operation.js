@@ -2,34 +2,40 @@ import { $, esc, fmt } from '../lib.js';
 import { state } from '../app.js';
 
 const GROUPS = {
-  model: ['prompt.assembled', 'model.request', 'reasoning', 'usage', 'source', 'compaction'],
-  tool: ['tool.call', 'tool.result', 'tool.error', 'tool.denied'],
-  memory: ['memory.write', 'cartridges.changed', 'cartridge.missing'],
-  policy: ['policy.decision', 'approval.requested', 'approval.resolved'],
-  channel: ['inbound', 'outbound', 'imessage.sent', 'imessage.ignored', 'imessage.error', 'imessage.watch', 'imessage.watch.exit', 'imessage.stderr', 'imessage.disabled', 'schedule.tick', 'schedule.loaded', 'schedule.error'],
-  budget: ['budget.refused', 'budget.downgraded'],
-  system: ['mode.reloaded', 'mode.error', 'daemon.started', 'daemon.listening', 'daemon.stopping', 'server.error', 'error'],
+  model: { label: 'Model', help: 'the prompt it was given, its reasoning, tokens used', types: ['prompt.assembled', 'model.request', 'reasoning', 'usage', 'source', 'compaction'] },
+  tool: { label: 'Tools', help: 'every tool call and what came back', types: ['tool.call', 'tool.result', 'tool.error', 'tool.denied'] },
+  memory: { label: 'Memory', help: 'notes written, cartridges inserted or ejected', types: ['memory.write', 'cartridges.changed', 'cartridge.missing'] },
+  policy: { label: 'Permissions', help: 'what was allowed, blocked, or paused to ask you', types: ['policy.decision', 'approval.requested', 'approval.resolved'] },
+  channel: { label: 'Channels', help: 'messages in and out, iMessage, scheduled runs', types: ['inbound', 'outbound', 'imessage.sent', 'imessage.ignored', 'imessage.error', 'imessage.watch', 'imessage.watch.exit', 'imessage.stderr', 'imessage.disabled', 'schedule.tick', 'schedule.loaded', 'schedule.error'] },
+  budget: { label: 'Budget', help: 'free-token limits kicking in', types: ['budget.refused', 'budget.downgraded'] },
+  system: { label: 'System', help: 'startup, mode reloads, errors', types: ['mode.reloaded', 'mode.error', 'daemon.started', 'daemon.listening', 'daemon.stopping', 'server.error', 'error'] },
 };
-const groupOf = (type) => Object.keys(GROUPS).find((g) => GROUPS[g].includes(type)) ?? 'system';
+const LABEL = { 'prompt.assembled': 'prompt', 'model.request': 'request', reasoning: 'thinking', usage: 'tokens', source: 'source', compaction: 'compacted', 'tool.call': 'tool', 'tool.result': 'result', 'tool.error': 'tool error', 'tool.denied': 'denied', 'memory.write': 'memory', 'cartridges.changed': 'cartridges', 'policy.decision': 'permission', 'approval.requested': 'asking you', 'approval.resolved': 'answered', inbound: 'in', outbound: 'out', 'schedule.tick': 'schedule', 'budget.downgraded': 'budget', 'budget.refused': 'budget', 'mode.reloaded': 'reloaded', 'daemon.started': 'started', 'daemon.listening': 'web', error: 'error' };
+const groupOf = (type) => Object.keys(GROUPS).find((g) => GROUPS[g].types.includes(type)) ?? 'system';
 const hidden = new Set(JSON.parse(localStorage.getItem('omni.hidden') || '[]'));
 let tokens = 0;
 
 function filters() {
-  $('#filters').innerHTML = Object.keys(GROUPS).map((g) => `<label><input type="checkbox" data-g="${g}" ${hidden.has(g) ? '' : 'checked'}> ${g}</label>`).join('');
+  $('#filters').innerHTML = Object.entries(GROUPS).map(([g, v]) => `<label title="${esc(v.help)}"><input type="checkbox" data-g="${g}" ${hidden.has(g) ? '' : 'checked'}><i class="c-${g}"></i>${v.label}</label>`).join('');
   $('#filters').querySelectorAll('input').forEach((i) => i.addEventListener('change', () => { i.checked ? hidden.delete(i.dataset.g) : hidden.add(i.dataset.g); localStorage.setItem('omni.hidden', JSON.stringify([...hidden])); renderEvents(); }));
 }
 filters();
 
+const EMPTY = `<div class="intro">Nothing has happened in this mode yet. After your first message you will see, in order:
+<ul><li><b>prompt</b> — the exact instructions and memory it was given</li><li><b>request</b> and <b>thinking</b> — the model call and its reasoning summary</li><li><b>permission</b>, <b>tool</b>, <b>result</b> — each thing it did, and whether it had to ask you</li><li><b>memory</b> — notes it saved</li><li><b>tokens</b> and <b>out</b> — what it cost and what it replied</li></ul>Click any row for the raw data. Untick a group above to hide it.</div>`;
+
 export function renderEvents() {
   const box = $('#events');
   tokens = 0;
-  box.innerHTML = state.events.map(row).join('');
+  const rows = state.events.map(row).join('');
+  box.innerHTML = rows || EMPTY;
   wire(box);
   $('#counter').textContent = tokens ? `${fmt(tokens)} tokens in view` : '';
   box.scrollTop = box.scrollHeight;
 }
 export function pushEvent(e) {
   const box = $('#events');
+  if (box.querySelector('.intro')) box.innerHTML = '';
   const tmp = document.createElement('div'); tmp.innerHTML = row(e);
   wire(tmp);
   while (tmp.firstChild) box.appendChild(tmp.firstChild);
@@ -46,38 +52,54 @@ export function pushLive(e) {
   live.scrollTop = live.scrollHeight;
 }
 
-function wire(root) { root.querySelectorAll('.head').forEach((h) => h.addEventListener('click', () => { const pre = h.nextElementSibling; pre.hidden = !pre.hidden; })); }
+function wire(root) {
+  root.querySelectorAll('.head').forEach((h) => h.addEventListener('click', () => { const ev = h.parentElement; ev.classList.toggle('open'); const pre = h.nextElementSibling; pre.hidden = !pre.hidden; }));
+}
 
 function row(e) {
   const g = groupOf(e.type);
   if (hidden.has(g)) return '';
   if (e.type === 'usage') tokens += e.data.usage?.totalTokens ?? 0;
   const t = new Date(e.ts).toLocaleTimeString([], { hour12: false });
-  return `<div class="ev g-${g} ${e.type === 'error' ? 'error' : ''}"><div class="head"><span class="t">${t}</span><span class="type">${esc(e.type)}</span><span class="sum">${esc(summary(e))}</span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
+  return `<div class="ev g-${g} ${e.type === 'error' ? 'error' : ''}"><div class="head" title="click for the raw data"><span class="t">${t}</span><span class="sum"><span class="type">${esc(LABEL[e.type] ?? e.type)}</span>${esc(summary(e))}</span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
 }
+
+const j = (v, n = 160) => { const s = typeof v === 'string' ? v : JSON.stringify(v) ?? ''; return s.length > n ? `${s.slice(0, n)}…` : s; };
 
 function summary(e) {
   const d = e.data || {};
   switch (e.type) {
-    case 'inbound': return `${d.channel}${d.from ? ` ${d.from}` : ''}: ${d.text}`;
-    case 'outbound': return `${d.channel}: ${d.text}`;
-    case 'prompt.assembled': return `${d.model} · ${d.messages} msgs · tools ${d.tools?.length} · cartridges ${d.cartridges?.join(', ') || 'none'} · ~${fmt(d.estimate)} tok`;
-    case 'model.request': return d.model;
-    case 'reasoning': return d.text;
-    case 'tool.call': return `${d.toolName}(${JSON.stringify(d.input)})`;
-    case 'tool.result': return `${d.toolName} → ${typeof d.output === 'string' ? d.output : JSON.stringify(d.output)}`;
-    case 'tool.error': return `${d.toolName}: ${d.error}`;
-    case 'policy.decision': return `${d.tool}: ${d.decision}${d.reason ? ` (${d.reason})` : ''} [${d.level}]`;
-    case 'approval.requested': return `${d.toolName}: ${d.reason || 'needs your approval'}`;
-    case 'approval.resolved': return `${d.toolName}: ${d.approved ? 'approved' : 'denied'}${d.reason ? ` — ${d.reason}` : ''}`;
-    case 'memory.write': return `${d.op} ${d.path}`;
-    case 'usage': return `${d.model}: in ${fmt(d.usage?.inputTokens)} · out ${fmt(d.usage?.outputTokens)} · ${d.finishReason}`;
-    case 'compaction': return `dropped ${d.dropped}, kept ${d.kept}${d.savedTo ? ` → ${d.savedTo}` : ''}`;
-    case 'budget.downgraded': return `${d.from} → ${d.to} (${fmt(d.remaining)} left)`;
-    case 'budget.refused': return `needs ~${fmt(d.estimate)}, ${fmt(d.remaining)} left`;
-    case 'schedule.tick': return `${d.cron}: ${d.prompt}`;
-    case 'mode.reloaded': return (d.names || []).join(', ');
+    case 'inbound': return d.channel === 'schedule' ? `Scheduled run: ${d.text}` : d.channel === 'web' ? `You said: ${d.text}` : `You said over ${d.channel}: ${d.text}`;
+    case 'outbound': return d.channel === 'notify' ? `Pushed to you (${(d.targets || []).map((x) => x.channel).join(', ')}): ${d.text}` : `Replied via ${d.channel}: ${d.text}`;
+    case 'prompt.assembled': return `Built the prompt for ${d.model}: ${d.messages} messages, ${d.tools?.length ?? 0} tools, memory ${d.cartridges?.length ? d.cartridges.join(', ') : 'none'}, about ${fmt(d.estimate)} tokens`;
+    case 'model.request': return `Asked ${d.model}`;
+    case 'reasoning': return `Thought: ${d.text}`;
+    case 'tool.call': return `Called ${d.toolName} with ${j(d.input)}`;
+    case 'tool.result': return `${d.toolName} returned ${j(d.output)}`;
+    case 'tool.error': return `${d.toolName} failed: ${d.error}`;
+    case 'tool.denied': return 'A tool call was denied and the model was told';
+    case 'policy.decision': return d.decision === 'not-applicable' ? `${d.tool}: read-only, no permission needed`
+      : d.decision === 'approved' ? `${d.tool}: allowed (${d.level})`
+      : d.decision === 'denied' ? `${d.tool}: blocked — ${d.reason}`
+      : `${d.tool}: paused to ask you — ${d.reason}`;
+    case 'approval.requested': return `Waiting for you: ${d.toolName}${d.reason ? ` — ${d.reason}` : ''}`;
+    case 'approval.resolved': return `You ${d.approved ? 'allowed' : 'denied'} ${d.toolName}${d.reason ? ` (${d.reason})` : ''}`;
+    case 'memory.write': return `${d.op === 'write' ? 'Wrote' : d.op === 'edit' ? 'Edited' : 'Deleted'} memory note ${d.path}`;
+    case 'cartridges.changed': return `Memory cartridges now: ${(d.cartridges || []).join(', ') || 'none'}`;
+    case 'usage': return `${d.model} used ${fmt(d.usage?.inputTokens)} in, ${fmt(d.usage?.outputTokens)} out (${d.finishReason})`;
+    case 'compaction': return `Compacted the conversation: dropped ${d.dropped} messages, kept ${d.kept}${d.savedTo ? `, summary saved to ${d.savedTo}` : ''}`;
+    case 'budget.downgraded': return `Budget nearly spent: switched ${d.from} → ${d.to}`;
+    case 'budget.refused': return `Stopped: needs about ${fmt(d.estimate)} tokens, only ${fmt(d.remaining)} left today`;
+    case 'schedule.tick': return `Scheduled run (${d.cron}): ${d.prompt}`;
+    case 'schedule.loaded': return `${(d.jobs || []).length} scheduled runs loaded`;
+    case 'mode.reloaded': return `Mode files reloaded: ${(d.names || []).join(', ')}`;
+    case 'daemon.started': return `Agent started: ${(d.modes || []).length} modes, ${d.skills} skills, iMessage ${d.imessage ? 'on' : 'off'}`;
+    case 'daemon.listening': return `Web app at ${d.url}`;
+    case 'imessage.sent': return `Sent an iMessage (${d.chars} chars)`;
+    case 'imessage.ignored': return `Ignored an iMessage from ${d.from} (not in ALLOWED_HANDLES)`;
+    case 'imessage.watch': return 'Watching Messages for new texts';
+    case 'imessage.disabled': return 'iMessage off: ALLOWED_HANDLES is empty';
     case 'error': case 'server.error': case 'schedule.error': case 'imessage.error': case 'mode.error': return d.error || d.message || '';
-    default: return JSON.stringify(d);
+    default: return j(d);
   }
 }
