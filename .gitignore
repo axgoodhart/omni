@@ -1,0 +1,8 @@
+node_modules/
+data/*
+!data/.keep
+.env
+cartridges/*/index.sqlite
+.DS_Store
+workspace/*
+!workspace/.keep

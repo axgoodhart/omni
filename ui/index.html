@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>omni</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="bar">
+  <strong class="brand">omni</strong>
+  <label class="field">mode <select id="mode"></select></label>
+  <span id="status" class="status" title="connection">●</span>
+  <div class="budget" title="tokens used today / daily budget"><div id="budget-fill"></div><span id="budget-text">–</span></div>
+  <span id="models" class="muted"></span>
+</header>
+<main class="grid">
+  <section class="pane" id="thread-pane">
+    <h2>Thread <button id="reset" class="ghost" title="forget this mode's conversation">reset</button></h2>
+    <div id="messages" class="scroll"></div>
+    <form id="composer"><textarea id="input" rows="2" placeholder="Message… (Enter sends, Shift+Enter newline)"></textarea><button id="send">Send</button></form>
+  </section>
+  <section class="pane" id="operation-pane">
+    <h2>Operation <span id="counter" class="muted"></span></h2>
+    <div id="filters" class="filters"></div>
+    <div id="live" class="live"></div>
+    <div id="events" class="scroll"></div>
+  </section>
+  <aside class="pane" id="side-pane">
+    <details open><summary>Approvals <span id="approval-count" class="pill"></span></summary><div id="approvals"></div></details>
+    <details open><summary>Cartridges</summary><div id="cartridges"></div><form id="new-cartridge" class="row"><input id="cart-name" placeholder="name"><input id="cart-desc" placeholder="description"><button>New</button></form></details>
+    <details open><summary>Mode file <span id="mode-file" class="muted"></span></summary><textarea id="mode-raw" rows="18" spellcheck="false"></textarea><div class="row"><button id="save-mode">Save</button><span id="mode-save-status" class="muted"></span></div></details>
+    <details><summary>Schedules</summary><div id="schedules"></div></details>
+    <details><summary>Skills <span id="skill-count" class="muted"></span></summary><div id="skills"></div></details>
+  </aside>
+</main>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
