@@ -13,7 +13,7 @@ export function renderDesk() {
 function renderStrip(d) {
   const l = d.loop, last = l.last;
   $('#loopstrip').innerHTML = l.paused
-    ? `<span class="k">paused</span><span>Nothing looks, nothing asks.</span><span class="spacer"></span><button class="ghost tiny" id="strip-settings">turn me back on</button>`
+    ? `<span class="k" title="Automatic check-ins are paused. You can still use the desk and log your routines.">Paused</span><span class="spacer"></span><button class="ghost tiny" id="strip-settings">Loop settings</button>`
     : `<span class="k">I look every ${l.everyMin} min</span>${last ? `<span>last ${hm(last.at)}</span><span><b>${last.decisions}</b> decision${last.decisions === 1 ? '' : 's'}</span><span><b>${last.waiting}</b> waiting on you</span>` : '<span>not yet</span>'}<span>next ${l.next ? hm(l.next) : '–'}</span>${l.busy?.length ? `<span class="busy">working: ${esc(l.busy.join(', '))}</span>` : ''}<span class="spacer"></span><button class="ghost tiny" id="strip-settings">change</button><button class="ghost tiny" id="strip-tick">look now</button><button class="ghost tiny" id="strip-loop">what I did</button>`;
   $('#strip-settings').addEventListener('click', () => showView('settings'));
   $('#strip-tick')?.addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); deskSoon(); });
@@ -42,7 +42,7 @@ function renderNeeds(d) {
   const pending = state.data?.pending ?? [];
   const box = $('#desk-needs');
   box.innerHTML = (general.map(checkinHTML).join('') + (pending.length ? `<div class="checkin p-top"><div class="ci-title">${pending.length} tool approval${pending.length === 1 ? '' : 's'} waiting.</div><div class="ci-opts"><button data-drawer="approvals">open</button></div></div>` : ''))
-    || `<div class="intro small">Nothing is waiting on you. When the loop needs an answer it puts one sentence here, and texts it if iMessage is on. Letters answer it either place.</div>`;
+    || `<div class="intro small">Nothing needs your attention right now.</div>`;
   wireCheckins(box);
   box.querySelector('[data-drawer]')?.addEventListener('click', () => openDrawer('approvals'));
   const archived = d.checkins.recent.filter((c) => c.state === 'archived' || c.state === 'answered').slice(0, 6);
@@ -82,7 +82,7 @@ function renderIslands(d) {
     <input class="status" value="${esc(i.status)}" placeholder="status line — what's true about it right now">
     ${byIsland(i.slug).map(checkinHTML).join('')}
     <footer><span class="muted">${i.files.length ? `${i.files.length} file${i.files.length === 1 ? '' : 's'}` : 'no files'} · ${esc(i.kind)}</span><span class="spacer"></span><button class="ghost tiny" data-discuss>discuss</button><button class="ghost tiny" data-edit>edit file</button></footer>
-  </article>`).join('') || `<div class="intro small">No islands yet. Each is one thing on your plate: a project, a piece, something you keep avoiding. The interview adds them, or use + island.</div>`;
+  </article>`).join('') || `<div class="intro small">You have no projects here yet. Add an island to get started.</div>`;
   wireCheckins(box);
   box.querySelectorAll('.island').forEach((el) => {
     const slug = el.dataset.slug;
@@ -99,7 +99,16 @@ function renderIslands(d) {
 
 function renderMail(d) {
   const w = d.watches.mail, box = $('#desk-mail');
-  if (!w.configured) { box.innerHTML = `<div class="intro small">Mail is not connected. Add IMAP_HOST, IMAP_USER and IMAP_PASS to .env (the interview asks for them) and the loop will start reading. It only reads; replies and unsubscribes land in out/mail.</div>`; return; }
+  if (!w.configured) {
+    box.innerHTML = `<div class="row"><span class="muted-text">Mail is not connected.</span><button class="ghost" id="connect-mail">Connect mail</button></div>`;
+    $('#connect-mail').addEventListener('click', async () => {
+      await showView('settings');
+      const connect = document.querySelector('[data-k="mail.connect"]');
+      connect?.click();
+      $('#mail-connect')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return;
+  }
   const ny = d.mail.needsYou;
   box.innerHTML = `<div class="mailhead muted">${w.lastCheck ? `checked ${ago(w.lastCheck)}` : 'not checked yet'}${w.lastError ? ` · <span class="err">${esc(w.lastError)}</span>` : ''} · ${d.mail.recent.length ? `${d.mail.recent.length} recent` : 'nothing read yet'}</div>`
     + (ny.length ? ny.map((m) => `<div class="mailrow" data-uid="${m.uid}"><div><b>${esc(m.senderName || m.sender)}</b> <span class="muted">${hm(m.ts)}</span><div class="sub">${esc(m.subject)}${m.reason ? ` <span class="muted">· ${esc(m.reason)}</span>` : ''}</div></div><button class="ghost tiny" data-draft>draft reply</button><button class="ghost tiny" data-handled>handled</button></div>`).join('') : '<div class="muted-text">Nothing needs you.</div>');
@@ -109,7 +118,7 @@ function renderMail(d) {
 
 function renderOut(d) {
   const box = $('#desk-out');
-  box.innerHTML = d.out.length ? d.out.map((f) => `<button class="outrow" data-domain="${esc(f.domain)}" data-name="${esc(f.name)}"><span class="plate-tag ${f.domain === 'mail' ? 'slate' : f.domain === 'site' ? '' : 'clay'}">${esc(f.domain)}</span><span class="nm">${esc(f.name)}</span><span class="muted">${ago(f.mtime)}</span></button>`).join('') : `<div class="intro small">Empty. Anything the loop would send or publish as you is written here instead: a reply, an unsubscribe, a site change, a submission. Read it, then do with it what you like.</div>`;
+  box.innerHTML = d.out.length ? d.out.map((f) => `<button class="outrow" data-domain="${esc(f.domain)}" data-name="${esc(f.name)}"><span class="plate-tag ${f.domain === 'mail' ? 'slate' : f.domain === 'site' ? '' : 'clay'}">${esc(f.domain)}</span><span class="nm">${esc(f.name)}</span><span class="muted">${ago(f.mtime)}</span></button>`).join('') : `<div class="intro small">There are no drafts to review.</div>`;
   box.querySelectorAll('.outrow').forEach((b) => b.addEventListener('click', () => showOut(b.dataset.domain, b.dataset.name)));
 }
 

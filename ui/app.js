@@ -83,7 +83,7 @@ export function renderShell() {
     const l = d.desk?.loop, p = state.desk?.profile;
     $('#mode-num').textContent = '◎';
     $('#mode-title').textContent = p?.name ? `${p.name}'s desk` : 'Desk';
-    $('#mode-sub').textContent = l?.paused ? 'Paused. Nothing looks, nothing asks, until you turn it back on under What I do.' : l?.last ? `I last looked at ${new Date(l.last.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}: ${l.last.decisions} decision${l.last.decisions === 1 ? '' : 's'}, ${l.last.waiting} question${l.last.waiting === 1 ? '' : 's'} waiting on you. I look every ${l.everyMin} minutes.` : 'I have not looked yet.';
+    $('#mode-sub').textContent = '';
     $('#mode-tags').innerHTML = [`<span class="plate-tag clay">${open} open check-in${open === 1 ? '' : 's'}</span>`, `<span class="plate-tag">${d.desk?.islands?.length ?? 0} islands</span>`, `<span class="plate-tag focus">trust · ${Object.values(state.desk?.trust ?? {}).some((v) => v === 'live') ? 'mixed' : 'sandbox'}</span>`].join('');
     return;
   }
