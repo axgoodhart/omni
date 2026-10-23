@@ -17,6 +17,9 @@ db.exec(`CREATE TABLE IF NOT EXISTS checkins (
   state TEXT NOT NULL DEFAULT 'open', created INTEGER NOT NULL, snoozed_until INTEGER, reminders INTEGER NOT NULL DEFAULT 0,
   answer TEXT, answered INTEGER, via TEXT, archived_reason TEXT, last_sent INTEGER, held_until INTEGER, texted INTEGER NOT NULL DEFAULT 0);
   CREATE INDEX IF NOT EXISTS checkins_state ON checkins(state, created);`);
+// columns added after the table first shipped; add them to an older database
+const have = new Set((db.prepare('PRAGMA table_info(checkins)').all() as any[]).map((r) => r.name));
+for (const [col, def] of [['last_sent', 'INTEGER'], ['held_until', 'INTEGER'], ['texted', 'INTEGER NOT NULL DEFAULT 0']]) if (!have.has(col)) db.exec(`ALTER TABLE checkins ADD COLUMN ${col} ${def}`);
 
 export type Action =
   | { type: 'log'; kind: string } | { type: 'snooze'; for: string } | { type: 'snooze-eod' } | { type: 'archive'; reason: string }
