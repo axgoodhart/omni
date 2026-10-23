@@ -224,6 +224,14 @@ pre { font-family: var(--mono); font-size: 0.74rem; line-height: 1.5; background
 .rhythm { display: grid; grid-template-columns: 1.6rem 1fr auto; gap: 0.6rem; align-items: center; padding: 0.55rem 0; border-top: 1px solid var(--line); font-size: 0.9rem; }
 .rhythm .ic { font-size: 1rem; color: var(--brass); text-align: center; }
 .rhythm .sub, .mailrow .sub, .island .sub { color: var(--paper-dim); font-size: 0.8rem; }
+.medicine-history { margin: 0 0 1rem 2.2rem; font-size: 0.9rem; }
+.medicine-history summary { cursor: pointer; color: var(--paper); padding: 0.6rem 0; }
+.medicine-history summary:hover { color: var(--brass-soft); }
+.medicine-history summary:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-radius: 3px; }
+.medicine-history ol { list-style: none; margin: 0; padding: 0; max-height: 20rem; overflow-y: auto; }
+.medicine-history li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; padding: 0.65rem 0; border-top: 1px solid var(--line); line-height: 1.5; }
+.medicine-history time { font-variant-numeric: tabular-nums; }
+.medicine-history li span, .medicine-history p { color: var(--paper-dim); }
 
 .island { border: 1px solid color-mix(in srgb, var(--brass) 18%, var(--line-strong)); border-radius: 6px; padding: 0.9rem 1rem 0.7rem; margin: 0.6rem 0; background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--brass) 7%, transparent), transparent 60%), linear-gradient(180deg, var(--ink-3), var(--ink-2)); }
 .island header { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }

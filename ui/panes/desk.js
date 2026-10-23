@@ -55,8 +55,15 @@ function renderNeeds(d) {
 
 function renderRhythms(d) {
   const p = d.priorities, med = d.logbook.medicine, ch = d.logbook.chores;
+  const historyOpen = $('#medicine-history')?.open ?? false;
+  const dateTime = (ts) => new Date(ts).toLocaleString([], { timeZone: d.profile.timezone, month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const history = d.medicineHistory;
   $('#desk-rhythms').innerHTML = `
-    <div class="rhythm"><span class="ic">✚</span><div><b>medicine</b> <span class="muted">${esc(p.medicine.time)} · ${esc(p.medicine.priority)}</span><div class="sub">${med ? `last logged ${ago(med.ts)} via ${esc(med.via)}` : 'never logged yet'}</div></div><button class="ghost tiny" data-log="medicine">log now</button></div>
+    <div class="rhythm"><span class="ic">✚</span><div><b>Medicine</b> <span class="muted">${esc(p.medicine.time)} · ${esc(p.medicine.priority)}</span><div class="sub">${med ? `Last logged on ${esc(dateTime(med.ts))}.` : 'You have not logged your medicine yet.'}</div></div><button class="ghost tiny" data-log="medicine">Log now</button></div>
+    <details class="medicine-history" id="medicine-history" ${historyOpen ? 'open' : ''}>
+      <summary>View medicine history</summary>
+      ${history ? history.length ? `<ol>${history.map((entry) => `<li><time datetime="${esc(new Date(entry.ts).toISOString())}">${esc(dateTime(entry.ts))}</time><span>${entry.via === 'web' ? 'Logged in the app' : entry.via === 'imessage' ? 'Logged through iMessage' : 'Medicine logged'}</span></li>`).join('')}</ol>` : '<p>You have not logged your medicine yet. Your entries will appear here.</p>' : '<p>Medicine history is unavailable. Restart the app’s background service, then reload this page.</p>'}
+    </details>
     <div class="rhythm"><span class="ic">⌂</span><div><b>apartment</b> <span class="muted">${p.chores.days.length ? esc(p.chores.days.join(' ')) : 'no days set'} · ${esc(p.chores.priority)}</span><div class="sub">${ch ? `last done ${ago(ch.ts)}` : 'not logged yet'}</div></div><button class="ghost tiny" data-log="chores">done</button></div>`;
   $('#desk-rhythms').querySelectorAll('[data-log]').forEach((b) => b.addEventListener('click', async () => {
     const open = d.checkins.live.find((c) => c.state !== 'answered' && (c.title.startsWith('Medicine') && b.dataset.log === 'medicine' || c.title.startsWith('Apartment') && b.dataset.log === 'chores'));

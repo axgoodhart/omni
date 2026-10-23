@@ -58,6 +58,7 @@ api.get('/api/desk', (c) => {
     mail: { needsYou: mail.needsYou(), recent: mail.recent(20) },
     out: out.list(), observations: observations.list(), loop: loop.status(), interview: interview.current(),
     logbook: { medicine: logbookLast('medicine'), chores: logbookLast('chores') },
+    medicineHistory: logbook.entries('medicine').reverse(),
   });
 });
 api.get('/api/settings', (c) => c.json({ ...settings.get(), status: loop.status(), waiting: checkins.live(), labels: settings.LABELS }));
