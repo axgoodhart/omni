@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>omni</title>
+<title>omnii</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -13,14 +13,15 @@
 <div class="layout">
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-mark">om</span>
-      <h1>omni</h1>
+      <span class="brand-mark">omnii</span>
+      <h1>omnii</h1>
       <p id="status">connecting…</p>
     </div>
     <nav>
+      <div class="nav-group" data-nav="desk"><h2>Desk</h2><ul id="nav-desk"></ul></div>
+      <div class="nav-group" data-nav="islands"><h2>Islands</h2><ul id="nav-islands"></ul></div>
       <div class="nav-group" data-nav="modes"><h2>Modes</h2><ul id="nav-modes"></ul></div>
       <div class="nav-group" data-nav="memory"><h2>Memory</h2><ul id="nav-memory"></ul></div>
-      <div class="nav-group" data-nav="attention"><h2>Attention</h2><ul id="nav-attention"></ul></div>
       <div class="nav-group" data-nav="setup"><h2>Setup</h2><ul id="nav-setup"></ul></div>
     </nav>
     <div class="sidebar-foot">
@@ -37,7 +38,30 @@
       <div class="plate-meta"><h4 id="mode-title">…</h4><p id="mode-sub"></p></div>
       <div class="tags" id="mode-tags"></div>
     </header>
-    <div class="stages">
+
+    <section class="view desk" id="view-desk" hidden>
+      <div class="loopstrip" id="loopstrip"></div>
+      <div class="desk-grid">
+        <div class="desk-col">
+          <h2 class="eyebrow">Needs you <span class="sub">one sentence, fixed options, you can ignore it</span></h2>
+          <div id="desk-needs"></div>
+          <h2 class="eyebrow">Rhythms <span class="sub">kept by the loop, set in priorities.md</span></h2>
+          <div id="desk-rhythms"></div>
+          <h2 class="eyebrow">Islands <span class="sub">what's on the plate</span><button class="ghost tiny" id="add-island">+ island</button></h2>
+          <div id="desk-islands"></div>
+        </div>
+        <div class="desk-col">
+          <h2 class="eyebrow">Mail <span class="sub">read, never answered</span></h2>
+          <div id="desk-mail"></div>
+          <h2 class="eyebrow">Out <span class="sub">what would have left, as files</span></h2>
+          <div id="desk-out"></div>
+          <h2 class="eyebrow">Watches &amp; trust</h2>
+          <div id="desk-watches"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="stages view" id="view-thread" hidden>
       <section class="stage" id="thread-pane" data-cat="conversation">
         <h2 class="eyebrow">Conversation <span class="sub">one thread per mode, shared with iMessage</span><button id="reset" class="ghost tiny" title="Forget this mode's conversation. Memory cartridges are kept.">forget</button></h2>
         <div id="banner"></div>
@@ -45,7 +69,7 @@
         <form id="composer"><textarea id="input" rows="2" placeholder="Say something… (Enter sends, Shift+Enter for a new line)"></textarea><button id="send">Send</button></form>
       </section>
       <section class="stage" id="operation-pane" data-cat="operation">
-        <h2 class="eyebrow">Operation <span class="sub">every step, as it happens</span><span id="counter" class="muted"></span></h2>
+        <h2 class="eyebrow"><span id="op-title">Operation</span> <span class="sub" id="op-sub">every step, as it happens</span><span id="counter" class="muted"></span></h2>
         <div id="filters" class="filters"></div>
         <div id="live" class="live"></div>
         <div id="events" class="scroll"></div>
@@ -59,8 +83,28 @@
     <div class="tab scroll" id="tab-mode" hidden></div>
     <div class="tab scroll" id="tab-memory" hidden></div>
     <div class="tab scroll" id="tab-more" hidden></div>
+    <div class="tab scroll" id="tab-desk" hidden></div>
+    <div class="tab scroll" id="tab-out" hidden></div>
   </aside>
 </div>
+
+<div class="interview" id="interview" hidden>
+  <div class="orb-anchor"><div class="orb-shroud"></div><div class="orb-core" id="orb"></div><div class="ring r1"></div><div class="ring r2"></div></div>
+  <div class="interview-layer">
+    <div class="eyebrow" id="iv-eyebrow">Interview</div>
+    <h1 class="iv-prompt" id="iv-prompt"></h1>
+    <p class="iv-hint" id="iv-hint"></p>
+    <form id="iv-form"><div id="iv-field"></div></form>
+    <div class="iv-foot"><button class="ghost tiny" id="iv-skip" hidden>skip</button><span class="muted" id="iv-help">enter to continue</span><button class="ghost tiny" id="iv-later">later</button></div>
+  </div>
+</div>
+
 <script type="module" src="/app.js"></script>
+<script>
+const threadIntro = document.getElementById('threadIntro');
+if (threadIntro) {
+  
+}  
+</script>
 </body>
 </html>

@@ -34,6 +34,18 @@ export const IMSG_BIN = env('IMSG_BIN', 'imsg');
 export const ALLOWED_HANDLES = env('ALLOWED_HANDLES', '').split(',').map((s) => s.trim()).filter(Boolean);
 export const IMESSAGE_ENABLED = env('IMESSAGE', ALLOWED_HANDLES.length ? '1' : '0') === '1';
 
+// ==== DESK ====
+export const DESK_DIR = path.join(ROOT, 'desk');
+export const OUT_DIR = path.join(ROOT, 'out');
+export const LOGBOOK_DIR = path.join(DATA_DIR, 'logbook');
+export const ENV_PATH = path.join(ROOT, '.env');
+export const LOOP_INTERVAL_MIN = Number(env('LOOP_INTERVAL_MIN', '5'));
+export const IMAP_HOST = env('IMAP_HOST');
+export const IMAP_PORT = Number(env('IMAP_PORT', '993'));
+export const IMAP_USER = env('IMAP_USER');
+export const IMAP_PASS = env('IMAP_PASS');
+export const IMAP_MAILBOX = env('IMAP_MAILBOX', 'INBOX');
+
 // ==== TOOLS ====
 export const SHELL_TIMEOUT_MS = Number(env('SHELL_TIMEOUT_MS', '60000'));
 export const TOOL_OUTPUT_CAP = Number(env('TOOL_OUTPUT_CAP', '20000'));          // chars returned to the model

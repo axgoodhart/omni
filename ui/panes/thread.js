@@ -16,7 +16,8 @@ export function renderThread() {
 function intro() {
   const m = state.data?.modes.find((x) => x.name === state.mode);
   const mem = m?.inserted?.length ? m.inserted.join(', ') : 'none inserted';
-  return `<div class="intro">
+  return `<button class="minimize" id="threadIntro" data-close="intro">•••</button>
+  <div class="intro">
 <b>This is the "${esc(state.mode)}" mode's conversation.</b> One ongoing thread: what you say here and what you text it over iMessage land in the same place.
 <ul>
 <li><b>Operation</b>, to the right, shows every step while it works: the prompt it was given, its reasoning, each tool it used, what was allowed or blocked, and what it cost.</li>

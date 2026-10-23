@@ -6,3 +6,12 @@ cartridges/*/index.sqlite
 .DS_Store
 workspace/*
 !workspace/.keep
+out/*
+!out/.keep
+data/logbook/
+
+# apperture data directory
+.auto-claude/
+
+# Apperture data directory
+.apperture/

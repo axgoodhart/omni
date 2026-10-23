@@ -7,6 +7,7 @@ import { emit, subscribe } from '../events/log.ts';
 import * as modes from '../modes/registry.ts';
 import * as store from '../threads/store.ts';
 import * as outbound from './outbound.ts';
+import * as checkins from '../desk/checkins.ts';
 
 const exec = promisify(execFile);
 const norm = (h: string) => String(h ?? '').replace(/[\s()-]/g, '').toLowerCase();
@@ -55,6 +56,12 @@ async function handle(m: any) {
   if (!allowed(from)) { emit('imessage.ignored', null, { from: `…${from.slice(-4)}`, reason: 'not in ALLOWED_HANDLES' }); return; }
   const key = norm(from), mode = modeFor.get(key) ?? defaultMode(), lower = text.toLowerCase();
 
+  if (/^[a-d]$/.test(lower) || /^[1-4]$/.test(lower)) { // check-in letters; yes/no stay for approvals
+    const k = /^\d$/.test(lower) ? 'abcd'[Number(lower) - 1] : lower;
+    const c = checkins.latestOpen();
+    if (!c) return send(from, 'No check-in is waiting.');
+    try { return send(from, await checkins.answer(c.id, k, 'imessage')); } catch (e) { return send(from, (e as Error).message); }
+  }
   if (/^(yes|y|approve|ok|allow)$/.test(lower)) { if (!runner.answerLatest(mode, true, 'approved via iMessage')) await send(from, 'Nothing is waiting for approval.'); return; }
   if (/^(no|n|deny|stop)$/.test(lower)) { if (!runner.answerLatest(mode, false, 'denied via iMessage')) await send(from, 'Nothing is waiting for approval.'); return; }
   if (lower.startsWith('/mode')) {

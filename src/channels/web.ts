@@ -12,6 +12,20 @@ import * as skills from '../skills/loader.ts';
 import { DEFAULT_TOOLS, TOOL_INFO } from '../agent/tools.ts';
 import * as store from '../threads/store.ts';
 import * as outbound from './outbound.ts';
+import * as checkins from '../desk/checkins.ts';
+import * as deskStore from '../desk/store.ts';
+import * as islands from '../desk/islands.ts';
+import * as observations from '../desk/observations.ts';
+import * as out from '../desk/out.ts';
+import * as priorities from '../desk/priorities.ts';
+import * as profile from '../desk/profile.ts';
+import * as trust from '../desk/trust.ts';
+import * as watches from '../desk/watches.ts';
+import * as interview from '../interview/index.ts';
+import * as loop from '../loop/index.ts';
+import * as mail from '../loop/mail.ts';
+import * as logbook from '../desk/logbook.ts';
+const logbookLast = (kind: string) => logbook.last(kind);
 
 export const api = new Hono();
 const bad = (c: any, e: unknown, status = 400) => c.json({ error: (e as Error).message ?? String(e) }, status);
@@ -30,7 +44,52 @@ api.get('/api/state', (c) => c.json({
   channels: outbound.channels(),
   tools: { defaults: DEFAULT_TOOLS, info: TOOL_INFO },
   imessage: outbound.channels().includes('imessage'),
+  desk: { open: checkins.open().length, loop: loop.status(), interviewNeeded: interview.needed(), islands: islands.list().map(({ notes, ...i }) => i) },
 }));
+
+// ---- desk ----
+api.get('/api/desk', (c) => {
+  const w = watches.get();
+  return c.json({
+    profile: profile.get(), islands: islands.list(), priorities: priorities.get(), trust: trust.get(),
+    watches: { export: { path: w.export.path, seen: w.export.seen.length }, mail: { configured: watches.mailConfigured(), since: w.mail.since, lastCheck: w.mail.lastCheck, lastError: w.mail.lastError, ignore: w.mail.ignore } },
+    checkins: { live: checkins.live(), recent: checkins.recent(30) },
+    mail: { needsYou: mail.needsYou(), recent: mail.recent(20) },
+    out: out.list(), observations: observations.list(), loop: loop.status(), interview: interview.current(),
+    logbook: { medicine: logbookLast('medicine'), chores: logbookLast('chores') },
+  });
+});
+api.post('/api/logbook/:kind', (c) => { logbook.add(c.req.param('kind'), 'web'); return c.json({ ok: true }); });
+api.post('/api/loop/tick', async (c) => { await loop.tick('manual'); return c.json(loop.status()); });
+api.post('/api/checkins/:id/answer', async (c) => {
+  const { option } = await c.req.json<{ option: string }>();
+  try { return c.json({ reply: await checkins.answer(c.req.param('id'), option, 'web') }); } catch (e) { return bad(c, e); }
+});
+api.get('/api/desk/files', (c) => c.json({ files: [...deskStore.EDITABLE.filter(deskStore.exists), ...deskStore.listDir('islands').map((f) => `islands/${f}`)] }));
+api.get('/api/desk/files/*', (c) => { try { const rel = decodeURIComponent(c.req.path.split('/files/')[1] ?? ''); return c.json({ path: rel, text: deskStore.readRaw(rel) }); } catch (e) { return bad(c, e, 404); } });
+api.put('/api/desk/files/*', async (c) => {
+  const rel = decodeURIComponent(c.req.path.split('/files/')[1] ?? ''); const { text } = await c.req.json<{ text: string }>();
+  try { deskStore.writeRaw(rel, text); return c.json({ ok: true }); } catch (e) { return bad(c, e); }
+});
+api.post('/api/islands', async (c) => {
+  const { name, kind, position } = await c.req.json<{ name: string; kind?: string; position?: string }>();
+  if (!name?.trim()) return bad(c, new Error('name is empty'));
+  try { return c.json(islands.upsert(islands.slugify(name), { name: name.trim(), kind, position: position as any })); } catch (e) { return bad(c, e); }
+});
+api.post('/api/islands/:slug', async (c) => { try { return c.json(islands.upsert(c.req.param('slug'), await c.req.json())); } catch (e) { return bad(c, e); } });
+api.post('/api/mail/:uid/handled', (c) => { mail.markHandled(Number(c.req.param('uid'))); return c.json({ ok: true }); });
+api.post('/api/mail/:uid/draft', (c) => {
+  const m = mail.get(Number(c.req.param('uid'))); if (!m) return bad(c, new Error('no such mail'), 404);
+  void runner.run({ mode: 'drafter', channel: 'web', text: `Draft a reply to this mail. From: ${m.senderName ? `${m.senderName} <${m.sender}>` : m.sender}. Subject: ${m.subject}. You only have the subject and sender; write a short reply in the user's voice that moves it forward, with [brackets] for anything you don't know. deliver it to mail as "reply-${m.uid}.md".` }).catch(() => {});
+  return c.json({ ok: true });
+});
+api.get('/api/out', (c) => c.json(out.list()));
+api.get('/api/out/:domain/:name', (c) => { try { return c.json({ content: out.read(c.req.param('domain'), c.req.param('name')) }); } catch (e) { return bad(c, e, 404); } });
+api.get('/api/interview', (c) => c.json(interview.current()));
+api.post('/api/interview/answer', async (c) => { const { id, value } = await c.req.json<{ id: string; value: string }>(); try { return c.json(interview.answer(id, value ?? '')); } catch (e) { return bad(c, e); } });
+api.post('/api/interview/restart', (c) => c.json(interview.restart()));
+api.post('/api/interview/skip', async (c) => { const { index } = await c.req.json<{ index: number }>(); return c.json(interview.skipTo(Number(index))); });
+
 
 api.get('/api/threads/:mode', (c) => {
   try { const mode = c.req.param('mode'); return c.json({ mode, inserted: runner.insertedFor(mode), messages: store.getMessages(mode).map(view) }); }

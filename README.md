@@ -12,6 +12,16 @@ npm run dev              # http://localhost:4747
 
 The daemon prints every persisted event to the terminal as well. `npm start` runs without the file watcher.
 
+## Desk, loop, check-ins, interview, out/
+
+omni is an extension, not an assistant: a heartbeat **loop** (`src/loop/index.ts`, every `LOOP_INTERVAL_MIN` minutes) asks three questions each tick — who is the user, what's on the plate, what's happening now — and may do a few bounded things: ask you a one-sentence question with fixed options, nudge, hand a fixed task to a mode, write to `out/`, note an observation, archive. It never changes a priority. Every tick writes one `loop.tick` event with what it **saw**, **did** and **left** alone. Silence is written down.
+
+- **`desk/`** is the station, as files you can edit: `profile.md`, `islands/<slug>.md` (one per thing on your plate, with a kind, a stage track and a position), `priorities.md` (yours alone; governs how persistent a question is), `watches.md` (the export folder and how far mail has been read), `observations.md` (one line each, strike any), `trust.md` (every domain starts at `sandbox`).
+- **Check-ins** are one sentence with options a–d. Answer on the desk, or text the letter. `top` priority comes back once after `remind_after`, then archives at `end_of_day`. `normal` and `low` ask once and archive after a day. Medicine is the first rhythm; the apartment is a nudge.
+- **Real in, sandboxed out.** The loop reads your actual inbox (IMAP, envelopes only) and your actual export folder. Everything it would send or publish as you is written to `out/mail`, `out/site`, `out/submissions` by the `deliver` tool. Nothing leaves. The `triage`, `carrier` and `drafter` modes are the fixed-task agents; they only have `desk_view` and `deliver`.
+- **The interview** (`src/interview/index.ts`) is derived: each surface declares what it needs to know, and the interview asks those, one per screen. Answers go straight into `desk/` (secrets into `.env`). It runs on first open and from Setup any time; `desk/interview.md` keeps the answers.
+- **Logbook**: `data/logbook/medicine.log`, `chores.log`, one line per entry.
+
 ## The web app
 
 Three panes. **Thread** is the conversation for the selected mode. **Operation** is the live event log: every prompt assembled, model request, reasoning summary, tool call and result, policy decision, approval, memory write, token count. Click a row for the raw JSON; the checkboxes hide groups. **Side** holds approvals (Allow / Deny), cartridge slots (Insert / Eject, click a file to read it), the mode file editor (saves to `modes/<name>.md` and hot-reloads), schedules and loaded skills.
@@ -81,7 +91,17 @@ For a VPS without iMessage: `docker compose -f deploy/compose.yaml up -d`.
 
 ## API (what briizOS or any client can call)
 
-`GET /api/state` · `GET /api/threads/:mode` · `POST /api/threads/:mode/messages {text}` · `POST /api/threads/:mode/reset` · `PUT /api/threads/:mode/cartridges {cartridges}` · `GET|PUT /api/modes/:name/raw` · `POST /api/cartridges {name, description}` · `GET /api/cartridges/:name/files/<path>` · `GET /api/approvals` · `POST /api/approvals/:id {approved}` · `GET /api/usage` · `GET /api/events?thread=&after=` · `GET /events` (SSE, `event: agent`).
+`GET /api/desk` · `POST /api/checkins/:id/answer {option}` · `GET|PUT /api/desk/files/<path>` · `POST /api/islands {name}` · `POST /api/islands/:slug {patch}` · `POST /api/logbook/:kind` · `POST /api/loop/tick` · `GET /api/out` · `GET /api/out/:domain/:name` · `POST /api/mail/:uid/draft|handled` · `GET /api/interview` · `POST /api/interview/answer {id, value}` · `POST /api/interview/restart` · `GET /api/state` · `GET /api/threads/:mode` · `POST /api/threads/:mode/messages {text}` · `POST /api/threads/:mode/reset` · `PUT /api/threads/:mode/cartridges {cartridges}` · `GET|PUT /api/modes/:name/raw` · `POST /api/cartridges {name, description}` · `GET /api/cartridges/:name/files/<path>` · `GET /api/approvals` · `POST /api/approvals/:id {approved}` · `GET /api/usage` · `GET /api/events?thread=&after=` · `GET /events` (SSE, `event: agent`).
+
+## Trying the desk
+
+1. `npm run dev`, open the app. With no `desk/profile.md` the interview opens: one question per screen. Answer through; each answer becomes a file under `desk/` (mail password into `.env`). "later" dismisses it for the session; Setup → interview again resumes.
+2. The Desk shows your islands, the medicine and apartment rhythms, mail and export status, trust all `sandbox`, and the loop strip at the top.
+3. Set `medicine.time` in `desk/priorities.md` two minutes ahead and `LOOP_INTERVAL_MIN=1` in `.env` (restart). At that time a check-in appears under Needs you and, with iMessage on, as a text with a–d. Reply `b` → snoozed; `a` → a line in `data/logbook/medicine.log`; `d` → the assistant thread picks it up.
+4. Drop a file into the export folder → next tick, "New finished piece" with a–d. `b` → the drafter writes `out/submissions/<name>-submission.md`; it shows under Out, click to read.
+5. With IMAP set, the mail block fills; senders with 3+ messages this week and a List-Unsubscribe header become a check-in. `a` → `out/mail/unsubscribe-<sender>.md`. Nothing is sent.
+6. Loop (sidebar) shows every tick as a sentence: what it saw, did, and left alone.
+7. Edit `desk/priorities.md` by hand → `desk.reloaded`; the next tick obeys it.
 
 ## Trying it
 

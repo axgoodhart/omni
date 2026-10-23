@@ -7,10 +7,11 @@ const GROUPS = {
   memory: { label: 'Memory', help: 'notes written, cartridges inserted or ejected', types: ['memory.write', 'cartridges.changed', 'cartridge.missing'] },
   policy: { label: 'Permissions', help: 'what was allowed, blocked, or paused to ask you', types: ['policy.decision', 'approval.requested', 'approval.resolved'] },
   channel: { label: 'Channels', help: 'messages in and out, iMessage, scheduled runs', types: ['inbound', 'outbound', 'imessage.sent', 'imessage.ignored', 'imessage.error', 'imessage.watch', 'imessage.watch.exit', 'imessage.stderr', 'imessage.disabled', 'schedule.tick', 'schedule.loaded', 'schedule.error'] },
+  loop: { label: 'Loop', help: 'each tick, check-ins, what landed in out/, the desk files', types: ['loop.tick', 'loop.started', 'loop.error', 'checkin.opened', 'checkin.sent', 'checkin.send_error', 'checkin.reminded', 'checkin.snoozed', 'checkin.answered', 'checkin.archived', 'checkin.handoff_error', 'out.written', 'desk.reloaded', 'watch.export', 'watch.mail', 'watch.mail_error', 'mail.sorted', 'mail.handled', 'logbook', 'observation', 'interview.answered', 'interview.restarted'] },
   budget: { label: 'Budget', help: 'free-token limits kicking in', types: ['budget.refused', 'budget.downgraded'] },
   system: { label: 'System', help: 'startup, mode reloads, errors', types: ['mode.reloaded', 'mode.error', 'daemon.started', 'daemon.listening', 'daemon.stopping', 'server.error', 'error'] },
 };
-const LABEL = { 'prompt.assembled': 'prompt', 'model.request': 'request', reasoning: 'thinking', usage: 'tokens', source: 'source', compaction: 'compacted', 'tool.call': 'tool', 'tool.result': 'result', 'tool.error': 'tool error', 'tool.denied': 'denied', 'memory.write': 'memory', 'cartridges.changed': 'cartridges', 'policy.decision': 'permission', 'approval.requested': 'asking you', 'approval.resolved': 'answered', inbound: 'in', outbound: 'out', 'schedule.tick': 'schedule', 'budget.downgraded': 'budget', 'budget.refused': 'budget', 'mode.reloaded': 'reloaded', 'daemon.started': 'started', 'daemon.listening': 'web', error: 'error' };
+const LABEL = { 'prompt.assembled': 'prompt', 'model.request': 'request', reasoning: 'thinking', usage: 'tokens', source: 'source', compaction: 'compacted', 'tool.call': 'tool', 'tool.result': 'result', 'tool.error': 'tool error', 'tool.denied': 'denied', 'memory.write': 'memory', 'cartridges.changed': 'cartridges', 'policy.decision': 'permission', 'approval.requested': 'asking you', 'approval.resolved': 'answered', inbound: 'in', outbound: 'out', 'schedule.tick': 'schedule', 'budget.downgraded': 'budget', 'budget.refused': 'budget', 'mode.reloaded': 'reloaded', 'daemon.started': 'started', 'daemon.listening': 'web', error: 'error', 'loop.tick': 'tick', 'loop.started': 'loop', 'loop.error': 'loop error', 'checkin.opened': 'asked you', 'checkin.sent': 'texted', 'checkin.reminded': 'came back', 'checkin.snoozed': 'snoozed', 'checkin.answered': 'you answered', 'checkin.archived': 'filed', 'out.written': 'out', 'desk.reloaded': 'desk', 'watch.export': 'export', 'watch.mail': 'mail', 'watch.mail_error': 'mail error', 'mail.sorted': 'sorted', 'logbook': 'logged', observation: 'noticed', 'interview.answered': 'interview' };
 const groupOf = (type) => Object.keys(GROUPS).find((g) => GROUPS[g].types.includes(type)) ?? 'system';
 const hidden = new Set(JSON.parse(localStorage.getItem('omni.hidden') || '[]'));
 let tokens = 0;
@@ -91,6 +92,22 @@ function summary(e) {
     case 'budget.downgraded': return `Budget nearly spent: switched ${d.from} → ${d.to}`;
     case 'budget.refused': return `Stopped: needs about ${fmt(d.estimate)} tokens, only ${fmt(d.remaining)} left today`;
     case 'schedule.tick': return `Scheduled run (${d.cron}): ${d.prompt}`;
+    case 'loop.tick': return `Saw ${Object.entries(d.saw || {}).map(([k, v]) => `${k} ${Array.isArray(v) ? (v.length || 'none') : v}`).join(', ')}. ${d.did?.length ? `Did: ${d.did.join('; ')}.` : 'Did nothing.'} ${d.left?.length ? `Left alone: ${d.left.join('; ')}.` : ''}`;
+    case 'loop.started': return `Loop running every ${d.everyMin} min`;
+    case 'checkin.opened': return `${d.title} ${(d.options || []).join(' ')}`;
+    case 'checkin.sent': return `Texted it (${d.why})`;
+    case 'checkin.reminded': return `Came back about: ${d.title} (${d.why}, ${d.reminders}×)`;
+    case 'checkin.snoozed': return `Snoozed until ${new Date(d.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}: ${d.title}`;
+    case 'checkin.answered': return `You chose ${d.answer}) ${d.label} via ${d.via}: ${d.title}`;
+    case 'checkin.archived': return `Filed (${d.reason}): ${d.title}`;
+    case 'out.written': return `Wrote out/${d.domain}/${d.name} (${d.by})`;
+    case 'desk.reloaded': return `desk/${d.file} changed on disk, reloaded`;
+    case 'watch.export': return `New in the export folder: ${(d.fresh || []).join(', ')}`;
+    case 'watch.mail': return `Read ${d.fresh} new message${d.fresh === 1 ? '' : 's'}`;
+    case 'mail.sorted': return `Triage sorted ${d.sorted} of ${d.of}`;
+    case 'logbook': return `Logged ${d.kind} via ${d.via}`;
+    case 'observation': return `Noted: ${d.text}`;
+    case 'interview.answered': return `Interview: answered ${d.id}${d.done ? ' — done' : ''}`;
     case 'schedule.loaded': return `${(d.jobs || []).length} scheduled runs loaded`;
     case 'mode.reloaded': return `Mode files reloaded: ${(d.names || []).join(', ')}`;
     case 'daemon.started': return `Agent started: ${(d.modes || []).length} modes, ${d.skills} skills, iMessage ${d.imessage ? 'on' : 'off'}`;
@@ -99,7 +116,7 @@ function summary(e) {
     case 'imessage.ignored': return `Ignored an iMessage from ${d.from} (not in ALLOWED_HANDLES)`;
     case 'imessage.watch': return 'Watching Messages for new texts';
     case 'imessage.disabled': return 'iMessage off: ALLOWED_HANDLES is empty';
-    case 'error': case 'server.error': case 'schedule.error': case 'imessage.error': case 'mode.error': return d.error || d.message || '';
+    case 'error': case 'server.error': case 'schedule.error': case 'imessage.error': case 'mode.error': case 'loop.error': case 'watch.mail_error': case 'checkin.send_error': case 'checkin.handoff_error': return d.error || d.message || '';
     default: return j(d);
   }
 }

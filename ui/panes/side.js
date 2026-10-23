@@ -1,7 +1,8 @@
 import { $, api, esc } from '../lib.js';
-import { state, refresh, currentMode } from '../app.js';
+import { state, refresh, currentMode, deskSoon } from '../app.js';
+import { checkinHTML } from './desk.js';
 
-const TITLES = { approvals: 'Approvals', mode: 'Mode · prompt & settings', memory: 'Memory cartridges', more: 'Skills, schedules, channels' };
+const TITLES = { approvals: 'Needs you', mode: 'Mode · prompt & settings', memory: 'Memory cartridges', more: 'Skills, schedules, channels', desk: 'Desk files', out: 'Out' };
 let tab = null;
 let formFor = null; // mode the editor currently shows
 
@@ -11,6 +12,32 @@ export function openDrawer(name) {
   $('#drawer-title').textContent = TITLES[name] ?? name;
   document.querySelectorAll('.tab').forEach((t) => { t.hidden = t.id !== `tab-${name}`; });
   if (name === 'mode' && formFor !== state.mode) renderModeTab();
+  if (name === 'desk') renderDeskFiles();
+}
+export function showDeskFile(file) { openDrawer('desk'); renderDeskFiles(file); }
+export async function showOut(domain, name) {
+  openDrawer('out');
+  const box = $('#tab-out');
+  box.innerHTML = `<p class="help">Written to <code>out/${esc(domain)}/${esc(name)}</code>. Nothing was sent. In sandbox this file is the whole act.</p><pre class="tall">loading…</pre>`;
+  try { const { content } = await api(`/api/out/${encodeURIComponent(domain)}/${encodeURIComponent(name)}`); box.querySelector('pre').textContent = content; }
+  catch (e) { box.querySelector('pre').textContent = e.message; }
+}
+let deskFile = 'priorities.md';
+async function renderDeskFiles(file) {
+  if (file) deskFile = file;
+  const box = $('#tab-desk');
+  let files = [], text = '';
+  try { ({ files } = await api('/api/desk/files')); if (!files.includes(deskFile)) deskFile = files[0] ?? deskFile; ({ text } = await api(`/api/desk/files/${deskFile.split('/').map(encodeURIComponent).join('/')}`)); }
+  catch (e) { box.innerHTML = `<div class="muted">${esc(e.message)}</div>`; return; }
+  box.innerHTML = `<p class="help">Everything the loop reads lives in <code>desk/</code> as plain files. Edit here or in any editor; it reloads on save. Priorities and trust are yours alone: the loop never writes them.</p>
+<div class="row">${files.map((f) => `<button class="${f === deskFile ? '' : 'ghost'} tiny" data-f="${esc(f)}">${esc(f.replace(/\.md$/, ''))}</button>`).join('')}</div>
+<textarea id="desk-raw" class="code" rows="22" spellcheck="false">${esc(text)}</textarea>
+<div class="row"><button id="desk-save">Save</button><span id="desk-status" class="muted"></span></div>`;
+  box.querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => renderDeskFiles(b.dataset.f)));
+  $('#desk-save').addEventListener('click', async () => {
+    try { await api(`/api/desk/files/${deskFile.split('/').map(encodeURIComponent).join('/')}`, { method: 'PUT', body: { text: $('#desk-raw').value } }); $('#desk-status').textContent = 'saved'; deskSoon(); }
+    catch (e) { $('#desk-status').textContent = e.message; }
+  });
 }
 export function closeDrawer() { tab = null; $('#drawer').hidden = true; }
 $('#drawer-close').addEventListener('click', closeDrawer);
@@ -25,9 +52,17 @@ export function renderSide() {
 
 function renderApprovals(pending) {
   const badge = $('#approval-count'); if (badge) badge.textContent = pending.length || '';
-  $('#tab-approvals').innerHTML = `<p class="help">When the agent is about to do something risky (delete a file, run a destructive command, text someone who isn't you), it pauses here and waits for your answer. You can also reply <b>yes</b> or <b>no</b> over iMessage. Unanswered requests are denied after the timeout.</p>` +
+  const live = state.desk?.checkins?.live ?? [];
+  $('#tab-approvals').innerHTML = `<p class="help">Two kinds of thing wait here. <b>Check-ins</b> from the loop: one sentence, fixed options, answerable with a letter here or over iMessage. <b>Approvals</b> when an agent is about to do something risky; reply <b>yes</b> or <b>no</b>. Ignoring either is allowed; priorities decide what happens next.</p>` +
+    (live.map(checkinHTML).join('') || '<div class="muted">No check-ins open.</div>') +
+    `<h3>Approvals</h3>` +
     (pending.length ? pending.map((p) => `<div class="approval" data-id="${esc(p.approvalId)}"><div><b>${esc(p.toolName)}</b> <span class="muted">in ${esc(p.thread)}</span></div><div class="why">${esc(p.reason || 'needs your approval')}</div><pre>${esc(JSON.stringify(p.input, null, 2))}</pre><div class="row"><button data-ok="1">Allow</button><button class="danger" data-ok="0">Deny</button></div></div>`).join('') : '<div class="muted">Nothing is waiting.</div>');
-  $('#tab-approvals').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => api(`/api/approvals/${encodeURIComponent(b.closest('.approval').dataset.id)}`, { method: 'POST', body: { approved: b.dataset.ok === '1' } })));
+  $('#tab-approvals').querySelectorAll('.approval button').forEach((b) => b.addEventListener('click', () => api(`/api/approvals/${encodeURIComponent(b.closest('.approval').dataset.id)}`, { method: 'POST', body: { approved: b.dataset.ok === '1' } })));
+  $('#tab-approvals').querySelectorAll('.checkin button').forEach((b) => b.addEventListener('click', async () => {
+    const box = b.closest('.checkin');
+    try { const { reply } = await api(`/api/checkins/${box.dataset.id}/answer`, { method: 'POST', body: { option: b.dataset.k } }); box.innerHTML = `<div class="ci-title muted-text">${esc(reply)}</div>`; } catch (e) { alert(e.message); }
+    deskSoon();
+  }));
 }
 
 function renderMemory(all, mode) {
@@ -140,5 +175,5 @@ ${d.schedules.length ? d.schedules.map((s) => `<div class="skill"><b>${esc(s.nam
 <p class="help">Instruction folders (SKILL.md) the agent can read when a task matches. Loaded from SKILLS_PATH.</p>
 ${d.skills.length ? d.skills.map((s) => `<div class="skill"><b>${esc(s.name)}</b> <span class="muted">${esc(s.description)}</span></div>`).join('') : '<div class="muted">Set SKILLS_PATH in .env to load some.</div>'}
 <h3>Where things live</h3>
-<p class="help"><code>modes/</code> personalities · <code>cartridges/</code> memory · <code>workspace/</code> the only folder tools may touch · <code>data/agent.sqlite</code> conversations and this event log</p>`;
+<p class="help"><code>desk/</code> the station: profile, islands, priorities, trust, watches, observations · <code>out/</code> everything that would have left, as files · <code>modes/</code> personalities, including the fixed-task ones (triage, carrier, drafter) · <code>cartridges/</code> memory · <code>workspace/</code> the only folder shell tools may touch · <code>data/agent.sqlite</code> conversations, check-ins, mail index and the event log · <code>data/logbook/</code> medicine and chores, one line each</p>`;
 }

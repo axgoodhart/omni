@@ -11,6 +11,11 @@ import * as files from '../memory/files.ts';
 import type { Mode } from '../modes/registry.ts';
 import { openai, providerOf } from '../providers/registry.ts';
 import * as skills from '../skills/loader.ts';
+import * as out from '../desk/out.ts';
+import * as profile from '../desk/profile.ts';
+import * as islands from '../desk/islands.ts';
+import * as observations from '../desk/observations.ts';
+import * as watches from '../desk/watches.ts';
 
 const exec = promisify(execFile);
 const cap = (s: string, n = TOOL_OUTPUT_CAP) => (s.length > n ? `${s.slice(0, n)}\n…[${s.length - n} more chars cut]` : s);
@@ -35,6 +40,8 @@ export const TOOL_INFO: Record<string, string> = {
   notify: 'Push a message to you (iMessage or here)',
   imessage_send: 'Send an iMessage (asks unless it is to you)',
   web_search: 'OpenAI web search (billed per call, outside the free tokens)',
+  desk_view: 'Read the desk: profile, islands, observations, and the folders you pointed it at (read-only)',
+  deliver: 'Write a draft to out/<domain>/ — the sandbox for anything it would send or publish as you',
 };
 
 export type ToolCtx = { mode: Mode; inserted: string[] };
@@ -135,6 +142,29 @@ export function buildTools(ctx: ToolCtx): ToolSet {
       description: 'Push a message to the user outside this conversation (iMessage when configured, else the web app). For briefs and alerts, not ordinary replies.',
       inputSchema: z.object({ text: z.string(), channel: z.string().optional() }),
       execute: async ({ text, channel }) => ({ delivered: await outbound.notify(thread, text, channel) }),
+    }),
+    desk_view: tool({
+      description: 'Read desk files and declared folders, read-only. Paths: "profile", "islands", "islands/<slug>", "observations", "writing[/<rel>]", "site[/<rel>]", "export[/<rel>]". A folder path lists it; a file path returns its text.',
+      inputSchema: z.object({ path: z.string() }),
+      execute: async ({ path: p }) => {
+        const [head, ...rest] = p.replace(/^\/+/, '').split('/'); const rel = rest.join('/');
+        if (head === 'profile') return profile.get();
+        if (head === 'islands') return rel ? islands.get(rel) ?? { error: 'no such island' } : islands.list().map(({ notes, ...i }) => i);
+        if (head === 'observations') return observations.list();
+        const roots: Record<string, string> = { writing: profile.get().writing, site: profile.get().site, export: watches.get().export.path };
+        const root = roots[head];
+        if (!root) throw new Error(`unknown desk path "${head}"`);
+        if (/^https?:/.test(root)) return { url: root, note: 'this is a URL; use fetch_url' };
+        const full = files.inside(root, rel);
+        if (!fs.existsSync(full)) return { error: 'not found', path: p };
+        if (fs.statSync(full).isDirectory()) return { path: p, files: files.listTree(full, '').slice(0, 200) };
+        return { path: p, content: cap(fs.readFileSync(full, 'utf8')) };
+      },
+    }),
+    deliver: tool({
+      description: 'Write something that would otherwise be sent or published as the user into out/<domain>/<name>. domain: mail (replies, unsubscribe requests), site (changed site files), submissions (applications, open calls). Markdown unless the name says otherwise.',
+      inputSchema: z.object({ domain: z.enum(['mail', 'site', 'submissions']), name: z.string(), content: z.string() }),
+      execute: async ({ domain, name, content }) => out.deliver(domain, name, content, `mode ${thread}`),
     }),
     imessage_send: tool({
       description: 'Send an iMessage or SMS to a phone number or email through Messages.app.',

@@ -43,6 +43,7 @@ export function answerLatest(thread: string, approved: boolean, reason?: string)
 export function run(input: RunInput): Promise<string> {
   const next = (queues.get(input.mode) ?? Promise.resolve()).catch(() => {}).then(() => runNow(input));
   queues.set(input.mode, next);
+  next.finally(() => { if (queues.get(input.mode) === next) queues.delete(input.mode); }).catch(() => {});
   return next;
 }
 
