@@ -3,33 +3,30 @@ import type { Surface } from '../interview/types.ts';
 
 export type Level = 'top' | 'normal' | 'low';
 export type Priorities = {
-  defaults: { remind_after: string; end_of_day: string };
-  medicine: { priority: Level; time: string; remind_after?: string; end_of_day?: string };
-  chores: { priority: Level; days: string[]; time: string };
+  medicine: { priority: Level; time: string; enabled: boolean };
+  chores: { priority: Level; days: string[]; time: string; enabled: boolean };
   islands: Record<string, Level>;
 };
 const FILE = 'priorities.md';
 const LEVELS: Level[] = ['top', 'normal', 'low'];
 const lvl = (v: any, d: Level): Level => (LEVELS.includes(v) ? v : d);
 const SEED = `Priorities are yours. The loop reads them and never changes them.
-top: it asks, comes back once after remind_after, archives the question at end_of_day.
-normal: it asks once, archives after a day of silence.
-low: it asks once, quietly, and archives after a day.`;
+Which priority each rhythm and island has, plus when the rhythms happen. What each priority means (reminders, filing) is in loop.md.`;
 
 export function ensure() {
-  if (!exists(FILE)) writeFm(FILE, { defaults: { remind_after: '90m', end_of_day: '21:00' }, medicine: { priority: 'top', time: '09:00' }, chores: { priority: 'low', days: ['sat'], time: '11:00' }, islands: {} }, SEED);
+  if (!exists(FILE)) writeFm(FILE, { medicine: { priority: 'top', time: '09:00', enabled: true }, chores: { priority: 'low', days: ['sat'], time: '11:00', enabled: true }, islands: {} }, SEED);
 }
 export function get(): Priorities {
   const d = readFm(FILE).data;
   return {
-    defaults: { remind_after: d.defaults?.remind_after ?? '90m', end_of_day: d.defaults?.end_of_day ?? '21:00' },
-    medicine: { priority: lvl(d.medicine?.priority, 'top'), time: d.medicine?.time ?? '09:00', remind_after: d.medicine?.remind_after, end_of_day: d.medicine?.end_of_day },
-    chores: { priority: lvl(d.chores?.priority, 'low'), days: Array.isArray(d.chores?.days) ? d.chores.days.map((x: string) => String(x).slice(0, 3).toLowerCase()) : [], time: d.chores?.time ?? '11:00' },
+    medicine: { priority: lvl(d.medicine?.priority, 'top'), time: d.medicine?.time ?? '09:00', enabled: d.medicine?.enabled ?? true },
+    chores: { priority: lvl(d.chores?.priority, 'low'), days: Array.isArray(d.chores?.days) ? d.chores.days.map((x: string) => String(x).slice(0, 3).toLowerCase()) : [], time: d.chores?.time ?? '11:00', enabled: d.chores?.enabled ?? true },
     islands: Object.fromEntries(Object.entries(d.islands ?? {}).map(([k, v]) => [k, lvl(v, 'normal')])),
   };
 }
 export const ofIsland = (slug: string): Level => get().islands[slug] ?? 'normal';
 export function setIsland(slug: string, level: Level) { ensure(); patchFm(FILE, { islands: { [slug]: level } }); }
+export const normTimeStr = (v: string) => normTime(v);
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const surface: Surface = {
@@ -41,6 +38,7 @@ export const surface: Surface = {
   apply: (id, value) => {
     ensure();
     if (id === 'rhythm.medicine_time') patchFm(FILE, { medicine: { time: normTime(value) } });
+    if (id === 'rhythm.chores_days' && !value.trim()) patchFm(FILE, { chores: { enabled: false } });
     if (id === 'rhythm.chores_days') patchFm(FILE, { chores: { days: value.toLowerCase().split(/[\s,]+/).map((x) => x.slice(0, 3)).filter((x) => DAYS.includes(x)) } });
   },
 };

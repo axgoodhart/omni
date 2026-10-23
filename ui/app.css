@@ -279,3 +279,41 @@ pre.tall { max-height: 70vh; }
 .iv-foot { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.6rem; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 1100px) { .desk-grid { grid-template-columns: 1fr; } }
+
+/* ---------- what I do (settings) ---------- */
+.settings { flex: 1; min-height: 0; padding-right: 0.5rem; }
+.rules { max-width: 78ch; }
+.rules .eyebrow { margin: 1.8rem 0 0.6rem; }
+.rules .eyebrow:first-child { margin-top: 0.2rem; }
+.rule { font-size: 1.02rem; line-height: 2.1; margin: 0.2rem 0; color: var(--paper); }
+.rule b { font-family: var(--display); font-weight: 600; }
+.now { color: var(--paper-dim); font-size: 0.86rem; margin: 0.1rem 0 0.4rem; line-height: 1.6; }
+.now-inline { color: var(--paper-dim); font-size: 0.86rem; }
+.locked { color: var(--paper-dim); font-size: 0.84rem; font-style: italic; }
+.card { border: 1px solid var(--line-strong); border-radius: 5px; padding: 0.4rem 0.9rem 0.5rem; margin: 0.5rem 0; }
+.card.off { opacity: 0.55; }
+.blank { font: inherit; color: var(--brass-soft); background: color-mix(in srgb, var(--brass) 9%, transparent); border: 0; border-bottom: 1px solid color-mix(in srgb, var(--brass) 55%, transparent); border-radius: 3px 3px 0 0; padding: 0.05rem 0.4rem; margin: 0 0.1rem; vertical-align: baseline; }
+.blank:focus { outline: none; border-bottom-color: var(--brass); background: color-mix(in srgb, var(--brass) 16%, transparent); }
+input.blank.text { min-width: 6ch; }
+input.blank[type=time] { font-family: var(--mono); font-size: 0.9rem; }
+select.blank { cursor: pointer; appearance: none; -webkit-appearance: none; padding-right: 1.2rem; background-image: linear-gradient(45deg, transparent 50%, var(--brass-soft) 50%), linear-gradient(135deg, var(--brass-soft) 50%, transparent 50%); background-position: calc(100% - 0.7rem) 55%, calc(100% - 0.45rem) 55%; background-size: 0.25rem 0.25rem; background-repeat: no-repeat; }
+.blank.num { display: inline-flex; align-items: center; gap: 0; padding: 0; }
+.blank.num input { width: 3.2ch; text-align: center; font: inherit; color: inherit; background: transparent; border: 0; padding: 0.05rem 0.1rem; -moz-appearance: textfield; }
+.blank.num input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.blank.num .step { font: inherit; background: transparent; color: var(--brass); border: 0; padding: 0 0.45rem; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.blank.num .step:hover { color: var(--paper); }
+.switch { cursor: pointer; text-transform: none; letter-spacing: 0; font-size: 0.92rem; color: var(--paper-dim); background: transparent; border-bottom-color: var(--line-strong); }
+.switch.on { color: var(--clay); border-bottom-color: var(--clay); background: color-mix(in srgb, var(--clay) 10%, transparent); }
+.blank.days { display: inline-flex; gap: 0.15rem; padding: 0.05rem 0.25rem; background: transparent; border: 0; }
+.blank.days button { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.04em; text-transform: none; color: var(--paper-dim); background: transparent; border: 1px solid var(--line-strong); border-radius: 3px; padding: 0.1rem 0.35rem; cursor: pointer; }
+.blank.days button.on { color: var(--ink); background: var(--brass); border-color: var(--brass); }
+.act { vertical-align: baseline; margin-left: 0.3rem; }
+table.islands { width: 100%; border-collapse: collapse; margin: 0.4rem 0 0.6rem; font-size: 0.9rem; }
+table.islands th { text-align: left; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--paper-dim); font-weight: 500; padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--line-strong); }
+table.islands td { padding: 0.35rem 0.4rem; border-bottom: 1px solid var(--line); }
+table.islands td:first-child { color: var(--brass); }
+ul.obs { list-style: none; margin: 0; padding: 0; }
+ul.obs li { padding: 0.3rem 0; border-top: 1px solid var(--line); font-size: 0.9rem; }
+.rules-foot { margin: 2.2rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--paper-dim); font-size: 0.86rem; line-height: 1.7; }
+.toast { position: fixed; left: 50%; bottom: 1.4rem; transform: translateX(-50%); z-index: 60; display: flex; gap: 0.8rem; align-items: center; background: var(--ink-4); color: var(--paper); border: 1px solid color-mix(in srgb, var(--brass) 40%, var(--line-strong)); border-radius: 5px; padding: 0.6rem 0.9rem; font-size: 0.88rem; box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.7); max-width: 80vw; }
+.toast[hidden] { display: none; }

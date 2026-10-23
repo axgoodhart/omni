@@ -1,5 +1,4 @@
 import { Cron } from 'croner';
-import { LOOP_INTERVAL_MIN } from '../config.ts';
 import { emit } from '../events/log.ts';
 import * as runner from '../agent/runner.ts';
 import * as modes from '../modes/registry.ts';
@@ -8,130 +7,171 @@ import { duration, fmtHm, hmToMinutes, parts } from '../lib/time.ts';
 import * as checkins from '../desk/checkins.ts';
 import * as islands from '../desk/islands.ts';
 import * as logbook from '../desk/logbook.ts';
+import * as loopcfg from '../desk/loopcfg.ts';
 import * as observations from '../desk/observations.ts';
 import * as priorities from '../desk/priorities.ts';
 import * as profile from '../desk/profile.ts';
 import * as watches from '../desk/watches.ts';
+import * as deskStore from '../desk/store.ts';
 import * as exportsWatch from './exports.ts';
 import * as mail from './mail.ts';
 import type { Option } from '../desk/checkins.ts';
+import type { Level } from '../desk/priorities.ts';
 
 /**
- * The heartbeat. Three questions each tick — who is the user (profile, observations), what's on the plate
- * (islands, rhythms, watches), what's happening (open check-ins, agents, its own log) — then a few bounded verbs.
- * Every tick writes one loop.tick with saw / did / left. Silence is a decision and gets written down.
+ * The heartbeat. Each pass asks three questions — who is the user, what's on the plate, what's happening —
+ * then does a few bounded things, within the rules in desk/loop.md (which it reads and never writes).
+ * Every pass writes one report: status, decisions, what is waiting on the user, what it looked at and left.
  */
 let job: Cron | null = null;
-let last: { at: number; ms: number; decisions: number; waiting: number } | null = null;
+let everyMin = 0;
+let last: { at: number; ms: number; decisions: number; waiting: number; paused?: boolean } | null = null;
 let running = false;
 
 export function start() {
-  stop();
-  const n = Math.max(1, Math.min(59, LOOP_INTERVAL_MIN));
-  job = new Cron(`*/${n} * * * *`, { name: 'loop' }, () => { void tick('cron'); });
-  setTimeout(() => { void tick('boot'); }, 4000);
+  const n = loopcfg.get().every_min;
+  if (job && n === everyMin) return;
+  stop(); everyMin = n;
+  job = new Cron(n < 60 ? `*/${n} * * * *` : `0 */${Math.round(n / 60)} * * *`, { name: 'loop' }, () => { void tick('cron'); });
+  if (!last) setTimeout(() => { void tick('boot'); }, 4000);
   emit('loop.started', 'loop', { everyMin: n });
 }
 export function stop() { job?.stop(); job = null; }
-export const status = () => ({ running, everyMin: LOOP_INTERVAL_MIN, last, next: job?.nextRun()?.getTime() ?? null, busy: modes.names().filter((m) => runner.busy(m)) });
+deskStore.onChange((f) => { if (f === 'loop.md') start(); });
+export const status = () => { const c = loopcfg.get(); return { running, paused: c.paused, everyMin: c.every_min, quiet: c.quiet, maxOpen: c.max_open, last, next: c.paused ? null : job?.nextRun()?.getTime() ?? null, busy: modes.names().filter((m) => runner.busy(m)) }; };
 
 const opt = (k: string, label: string, action: Option['action']): Option => ({ k, label, action });
 const discuss = opt('d', 'Discuss', { type: 'discuss' });
 const clean = (t: string) => t.replace(/[:.\s]+$/, '');
 
-/** What one tick writes down. Rendered as a block in the Loop view; stored whole in the event. */
 export type Tick = {
-  why: string; at: number; next: number | null; ms: number;
-  status: { checkins: string; activity: string; medicine: string; apartment: string; export: string; mail: string; islands: string };
-  decisions: string[];                                   // things it did, with what and why
-  waiting: { what: string; since: number; next: string }[]; // questions out to the user, and what happens if they stay unanswered
-  inaction: { what: string; why: string }[];              // things it looked at and chose to leave, with the reason
+  why: string; at: number; next: number | null; ms: number; paused?: boolean;
+  status: { checkins: string; activity: string; medicine: string; apartment: string; export: string; mail: string; islands: string; quiet: string };
+  decisions: string[];
+  waiting: { what: string; since: number; next: string }[];
+  inaction: { what: string; why: string }[];
 };
+
+/** Quiet hours: when they end, as a timestamp, or null if not in them now. */
+function quietEnds(cfg: loopcfg.LoopCfg, tz: string): number | null {
+  if (!cfg.quiet) return null;
+  const now = parts(tz), from = hmToMinutes(cfg.quiet.from), to = hmToMinutes(cfg.quiet.to), m = now.minutes;
+  const inQuiet = from < to ? m >= from && m < to : m >= from || m < to;
+  if (!inQuiet) return null;
+  const untilTo = to - m; // minutes until "to", today or tomorrow
+  return Date.now() + (untilTo > 0 ? untilTo : untilTo + 1440) * 60_000;
+}
 
 export async function tick(why: string) {
   if (running) return;
   running = true;
   const t0 = Date.now();
-  const T: Tick = { why, at: t0, next: null, ms: 0, status: { checkins: '', activity: '', medicine: '', apartment: '', export: '', mail: '', islands: '' }, decisions: [], waiting: [], inaction: [] };
+  const T: Tick = { why, at: t0, next: null, ms: 0, status: { checkins: '', activity: '', medicine: '', apartment: '', export: '', mail: '', islands: '', quiet: '' }, decisions: [], waiting: [], inaction: [] };
   try {
+    const cfg = loopcfg.get();
+    start(); // picks up a changed every_min
     const prof = profile.get(), tz = prof.timezone, now = parts(tz), pr = priorities.get();
     const hm = (ts: number) => fmtHm(ts, tz);
+    const qEnd = quietEnds(cfg, tz);
+    T.status.quiet = cfg.quiet ? (qEnd ? `quiet until ${hm(qEnd)}; texts are held` : `texts allowed; quiet from ${cfg.quiet.from} to ${cfg.quiet.to}`) : 'no quiet hours';
+    const deliver = (level: Level): checkins.Delivery => ({ text: cfg.ask.text && cfg.levels[level].text, holdUntil: qEnd });
+    const room = () => checkins.open().length < cfg.max_open;
+    const heldBack = (what: string) => T.inaction.push({ what, why: `held back: you already have ${checkins.open().length} question${checkins.open().length === 1 ? '' : 's'} out (your limit is ${cfg.max_open})` });
 
-    // ---- 1. snoozes that came due
-    for (const c of checkins.live().filter((c) => c.state === 'snoozed' && (c.snoozedUntil ?? 0) <= Date.now())) { checkins.remind(c, 'snooze over'); T.decisions.push(`Reminded you, as you asked: "${clean(c.title)}"`); }
+    if (cfg.paused) {
+      T.paused = true;
+      T.status.activity = 'paused by you; nothing looks, nothing asks';
+      T.inaction.push({ what: 'Everything', why: 'you paused me on the "What I do" page' });
+      return;
+    }
 
-    // ---- 2. medicine: a first-class surface with its own status line
+    // ---- 1. texts held through quiet hours; snoozes that came due
+    for (const c of checkins.releaseHeld()) T.decisions.push(`Quiet hours over: texted you the question "${clean(c.title)}"`);
+    for (const c of checkins.live().filter((c) => c.state === 'snoozed' && (c.snoozedUntil ?? 0) <= Date.now())) { checkins.remind(c, 'snooze over', deliver(c.priority)); T.decisions.push(`Reminded you, as you asked: "${clean(c.title)}"`); }
+
+    // ---- 2. medicine: its own status line
     const medKey = `medicine:${now.date}`;
     const medLast = logbook.last('medicine');
     const medLogged = logbook.loggedOn('medicine', tz, now.date);
     const medDue = now.minutes >= hmToMinutes(pr.medicine.time);
     let medPrior = checkins.latestByDedupe(medKey);
-    if (medLogged) T.status.medicine = `Logged today at ${hm(medLast!.ts)} via ${medLast!.via}`;
+    const top = cfg.levels.top;
+    if (!pr.medicine.enabled) T.status.medicine = 'turned off';
+    else if (medLogged) T.status.medicine = `Logged today at ${hm(medLast!.ts)} via ${medLast!.via}`;
     else if (!medDue) T.status.medicine = `Due at ${pr.medicine.time}, not yet asked`;
     else if (!medPrior) {
-      const ra = pr.medicine.remind_after ?? pr.defaults.remind_after;
-      medPrior = checkins.ask({ priority: pr.medicine.priority, dedupe: medKey, title: 'Medicine logging is a top priority. You should:', options: [
-        opt('a', 'Take now if necessary and have it logged', { type: 'log', kind: 'medicine' }),
-        opt('b', `Be reminded in ${ra}`, { type: 'snooze', for: ra }),
-        opt('c', 'Be reminded at end of day', { type: 'snooze-eod' }),
-        discuss,
-      ] });
-      T.decisions.push(`Asked you about medicine (due ${pr.medicine.time}, not logged)`);
-      T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked just now`;
+      if (!room()) { heldBack('The medicine question'); T.status.medicine = `Due since ${pr.medicine.time}, not logged, question held back`; }
+      else {
+        medPrior = checkins.ask({ priority: pr.medicine.priority, dedupe: medKey, title: 'Medicine logging is a top priority. You should:', options: [
+          opt('a', 'Take now if necessary and have it logged', { type: 'log', kind: 'medicine' }),
+          opt('b', `Be reminded in ${top.remind_after}`, { type: 'snooze', for: top.remind_after ?? '90m' }),
+          opt('c', 'Be reminded at end of day', { type: 'snooze-eod' }),
+          discuss,
+        ] }, deliver(pr.medicine.priority));
+        T.decisions.push(`Asked you about medicine (due ${pr.medicine.time}, not logged)${medPrior.heldUntil ? `, text held until ${hm(medPrior.heldUntil)}` : ''}`);
+        T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked just now`;
+      }
     } else if (medPrior.state === 'archived') T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked at ${hm(medPrior.created)}, filed unanswered at ${hm(medPrior.answered ?? medPrior.created)}`;
     else if (medPrior.state === 'snoozed') T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked at ${hm(medPrior.created)}, you asked to be reminded at ${hm(medPrior.snoozedUntil ?? Date.now())}`;
-    else T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked at ${hm(medPrior.created)}, not answered${medPrior.reminders ? ', reminded once' : ''}`;
+    else T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked at ${hm(medPrior.created)}, not answered${medPrior.reminders ? ', reminded once' : ''}${medPrior.heldUntil ? `, text held until ${hm(medPrior.heldUntil)}` : ''}`;
 
     // ---- 3. apartment: a nudge, never a chase
     const choresToday = pr.chores.days.includes(now.weekday);
     const choresLast = logbook.last('chores');
-    if (!pr.chores.days.length) T.status.apartment = 'No days set';
+    if (!pr.chores.enabled) T.status.apartment = 'turned off';
+    else if (!pr.chores.days.length) T.status.apartment = 'No days set';
     else if (!choresToday) T.status.apartment = `Next on ${pr.chores.days.join('/')} at ${pr.chores.time}${choresLast ? `, last done ${new Date(choresLast.ts).toLocaleDateString()}` : ''}`;
     else if (logbook.loggedOn('chores', tz, now.date)) T.status.apartment = `Done today at ${hm(choresLast!.ts)}`;
     else if (now.minutes < hmToMinutes(pr.chores.time)) T.status.apartment = `Today at ${pr.chores.time}, not yet nudged`;
     else {
       const key = `chores:${now.date}`;
-      if (!checkins.latestByDedupe(key)) { checkins.ask({ priority: pr.chores.priority, dedupe: key, title: 'Apartment day. One corner counts.', options: [opt('a', 'Done, log it', { type: 'log', kind: 'chores' }), opt('b', 'Not today', { type: 'archive', reason: 'not today' })] }); T.decisions.push('Nudged you about the apartment (today is a set day)'); }
-      T.status.apartment = 'Nudged today, not done';
+      if (checkins.latestByDedupe(key)) T.status.apartment = 'Nudged today, not done';
+      else if (!room()) { heldBack('The apartment nudge'); T.status.apartment = 'Due today, nudge held back'; }
+      else { checkins.ask({ priority: pr.chores.priority, dedupe: key, title: 'Apartment day. One corner counts.', options: [opt('a', 'Done, log it', { type: 'log', kind: 'chores' }), opt('b', 'Not today', { type: 'archive', reason: 'not today' })] }, deliver(pr.chores.priority)); T.decisions.push('Nudged you about the apartment (today is a set day)'); T.status.apartment = 'Nudged today, not done'; }
     }
 
     // ---- 4. finished work landing in the export folder
     const ex = exportsWatch.scan();
-    T.status.export = !ex.path ? 'NOT SET' : !ex.ok ? `${ex.path}: ${ex.error}` : `${ex.path}: ${ex.fresh.length} new, ${watches.get().export.seen.length} seen in total`;
-    for (const f of ex.fresh.slice(0, 3)) {
-      const isl = islands.forFile(f);
-      checkins.ask({ priority: isl ? priorities.ofIsland(isl.slug) : 'normal', island: isl?.slug ?? null, dedupe: `export:${f}`, title: `New finished piece: ${f}.`, options: [
+    T.status.export = !ex.path ? 'NOT SET' : !ex.ok ? `${ex.path}: ${ex.error}` : `${ex.path}: ${ex.fresh.length} new, ${watches.get().export.seen.length} already asked about`;
+    const asked: string[] = [];
+    for (const f of ex.fresh) {
+      if (asked.length >= 3) { T.inaction.push({ what: `New file ${f}`, why: 'at most three questions about new files per look; next look' }); continue; }
+      if (!room()) { heldBack(`A question about the new file ${f}`); continue; }
+      const isl = islands.forFile(f), level = isl ? priorities.ofIsland(isl.slug) : 'normal';
+      checkins.ask({ priority: level, island: isl?.slug ?? null, dedupe: `export:${f}`, title: `New finished piece: ${f}.`, options: [
         opt('a', 'Add it to the site', { type: 'handoff', mode: 'carrier', text: `A finished piece landed: "${f}" in the export folder (desk_view export/${f} to read it, desk_view site to see how the site lists work). Produce the changed or new site files that add it, written with deliver to out/site. Say what you wrote.` }),
         opt('b', 'Draft a submission for it', { type: 'handoff', mode: 'drafter', text: `Draft a submission for the finished piece "${f}" (desk_view export/${f}). Read desk_view profile and a sample of desk_view writing to match the user's voice. Write the draft with deliver to out/submissions as "${f.replace(/\.[^.]+$/, '')}-submission.md". Say what you wrote.` }),
         opt('c', "It's not finished", { type: 'archive', reason: 'not finished' }),
         discuss,
-      ] });
+      ] }, deliver(level));
+      asked.push(f);
       T.decisions.push(`Asked you what to do with a new file in the export folder: ${f}`);
     }
-    if (ex.fresh.length > 3) T.inaction.push({ what: `${ex.fresh.length - 3} more new files in the export folder`, why: 'at most three questions per tick; the rest next tick' });
+    exportsWatch.markSeen(asked);
 
     // ---- 5. mail: read, sort, propose unsubscribes
     if (!watches.mailConfigured()) T.status.mail = 'NOT SET';
     else {
       const w = watches.get().mail;
       let fetched = '';
-      if (Date.now() - w.lastCheck >= LOOP_INTERVAL_MIN * 60_000 - 5000) {
+      if (Date.now() - w.lastCheck >= cfg.every_min * 60_000 - 5000) {
         const r = await mail.fetchNew();
         fetched = r.error ? `read failed: ${r.error}` : `${r.fresh.length} new`;
         if (r.fresh.length) T.decisions.push(`Read ${r.fresh.length} new message${r.fresh.length === 1 ? '' : 's'} (sender and subject only)`);
         const unsorted = mail.unsorted();
         if (unsorted.length && modes.names().includes('triage')) { const n = await triage(unsorted); T.decisions.push(`Had triage sort ${n} of ${unsorted.length} messages`); }
         else if (unsorted.length) T.inaction.push({ what: `${unsorted.length} unsorted messages`, why: 'no triage mode is loaded' });
-        for (const cand of mail.unsubscribeCandidates().slice(0, 2)) {
+        for (const cand of mail.unsubscribeCandidates(w.unsub_threshold).slice(0, 2)) {
           const key = `unsub:${cand.sender}`;
           if (checkins.latestByDedupe(key)) continue;
           const who = cand.name ? `${cand.name} (${cand.sender})` : cand.sender;
+          if (!room()) { heldBack(`Whether to unsubscribe you from ${who}`); continue; }
           checkins.ask({ priority: 'low', dedupe: key, title: `Can I unsubscribe you from ${who}? You received ${cand.n} this week.`, options: [
-            opt('a', 'Yes', { type: 'deliver', domain: 'mail', name: `unsubscribe-${cand.sender}.md`, content: `# Unsubscribe request\n\nSender: ${who}\nReceived this week: ${cand.n}\nList-Unsubscribe: ${cand.listUnsub}\n\nIn sandbox: nothing was sent. Open the link or address above to unsubscribe, or set mail to live in desk/trust.md once a connector exists.\n` }),
+            opt('a', 'Yes', { type: 'deliver', domain: 'mail', name: `unsubscribe-${cand.sender}.md`, content: `# Unsubscribe request\n\nSender: ${who}\nReceived this week: ${cand.n}\nList-Unsubscribe: ${cand.listUnsub}\n\nNothing was sent. Open the link or address above to unsubscribe yourself, or wait for a live email connector.\n` }),
             opt('b', 'Not now', { type: 'archive', reason: 'not now' }),
             opt('c', `Never ask about ${cand.sender}`, { type: 'ignore-sender', sender: cand.sender }),
             discuss,
-          ] });
+          ] }, deliver('low'));
           T.decisions.push(`Asked whether to unsubscribe you from ${who} (${cand.n} this week)`);
         }
       } else fetched = `checked at ${hm(w.lastCheck)}`;
@@ -142,38 +182,43 @@ export async function tick(why: string) {
     const all = islands.list();
     const carry = all.filter((i) => i.position === 'finished, not shared' && !checkins.latestByDedupe(`carry:${i.slug}`));
     if (carry.length) {
-      const i = carry[0];
-      checkins.ask({ priority: priorities.ofIsland(i.slug), island: i.slug, dedupe: `carry:${i.slug}`, title: `${i.name} is finished and hasn't been shared.`, options: [
-        opt('a', 'Add it to the site', { type: 'handoff', mode: 'carrier', text: `"${i.name}" is finished and not shared (desk_view islands/${i.slug}; its files, if any, are listed there and live under desk_view export/). Produce the site files that add it, with deliver to out/site. Say what you wrote.` }),
-        opt('b', 'Draft a submission', { type: 'handoff', mode: 'drafter', text: `Draft a submission for "${i.name}" (desk_view islands/${i.slug}). Match the user's voice from desk_view profile and desk_view writing. Write it with deliver to out/submissions as "${i.slug}-submission.md". Say what you wrote.` }),
-        opt('c', "It's fine where it is", { type: 'island', slug: i.slug, patch: { position: 'done' } }),
-        discuss,
-      ] });
-      T.decisions.push(`Asked you about "${i.name}": finished and never shared`);
-      if (carry.length > 1) T.inaction.push({ what: `${carry.length - 1} more finished, unshared islands`, why: 'one carry question per tick' });
+      const i = carry[0], level = priorities.ofIsland(i.slug);
+      if (!room()) heldBack(`What to do with "${i.name}", finished and not shared`);
+      else {
+        checkins.ask({ priority: level, island: i.slug, dedupe: `carry:${i.slug}`, title: `${i.name} is finished and hasn't been shared.`, options: [
+          opt('a', 'Add it to the site', { type: 'handoff', mode: 'carrier', text: `"${i.name}" is finished and not shared (desk_view islands/${i.slug}; its files, if any, are listed there and live under desk_view export/). Produce the site files that add it, with deliver to out/site. Say what you wrote.` }),
+          opt('b', 'Draft a submission', { type: 'handoff', mode: 'drafter', text: `Draft a submission for "${i.name}" (desk_view islands/${i.slug}). Match the user's voice from desk_view profile and desk_view writing. Write it with deliver to out/submissions as "${i.slug}-submission.md". Say what you wrote.` }),
+          opt('c', "It's fine where it is", { type: 'island', slug: i.slug, patch: { position: 'done' } }),
+          discuss,
+        ] }, deliver(level));
+        T.decisions.push(`Asked you about "${i.name}": finished and never shared`);
+      }
+      if (carry.length > 1) T.inaction.push({ what: `${carry.length - 1} more finished, unshared islands`, why: 'one of these per look' });
     }
     const byPos: Record<string, number> = {};
     for (const i of all) byPos[i.position] = (byPos[i.position] ?? 0) + 1;
     T.status.islands = all.length ? `${all.length} total · ${Object.entries(byPos).map(([k, v]) => `${v} ${k}`).join(' · ')}` : 'none yet';
 
-    // ---- 7. recap: every question out to you, what happens if it stays unanswered; then reminders and filing by priority
+    // ---- 7. recap: every question out to you and what happens if it stays unanswered; reminders and filing by level
     for (const c of checkins.live()) {
-      const silent = Date.now() - c.lastSent;
-      const isMed = c.dedupe?.startsWith('medicine') ?? false;
-      const eod = isMed ? (pr.medicine.end_of_day ?? pr.defaults.end_of_day) : pr.defaults.end_of_day;
-      const ra = duration(isMed ? pr.medicine.remind_after ?? pr.defaults.remind_after : pr.defaults.remind_after, 90 * 60_000);
+      const silent = Date.now() - c.lastSent, L = cfg.levels[c.priority];
+      const held = c.heldUntil && c.heldUntil > Date.now() ? ` (text held until ${hm(c.heldUntil)})` : '';
       if (c.state === 'snoozed') { T.waiting.push({ what: clean(c.title), since: c.created, next: `paused at your request until ${hm(c.snoozedUntil ?? Date.now())}` }); continue; }
       if (c.priority === 'top') {
-        if (c.reminders === 0 && silent >= ra) { checkins.remind(c, 'silent'); T.decisions.push(`Reminded you once, after ${Math.round(silent / 60_000)} minutes of silence: "${clean(c.title)}"`); T.waiting.push({ what: clean(c.title), since: c.created, next: `files as unanswered at ${eod}` }); }
+        const ra = duration(L.remind_after, 90 * 60_000), eod = L.end_of_day ?? '21:00';
+        if (c.reminders === 0 && silent >= ra) { checkins.remind(c, 'silent', deliver('top')); T.decisions.push(`Reminded you once, after ${Math.round(silent / 60_000)} minutes of silence: "${clean(c.title)}"`); T.waiting.push({ what: clean(c.title), since: c.created, next: `files as unanswered at ${eod}` }); }
         else if (now.minutes >= hmToMinutes(eod) && silent >= 30 * 60_000) { checkins.archive(c, 'unanswered'); T.decisions.push(`Filed as unanswered at end of day: "${clean(c.title)}"`); }
-        else T.waiting.push({ what: clean(c.title), since: c.created, next: c.reminders ? `already reminded once; files as unanswered at ${eod}` : `reminder at ${hm(c.lastSent + ra)}, then files at ${eod}` });
-      } else if (silent >= 24 * 3_600_000) { checkins.archive(c, 'unanswered'); T.decisions.push(`Filed as unanswered after a day: "${clean(c.title)}"`); }
-      else T.waiting.push({ what: clean(c.title), since: c.created, next: `${c.priority} priority: no reminder; files as unanswered at ${hm(c.lastSent + 24 * 3_600_000)}` });
+        else T.waiting.push({ what: clean(c.title), since: c.created, next: (c.reminders ? `already reminded once; files as unanswered at ${eod}` : `reminder at ${hm(c.lastSent + ra)}, then files at ${eod}`) + held });
+      } else {
+        const fa = duration(L.file_after, 24 * 3_600_000);
+        if (silent >= fa) { checkins.archive(c, 'unanswered'); T.decisions.push(`Filed as unanswered after ${L.file_after ?? 'a day'}: "${clean(c.title)}"`); }
+        else T.waiting.push({ what: clean(c.title), since: c.created, next: `${c.priority} priority: no reminder${L.text ? '' : ', not texted'}; files as unanswered at ${hm(c.lastSent + fa)}` + held });
+      }
     }
     const liveNow = checkins.live();
     const answeredToday = checkins.recent(200).filter((c) => c.state === 'answered' && c.answered && parts(tz, new Date(c.answered)).date === now.date).length;
     const openOnes = liveNow.filter((c) => c.state === 'open');
-    T.status.checkins = `${openOnes.length} not answered${openOnes.length ? ` (oldest asked ${hm(Math.min(...openOnes.map((c) => c.created)))})` : ''} · ${answeredToday} answered today · ${liveNow.length - openOnes.length} paused`;
+    T.status.checkins = `${openOnes.length} not answered${openOnes.length ? ` (oldest asked ${hm(Math.min(...openOnes.map((c) => c.created)))})` : ''} · ${answeredToday} answered today · ${liveNow.length - openOnes.length} paused · limit ${cfg.max_open} out at once`;
     T.status.activity = status().busy.length ? `${status().busy.join(', ')} running` : 'nothing running';
 
     // ---- 8. what was looked at and left, with the reason
@@ -182,8 +227,8 @@ export async function tick(why: string) {
       if (i.position === 'finished, not shared') continue;
       T.inaction.push({ what: `Island "${i.name}"`, why: `${i.position}, ${priorities.ofIsland(i.slug)} priority; nothing is due and no rule applies to this position yet` });
     }
-    if (!ex.path) T.inaction.push({ what: 'Export folder', why: 'not set; the interview or desk/watches.md sets it' });
-    if (!watches.mailConfigured()) T.inaction.push({ what: 'Email', why: 'not set; IMAP_HOST, IMAP_USER, IMAP_PASS in .env' });
+    if (!ex.path) T.inaction.push({ what: 'Export folder', why: 'not set; set it on the "What I do" page' });
+    if (!watches.mailConfigured()) T.inaction.push({ what: 'Email', why: 'not connected; connect it on the "What I do" page' });
 
     // ---- 9. observations: only from patterns in his own answers
     const med = checkins.recent(200).filter((c) => c.dedupe?.startsWith('medicine') && c.state === 'answered' && c.answer === 'a' && c.answered);
@@ -194,8 +239,8 @@ export async function tick(why: string) {
   } catch (e) {
     emit('loop.error', 'loop', { error: (e as Error).message });
   } finally {
-    T.ms = Date.now() - t0; T.next = job?.nextRun()?.getTime() ?? null;
-    last = { at: t0, ms: T.ms, decisions: T.decisions.length, waiting: T.waiting.length };
+    T.ms = Date.now() - t0; T.next = T.paused ? null : job?.nextRun()?.getTime() ?? null;
+    last = { at: t0, ms: T.ms, decisions: T.decisions.length, waiting: T.waiting.length, paused: T.paused };
     running = false;
     emit('loop.tick', 'loop', T);
   }

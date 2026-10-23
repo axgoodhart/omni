@@ -3,6 +3,7 @@ import { renderEvents, pushEvent, pushLive } from './panes/operation.js';
 import { renderSide, openDrawer } from './panes/side.js';
 import { renderDesk } from './panes/desk.js';
 import { showInterview, maybeShowInterview } from './panes/interview.js';
+import { renderSettings } from './panes/settings.js';
 import { $, api, esc, fmt } from './lib.js';
 
 export const state = { view: localStorage.getItem('omni.view') || 'desk', mode: null, data: null, desk: null, thread: null, events: [], busy: false };
@@ -38,7 +39,7 @@ export async function switchMode(name) {
 }
 export async function showView(v) {
   state.view = v; localStorage.setItem('omni.view', v);
-  renderShell(); await loadThread(); if (v === 'desk') renderDesk(); renderSide();
+  renderShell(); await loadThread(); if (v === 'desk') renderDesk(); if (v === 'settings') await renderSettings(); renderSide();
 }
 /** Open the assistant thread with a line already typed. */
 export async function discuss(text) { await switchMode(state.data.modes.some((m) => m.name === 'assistant') ? 'assistant' : state.mode); $('#input').value = text; $('#input').focus(); }
@@ -50,7 +51,8 @@ export function renderShell() {
 
   $('#nav-desk').innerHTML = `<li><button class="nav-item ${act('desk')}" data-view="desk"><span class="n">◎</span>desk</button></li>
     <li><button class="nav-item ${needs ? 'alert' : ''}" data-drawer="approvals"><span class="n">${needs || '–'}</span>${needs ? 'needs you' : 'nothing waiting'}</button></li>
-    <li><button class="nav-item ${act('loop')}" data-view="loop"><span class="n">↻</span>loop<span class="count">${d.desk?.loop?.last ? `${Math.round((Date.now() - d.desk.loop.last.at) / 60000)}m ago` : 'not yet'}</span></button></li>`;
+    <li><button class="nav-item ${act('settings')}" data-view="settings"><span class="n">≡</span>what I do</button></li>
+    <li><button class="nav-item ${act('loop')}" data-view="loop"><span class="n">↻</span>what I did<span class="count">${d.desk?.loop?.paused ? 'paused' : d.desk?.loop?.last ? `${Math.round((Date.now() - d.desk.loop.last.at) / 60000)}m ago` : 'not yet'}</span></button></li>`;
   $('#nav-islands').innerHTML = (d.desk?.islands ?? []).map((i) => `<li><button class="nav-item" data-island="${esc(i.slug)}" title="${esc(i.position)}"><span class="n">${kindIcon(i.kind)}</span>${esc(i.name)}<span class="count">${esc(i.stages[i.stage] ?? '')}</span></button></li>`).join('')
     + (d.desk?.islands?.length ? '' : '<li><button class="nav-item" data-interview="1"><span class="n">+</span>run the interview</button></li>');
   $('#nav-modes').innerHTML = d.modes.map((m, i) => `<li><button class="nav-item ${m.name === state.mode && state.view === 'thread' ? 'active' : ''}" data-mode="${esc(m.name)}" title="${esc(m.voice || m.model)}"><span class="n">${pad(i + 1)}</span>${esc(m.name)}${m.busy ? '<span class="live" title="working"></span>' : ''}</button></li>`).join('');
@@ -70,7 +72,8 @@ export function renderShell() {
   $('#imessage-label').textContent = d.imessage ? 'imessage · on' : 'imessage · off';
 
   $('#view-desk').hidden = state.view !== 'desk';
-  $('#view-thread').hidden = state.view === 'desk';
+  $('#view-settings').hidden = state.view !== 'settings';
+  $('#view-thread').hidden = state.view === 'desk' || state.view === 'settings';
   $('#thread-pane').hidden = state.view === 'loop';
   $('#view-thread').classList.toggle('single', state.view === 'loop');
   $('#op-title').textContent = state.view === 'loop' ? 'Loop' : 'Operation';
@@ -80,8 +83,14 @@ export function renderShell() {
     const l = d.desk?.loop, p = state.desk?.profile;
     $('#mode-num').textContent = '◎';
     $('#mode-title').textContent = p?.name ? `${p.name}'s desk` : 'Desk';
-    $('#mode-sub').textContent = l?.last ? `The loop last looked ${new Date(l.last.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}: ${l.last.decisions} decision${l.last.decisions === 1 ? '' : 's'}, ${l.last.waiting} question${l.last.waiting === 1 ? '' : 's'} waiting on you. Every ${l.everyMin} min.` : 'The loop has not ticked yet.';
+    $('#mode-sub').textContent = l?.paused ? 'Paused. Nothing looks, nothing asks, until you turn it back on under What I do.' : l?.last ? `I last looked at ${new Date(l.last.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}: ${l.last.decisions} decision${l.last.decisions === 1 ? '' : 's'}, ${l.last.waiting} question${l.last.waiting === 1 ? '' : 's'} waiting on you. I look every ${l.everyMin} minutes.` : 'I have not looked yet.';
     $('#mode-tags').innerHTML = [`<span class="plate-tag clay">${open} open check-in${open === 1 ? '' : 's'}</span>`, `<span class="plate-tag">${d.desk?.islands?.length ?? 0} islands</span>`, `<span class="plate-tag focus">trust · ${Object.values(state.desk?.trust ?? {}).some((v) => v === 'live') ? 'mixed' : 'sandbox'}</span>`].join('');
+    return;
+  }
+  if (state.view === 'settings') {
+    $('#mode-num').textContent = '≡'; $('#mode-title').textContent = 'What I do';
+    $('#mode-sub').textContent = 'Every sentence on this page is a rule I follow. Change the numbers and I change. I never edit this page myself.';
+    $('#mode-tags').innerHTML = '';
     return;
   }
   if (state.view === 'loop') {
@@ -104,13 +113,13 @@ export function renderShell() {
   ].join('');
 }
 
-const DESK_EVENTS = ['loop.tick', 'checkin.opened', 'checkin.answered', 'checkin.snoozed', 'checkin.archived', 'checkin.reminded', 'out.written', 'desk.reloaded', 'watch.export', 'watch.mail', 'mail.sorted', 'mail.handled', 'logbook', 'observation', 'interview.answered'];
+const DESK_EVENTS = ['settings.changed', 'loop.tick', 'checkin.opened', 'checkin.answered', 'checkin.snoozed', 'checkin.archived', 'checkin.reminded', 'out.written', 'desk.reloaded', 'watch.export', 'watch.mail', 'mail.sorted', 'mail.handled', 'logbook', 'observation', 'interview.answered'];
 function connect() {
   const es = new EventSource('/events');
   es.addEventListener('agent', (ev) => {
     const e = JSON.parse(ev.data);
     const shownThread = state.view === 'loop' ? 'loop' : state.mode;
-    if (e.thread === 'loop' && DESK_EVENTS.includes(e.type)) deskSoon();
+    if (e.thread === 'loop' && DESK_EVENTS.includes(e.type)) { deskSoon(); if (state.view === 'settings' && e.type === 'desk.reloaded') renderSettings(); }
     if (e.type === 'checkin.opened' && state.view !== 'desk') openDrawer('approvals');
     if (e.thread && e.thread !== shownThread) { if (['approval.requested', 'approval.resolved', 'usage', 'mode.reloaded', 'inbound', 'outbound'].includes(e.type)) refreshSoon(); return; }
     if (!e.id) { pushLive(e); if (e.type === 'text.delta') onDelta(e.data.text); return; }

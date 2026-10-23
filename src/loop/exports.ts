@@ -11,6 +11,8 @@ export function scan(): { path: string; ok: boolean; fresh: string[]; error?: st
   const seen = new Set(w.seen);
   const names = fs.readdirSync(w.path).filter((f) => !f.startsWith('.') && fs.statSync(path.join(w.path, f)).isFile()).sort();
   const fresh = names.filter((f) => !seen.has(f));
-  if (fresh.length) { watches.patch({ export: { seen: [...seen, ...fresh] } }); emit('watch.export', 'loop', { fresh }); }
+  if (fresh.length) emit('watch.export', 'loop', { fresh });
   return { path: w.path, ok: true, fresh };
 }
+/** Remember the files that have been asked about, so they're asked about once. */
+export function markSeen(files: string[]) { if (files.length) watches.patch({ export: { seen: [...new Set([...watches.get().export.seen, ...files])] } }); }

@@ -7,11 +7,11 @@ const GROUPS = {
   memory: { label: 'Memory', help: 'notes written, cartridges inserted or ejected', types: ['memory.write', 'cartridges.changed', 'cartridge.missing'] },
   policy: { label: 'Permissions', help: 'what was allowed, blocked, or paused to ask you', types: ['policy.decision', 'approval.requested', 'approval.resolved'] },
   channel: { label: 'Channels', help: 'messages in and out, iMessage, scheduled runs', types: ['inbound', 'outbound', 'imessage.sent', 'imessage.ignored', 'imessage.error', 'imessage.watch', 'imessage.watch.exit', 'imessage.stderr', 'imessage.disabled', 'schedule.tick', 'schedule.loaded', 'schedule.error'] },
-  loop: { label: 'Loop', help: 'each tick, check-ins, what landed in out/, the desk files', types: ['loop.tick', 'loop.started', 'loop.error', 'checkin.opened', 'checkin.sent', 'checkin.send_error', 'checkin.reminded', 'checkin.snoozed', 'checkin.answered', 'checkin.archived', 'checkin.handoff_error', 'out.written', 'desk.reloaded', 'watch.export', 'watch.mail', 'watch.mail_error', 'mail.sorted', 'mail.handled', 'logbook', 'observation', 'interview.answered', 'interview.restarted'] },
+  loop: { label: 'Loop', help: 'each tick, check-ins, what landed in out/, the desk files', types: ['settings.changed', 'loop.tick', 'loop.started', 'loop.error', 'checkin.opened', 'checkin.sent', 'checkin.send_error', 'checkin.reminded', 'checkin.snoozed', 'checkin.answered', 'checkin.archived', 'checkin.handoff_error', 'out.written', 'desk.reloaded', 'watch.export', 'watch.mail', 'watch.mail_error', 'mail.sorted', 'mail.handled', 'logbook', 'observation', 'interview.answered', 'interview.restarted'] },
   budget: { label: 'Budget', help: 'free-token limits kicking in', types: ['budget.refused', 'budget.downgraded'] },
   system: { label: 'System', help: 'startup, mode reloads, errors', types: ['mode.reloaded', 'mode.error', 'daemon.started', 'daemon.listening', 'daemon.stopping', 'server.error', 'error'] },
 };
-const LABEL = { 'prompt.assembled': 'prompt', 'model.request': 'request', reasoning: 'thinking', usage: 'tokens', source: 'source', compaction: 'compacted', 'tool.call': 'tool', 'tool.result': 'result', 'tool.error': 'tool error', 'tool.denied': 'denied', 'memory.write': 'memory', 'cartridges.changed': 'cartridges', 'policy.decision': 'permission', 'approval.requested': 'asking you', 'approval.resolved': 'answered', inbound: 'in', outbound: 'out', 'schedule.tick': 'schedule', 'budget.downgraded': 'budget', 'budget.refused': 'budget', 'mode.reloaded': 'reloaded', 'daemon.started': 'started', 'daemon.listening': 'web', error: 'error', 'loop.tick': 'tick', 'loop.started': 'loop', 'loop.error': 'loop error', 'checkin.opened': 'asked you', 'checkin.sent': 'texted', 'checkin.reminded': 'came back', 'checkin.snoozed': 'snoozed', 'checkin.answered': 'you answered', 'checkin.archived': 'filed', 'out.written': 'out', 'desk.reloaded': 'desk', 'watch.export': 'export', 'watch.mail': 'mail', 'watch.mail_error': 'mail error', 'mail.sorted': 'sorted', 'logbook': 'logged', observation: 'noticed', 'interview.answered': 'interview' };
+const LABEL = { 'prompt.assembled': 'prompt', 'model.request': 'request', reasoning: 'thinking', usage: 'tokens', source: 'source', compaction: 'compacted', 'tool.call': 'tool', 'tool.result': 'result', 'tool.error': 'tool error', 'tool.denied': 'denied', 'memory.write': 'memory', 'cartridges.changed': 'cartridges', 'policy.decision': 'permission', 'approval.requested': 'asking you', 'approval.resolved': 'answered', inbound: 'in', outbound: 'out', 'schedule.tick': 'schedule', 'budget.downgraded': 'budget', 'budget.refused': 'budget', 'mode.reloaded': 'reloaded', 'daemon.started': 'started', 'daemon.listening': 'web', error: 'error', 'loop.tick': 'tick', 'loop.started': 'loop', 'loop.error': 'loop error', 'checkin.opened': 'asked you', 'checkin.sent': 'texted', 'checkin.reminded': 'came back', 'checkin.snoozed': 'snoozed', 'checkin.answered': 'you answered', 'checkin.archived': 'filed', 'out.written': 'out', 'desk.reloaded': 'desk', 'watch.export': 'export', 'watch.mail': 'mail', 'watch.mail_error': 'mail error', 'mail.sorted': 'sorted', 'logbook': 'logged', observation: 'noticed', 'interview.answered': 'interview', 'settings.changed': 'you changed' };
 const groupOf = (type) => Object.keys(GROUPS).find((g) => GROUPS[g].types.includes(type)) ?? 'system';
 const hidden = new Set(JSON.parse(localStorage.getItem('omni.hidden') || '[]'));
 let tokens = 0;
@@ -61,10 +61,12 @@ const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute
 function tickBlock(d) {
   const s = d.status || {}, dec = d.decisions || [], w = d.waiting || [], ina = d.inaction || [];
   const L = [];
-  L.push(`TICK — ${new Date(d.at).toLocaleDateString([], { weekday: 'short' })} @ ${hm(d.at)}${d.why !== 'cron' ? ` (${d.why})` : ''}${d.next ? ` · next ${hm(d.next)}` : ''}`);
+  L.push(`LOOK — ${new Date(d.at).toLocaleDateString([], { weekday: 'short' })} @ ${hm(d.at)}${d.why !== 'cron' ? ` (${d.why})` : ''}${d.next ? ` · next ${hm(d.next)}` : ''}`);
+  if (d.paused) { L.push('• PAUSED by you. Nothing looked, nothing asked.'); return L.join('\n'); }
   L.push('• CURRENT STATUS');
   L.push(`•• Check-ins: ${s.checkins}`);
   L.push(`•• Activity: ${s.activity}`);
+  L.push(`•• Texting: ${s.quiet}`);
   L.push(`•• Medicine: ${s.medicine}`);
   L.push(`•• Apartment: ${s.apartment}`);
   L.push(`•• Export folder: ${s.export}`);
@@ -120,7 +122,8 @@ function summary(e) {
     case 'budget.refused': return `Stopped: needs about ${fmt(d.estimate)} tokens, only ${fmt(d.remaining)} left today`;
     case 'schedule.tick': return `Scheduled run (${d.cron}): ${d.prompt}`;
     case 'loop.tick': return `Saw ${Object.entries(d.saw || {}).map(([k, v]) => `${k} ${Array.isArray(v) ? (v.length || 'none') : v}`).join(', ')}. ${d.did?.length ? `Did: ${d.did.join('; ')}.` : 'Did nothing.'} ${d.left?.length ? `Left alone: ${d.left.join('; ')}.` : ''}`;
-    case 'loop.started': return `Loop running every ${d.everyMin} min`;
+    case 'loop.started': return `I now look every ${d.everyMin} minutes`;
+    case 'settings.changed': return `You changed ${d.key} from ${d.from === undefined ? '(unset)' : JSON.stringify(d.from)} to ${JSON.stringify(d.to)}`;
     case 'checkin.opened': return `${d.title} ${(d.options || []).join(' ')}`;
     case 'checkin.sent': return `Texted it (${d.why})`;
     case 'checkin.reminded': return `Came back about: ${d.title} (${d.why}, ${d.reminders}×)`;

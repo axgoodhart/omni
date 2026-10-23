@@ -1,5 +1,5 @@
 import { $, api, esc } from '../lib.js';
-import { state, deskSoon, discuss, kindIcon } from '../app.js';
+import { state, deskSoon, discuss, kindIcon, showView } from '../app.js';
 import { openDrawer, showOut, showDeskFile } from './side.js';
 
 const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -12,9 +12,12 @@ export function renderDesk() {
 
 function renderStrip(d) {
   const l = d.loop, last = l.last;
-  $('#loopstrip').innerHTML = `<span class="k">loop</span>${last ? `<span>last tick ${hm(last.at)}</span><span><b>${last.decisions}</b> decision${last.decisions === 1 ? '' : 's'}</span><span><b>${last.waiting}</b> waiting on you</span><span>${last.ms}ms</span>` : '<span>has not ticked yet</span>'}<span>next ${l.next ? hm(l.next) : '–'}</span>${l.busy?.length ? `<span class="busy">working: ${esc(l.busy.join(', '))}</span>` : ''}<span class="spacer"></span><button class="ghost tiny" id="strip-tick">tick now</button><button class="ghost tiny" id="strip-loop">open the log</button>`;
-  $('#strip-tick').addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); deskSoon(); });
-  $('#strip-loop').addEventListener('click', () => import('../app.js').then((m) => m.showView('loop')));
+  $('#loopstrip').innerHTML = l.paused
+    ? `<span class="k">paused</span><span>Nothing looks, nothing asks.</span><span class="spacer"></span><button class="ghost tiny" id="strip-settings">turn me back on</button>`
+    : `<span class="k">I look every ${l.everyMin} min</span>${last ? `<span>last ${hm(last.at)}</span><span><b>${last.decisions}</b> decision${last.decisions === 1 ? '' : 's'}</span><span><b>${last.waiting}</b> waiting on you</span>` : '<span>not yet</span>'}<span>next ${l.next ? hm(l.next) : '–'}</span>${l.busy?.length ? `<span class="busy">working: ${esc(l.busy.join(', '))}</span>` : ''}<span class="spacer"></span><button class="ghost tiny" id="strip-settings">change</button><button class="ghost tiny" id="strip-tick">look now</button><button class="ghost tiny" id="strip-loop">what I did</button>`;
+  $('#strip-settings').addEventListener('click', () => showView('settings'));
+  $('#strip-tick')?.addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); deskSoon(); });
+  $('#strip-loop')?.addEventListener('click', () => showView('loop'));
 }
 
 export function checkinHTML(c) {

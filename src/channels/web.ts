@@ -23,6 +23,7 @@ import * as trust from '../desk/trust.ts';
 import * as watches from '../desk/watches.ts';
 import * as interview from '../interview/index.ts';
 import * as loop from '../loop/index.ts';
+import * as settings from '../desk/settings.ts';
 import * as mail from '../loop/mail.ts';
 import * as logbook from '../desk/logbook.ts';
 const logbookLast = (kind: string) => logbook.last(kind);
@@ -59,6 +60,12 @@ api.get('/api/desk', (c) => {
     logbook: { medicine: logbookLast('medicine'), chores: logbookLast('chores') },
   });
 });
+api.get('/api/settings', (c) => c.json({ ...settings.get(), status: loop.status(), waiting: checkins.live(), labels: settings.LABELS }));
+api.put('/api/settings', async (c) => {
+  const { key, value } = await c.req.json<{ key: string; value: unknown }>();
+  try { const r = settings.set(key, value); if (key.startsWith('loop.')) loop.start(); return c.json(r); } catch (e) { return bad(c, e); }
+});
+api.post('/api/islands/:slug/remove', (c) => { try { return c.json(settings.removeIsland(c.req.param('slug'))); } catch (e) { return bad(c, e, 404); } });
 api.post('/api/logbook/:kind', (c) => { logbook.add(c.req.param('kind'), 'web'); return c.json({ ok: true }); });
 api.post('/api/loop/tick', async (c) => { await loop.tick('manual'); return c.json(loop.status()); });
 api.post('/api/checkins/:id/answer', async (c) => {
