@@ -19,9 +19,9 @@ function intro() {
   return `<div class="intro">
 <b>This is the "${esc(state.mode)}" mode's conversation.</b> One ongoing thread: what you say here and what you text it over iMessage land in the same place.
 <ul>
-<li><b>Operation</b> (middle) shows every step while it works: the prompt it was given, its reasoning, each tool it used, what was allowed or blocked, and what it cost.</li>
-<li><b>Mode</b> (right) is its personality: the prompt, model, tools and permissions. Edit and save, it reloads instantly.</li>
-<li><b>Memory</b> (right) is what it knows long-term, as cartridges you insert or eject. Right now: ${esc(mem)}.</li>
+<li><b>Operation</b>, to the right, shows every step while it works: the prompt it was given, its reasoning, each tool it used, what was allowed or blocked, and what it cost.</li>
+<li><b>Modes</b>, in the sidebar, are its personalities. Setup → prompt &amp; settings opens the one you are in; save and it reloads instantly.</li>
+<li><b>Memory</b>, in the sidebar, is what it knows long-term, as cartridges you insert or eject. Right now: ${esc(mem)}.</li>
 </ul>
 Try: <i>"remember my coffee order is a flat white"</i>, then eject the cartridge and ask what your order is.
 </div>`;

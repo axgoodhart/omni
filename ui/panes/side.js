@@ -1,27 +1,30 @@
 import { $, api, esc } from '../lib.js';
 import { state, refresh, currentMode } from '../app.js';
 
-let tab = localStorage.getItem('omni.tab') || 'approvals';
+const TITLES = { approvals: 'Approvals', mode: 'Mode · prompt & settings', memory: 'Memory cartridges', more: 'Skills, schedules, channels' };
+let tab = null;
 let formFor = null; // mode the editor currently shows
 
-export function setTab(name) {
-  tab = name; localStorage.setItem('omni.tab', name);
-  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+export function openDrawer(name) {
+  tab = name;
+  $('#drawer').hidden = false;
+  $('#drawer-title').textContent = TITLES[name] ?? name;
   document.querySelectorAll('.tab').forEach((t) => { t.hidden = t.id !== `tab-${name}`; });
+  if (name === 'mode' && formFor !== state.mode) renderModeTab();
 }
-document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+export function closeDrawer() { tab = null; $('#drawer').hidden = true; }
+$('#drawer-close').addEventListener('click', closeDrawer);
 
 export function renderSide() {
   const d = state.data; if (!d) return;
   renderApprovals(d.pending);
   renderMemory(d.cartridges, currentMode());
   renderMore(d);
-  if (formFor !== state.mode) renderModeTab();
-  setTab(tab);
+  if (tab === 'mode' && formFor !== state.mode) renderModeTab();
 }
 
 function renderApprovals(pending) {
-  $('#approval-count').textContent = pending.length || '';
+  const badge = $('#approval-count'); if (badge) badge.textContent = pending.length || '';
   $('#tab-approvals').innerHTML = `<p class="help">When the agent is about to do something risky (delete a file, run a destructive command, text someone who isn't you), it pauses here and waits for your answer. You can also reply <b>yes</b> or <b>no</b> over iMessage. Unanswered requests are denied after the timeout.</p>` +
     (pending.length ? pending.map((p) => `<div class="approval" data-id="${esc(p.approvalId)}"><div><b>${esc(p.toolName)}</b> <span class="muted">in ${esc(p.thread)}</span></div><div class="why">${esc(p.reason || 'needs your approval')}</div><pre>${esc(JSON.stringify(p.input, null, 2))}</pre><div class="row"><button data-ok="1">Allow</button><button class="danger" data-ok="0">Deny</button></div></div>`).join('') : '<div class="muted">Nothing is waiting.</div>');
   $('#tab-approvals').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => api(`/api/approvals/${encodeURIComponent(b.closest('.approval').dataset.id)}`, { method: 'POST', body: { approved: b.dataset.ok === '1' } })));

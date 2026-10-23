@@ -4,44 +4,63 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>omni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<header class="bar">
-  <strong class="brand">omni</strong>
-  <label class="field" title="A mode is a personality: its own prompt, tools, permissions and memory, with one ongoing conversation.">Mode <select id="mode"></select></label>
-  <span id="model-label" class="muted"></span>
-  <span class="spacer"></span>
-  <span id="imessage-label" class="muted"></span>
-  <div class="budget" title="Free OpenAI tokens used today. Past 85% the agent switches to the light model; at 100% it stops until midnight UTC."><div id="budget-fill"></div><span id="budget-text">–</span></div>
-  <span id="status" class="status">connecting…</span>
-</header>
-<main class="grid">
-  <section class="pane" id="thread-pane">
-    <h2>Conversation <span class="sub">one thread per mode, shared with iMessage</span> <button id="reset" class="ghost" title="Forget this mode's conversation. Memory cartridges are kept.">forget</button></h2>
-    <div id="banner"></div>
-    <div id="messages" class="scroll"></div>
-    <form id="composer"><textarea id="input" rows="2" placeholder="Say something… (Enter sends, Shift+Enter for a new line)"></textarea><button id="send">Send</button></form>
-  </section>
-  <section class="pane" id="operation-pane">
-    <h2>Operation <span class="sub">every step the agent takes, as it happens</span> <span id="counter" class="muted"></span></h2>
-    <div id="filters" class="filters"></div>
-    <div id="live" class="live"></div>
-    <div id="events" class="scroll"></div>
-  </section>
-  <aside class="pane" id="side-pane">
-    <nav class="tabs" id="tabs">
-      <button data-tab="approvals">Approvals <span id="approval-count" class="pill"></span></button>
-      <button data-tab="mode">Mode</button>
-      <button data-tab="memory">Memory</button>
-      <button data-tab="more">More</button>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">om</span>
+      <h1>omni</h1>
+      <p id="status">connecting…</p>
+    </div>
+    <nav>
+      <div class="nav-group" data-nav="modes"><h2>Modes</h2><ul id="nav-modes"></ul></div>
+      <div class="nav-group" data-nav="memory"><h2>Memory</h2><ul id="nav-memory"></ul></div>
+      <div class="nav-group" data-nav="attention"><h2>Attention</h2><ul id="nav-attention"></ul></div>
+      <div class="nav-group" data-nav="setup"><h2>Setup</h2><ul id="nav-setup"></ul></div>
     </nav>
-    <div class="tab scroll" id="tab-approvals"></div>
+    <div class="sidebar-foot">
+      <div class="budget" title="Free OpenAI tokens used today. Past 85% the agent switches to the light model; at 100% it stops until midnight UTC."><div id="budget-fill"></div></div>
+      <div id="budget-text">–</div>
+      <div id="imessage-label"></div>
+      <span id="approval-count" hidden></span>
+    </div>
+  </aside>
+
+  <main>
+    <header class="plate-head">
+      <span class="plate-num" id="mode-num">01</span>
+      <div class="plate-meta"><h4 id="mode-title">…</h4><p id="mode-sub"></p></div>
+      <div class="tags" id="mode-tags"></div>
+    </header>
+    <div class="stages">
+      <section class="stage" id="thread-pane" data-cat="conversation">
+        <h2 class="eyebrow">Conversation <span class="sub">one thread per mode, shared with iMessage</span><button id="reset" class="ghost tiny" title="Forget this mode's conversation. Memory cartridges are kept.">forget</button></h2>
+        <div id="banner"></div>
+        <div id="messages" class="scroll"></div>
+        <form id="composer"><textarea id="input" rows="2" placeholder="Say something… (Enter sends, Shift+Enter for a new line)"></textarea><button id="send">Send</button></form>
+      </section>
+      <section class="stage" id="operation-pane" data-cat="operation">
+        <h2 class="eyebrow">Operation <span class="sub">every step, as it happens</span><span id="counter" class="muted"></span></h2>
+        <div id="filters" class="filters"></div>
+        <div id="live" class="live"></div>
+        <div id="events" class="scroll"></div>
+      </section>
+    </div>
+  </main>
+
+  <aside class="drawer" id="drawer" hidden>
+    <header><h2 class="eyebrow" id="drawer-title"></h2><button id="drawer-close" class="ghost tiny">close</button></header>
+    <div class="tab scroll" id="tab-approvals" hidden></div>
     <div class="tab scroll" id="tab-mode" hidden></div>
     <div class="tab scroll" id="tab-memory" hidden></div>
     <div class="tab scroll" id="tab-more" hidden></div>
   </aside>
-</main>
+</div>
 <script type="module" src="/app.js"></script>
 </body>
 </html>
