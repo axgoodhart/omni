@@ -29,7 +29,9 @@ let last: { at: number; ms: number; decisions: number; waiting: number; paused?:
 let running = false;
 
 export function start() {
-  const n = loopcfg.get().every_min;
+  const cfg = loopcfg.get();
+  if (cfg.paused) { stop(); return; }
+  const n = cfg.every_min;
   if (job && n === everyMin) return;
   stop(); everyMin = n;
   job = new Cron(n < 60 ? `*/${n} * * * *` : `0 */${Math.round(n / 60)} * * *`, { name: 'loop' }, () => { void tick('cron'); });
@@ -63,7 +65,7 @@ function quietEnds(cfg: loopcfg.LoopCfg, tz: string): number | null {
 }
 
 export async function tick(why: string) {
-  if (running) return;
+  if (running || loopcfg.get().paused) return;
   running = true;
   const t0 = Date.now();
   const T: Tick = { why, at: t0, next: null, ms: 0, status: { checkins: '', activity: '', medicine: '', apartment: '', export: '', mail: '', islands: '', quiet: '' }, decisions: [], waiting: [], inaction: [] };

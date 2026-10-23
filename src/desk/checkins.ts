@@ -101,7 +101,11 @@ export async function answer(id: string, k: string, via: string): Promise<string
     case 'snooze-eod': { const ms = untilToday(tz, loopcfg.get().levels.top.end_of_day ?? '21:00'); snooze(c, Date.now() + Math.max(ms, 60_000), via); reply = 'I\'ll come back at end of day.'; break; }
     default: {
       c.state = 'answered'; c.answered = Date.now(); save(c);
-      if (a.type === 'log') { logbook.add(a.kind, via); reply = `Logged ${a.kind}.`; }
+      if (a.type === 'log') {
+        logbook.add(a.kind, via);
+        const time = new Date().toLocaleTimeString([], { timeZone: tz, hour: 'numeric', minute: '2-digit' });
+        reply = a.kind === 'medicine' ? `Your medicine has been logged at ${time}. You can view your medicine history on the desk.` : `Your ${a.kind} entry has been recorded at ${time}.`;
+      }
       if (a.type === 'archive') { archive(c, a.reason); reply = 'Filed, I won\'t ask again.'; }
       if (a.type === 'ignore-sender') { watches.patch({ mail: { ignore: [...new Set([...watches.get().mail.ignore, a.sender])] } }); reply = `I won't ask about ${a.sender} again.`; }
       if (a.type === 'island') { islands.upsert(a.slug, a.patch); reply = 'Updated on the desk.'; }

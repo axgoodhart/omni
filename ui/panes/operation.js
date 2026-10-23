@@ -11,7 +11,6 @@ const GROUPS = {
   budget: { label: 'Budget', help: 'free-token limits kicking in', types: ['budget.refused', 'budget.downgraded'] },
   system: { label: 'System', help: 'startup, mode reloads, errors', types: ['mode.reloaded', 'mode.error', 'daemon.started', 'daemon.listening', 'daemon.stopping', 'server.error', 'error'] },
 };
-const LABEL = { 'prompt.assembled': 'prompt', 'model.request': 'request', reasoning: 'thinking', usage: 'tokens', source: 'source', compaction: 'compacted', 'tool.call': 'tool', 'tool.result': 'result', 'tool.error': 'tool error', 'tool.denied': 'denied', 'memory.write': 'memory', 'cartridges.changed': 'cartridges', 'policy.decision': 'permission', 'approval.requested': 'asking you', 'approval.resolved': 'answered', inbound: 'in', outbound: 'out', 'schedule.tick': 'schedule', 'budget.downgraded': 'budget', 'budget.refused': 'budget', 'mode.reloaded': 'reloaded', 'daemon.started': 'started', 'daemon.listening': 'web', error: 'error', 'loop.tick': 'tick', 'loop.started': 'loop', 'loop.error': 'loop error', 'checkin.opened': 'asked you', 'checkin.sent': 'texted', 'checkin.reminded': 'came back', 'checkin.snoozed': 'snoozed', 'checkin.answered': 'you answered', 'checkin.archived': 'filed', 'out.written': 'out', 'desk.reloaded': 'desk', 'watch.export': 'export', 'watch.mail': 'mail', 'watch.mail_error': 'mail error', 'mail.sorted': 'sorted', 'logbook': 'logged', observation: 'noticed', 'interview.answered': 'interview', 'settings.changed': 'you changed' };
 const groupOf = (type) => Object.keys(GROUPS).find((g) => GROUPS[g].types.includes(type)) ?? 'system';
 const hidden = new Set(JSON.parse(localStorage.getItem('omni.hidden') || '[]'));
 let tokens = 0;
@@ -85,13 +84,15 @@ function tickBlock(d) {
 function row(e) {
   const g = groupOf(e.type);
   if (hidden.has(g)) return '';
+  if (e.type === 'loop.tick' && e.data?.paused) return '';
+  if (e.type === 'checkin.answered' && e.data?.action === 'log') return '';
   if (e.type === 'loop.tick' && e.data?.status) {
     const t = new Date(e.ts).toLocaleTimeString([], { hour12: false });
     return `<div class="ev g-loop tick"><div class="head" title="click for the raw data"><span class="t">${t}</span><span class="sum"><span class="type">tick</span><pre class="tickblock">${esc(tickBlock(e.data))}</pre></span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
   }
   if (e.type === 'usage') tokens += e.data.usage?.totalTokens ?? 0;
   const t = new Date(e.ts).toLocaleTimeString([], { hour12: false });
-  return `<div class="ev g-${g} ${e.type === 'error' ? 'error' : ''}"><div class="head" title="click for the raw data"><span class="t">${t}</span><span class="sum"><span class="type">${esc(LABEL[e.type] ?? e.type)}</span>${esc(summary(e))}</span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
+  return `<div class="ev g-${g} ${e.type === 'error' ? 'error' : ''}"><div class="head" title="click for the raw data"><span class="t">${t}</span><span class="sum">${esc(summary(e))}</span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
 }
 
 const j = (v, n = 160) => { const s = typeof v === 'string' ? v : JSON.stringify(v) ?? ''; return s.length > n ? `${s.slice(0, n)}…` : s; };
@@ -135,7 +136,7 @@ function summary(e) {
     case 'watch.export': return `New in the export folder: ${(d.fresh || []).join(', ')}`;
     case 'watch.mail': return `Read ${d.fresh} new message${d.fresh === 1 ? '' : 's'}`;
     case 'mail.sorted': return `Triage sorted ${d.sorted} of ${d.of}`;
-    case 'logbook': return `Logged ${d.kind} via ${d.via}`;
+    case 'logbook': return d.kind === 'medicine' ? 'Your medicine has been logged.' : d.kind === 'chores' ? 'Your apartment chores have been logged.' : `Recorded an entry in ${d.kind}.`;
     case 'observation': return `Noted: ${d.text}`;
     case 'interview.answered': return `Interview: answered ${d.id}${d.done ? ' — done' : ''}`;
     case 'schedule.loaded': return `${(d.jobs || []).length} scheduled runs loaded`;
