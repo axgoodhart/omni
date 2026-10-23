@@ -57,9 +57,36 @@ function wire(root) {
   root.querySelectorAll('.head').forEach((h) => h.addEventListener('click', () => { const ev = h.parentElement; ev.classList.toggle('open'); const pre = h.nextElementSibling; pre.hidden = !pre.hidden; }));
 }
 
+const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function tickBlock(d) {
+  const s = d.status || {}, dec = d.decisions || [], w = d.waiting || [], ina = d.inaction || [];
+  const L = [];
+  L.push(`TICK — ${new Date(d.at).toLocaleDateString([], { weekday: 'short' })} @ ${hm(d.at)}${d.why !== 'cron' ? ` (${d.why})` : ''}${d.next ? ` · next ${hm(d.next)}` : ''}`);
+  L.push('• CURRENT STATUS');
+  L.push(`•• Check-ins: ${s.checkins}`);
+  L.push(`•• Activity: ${s.activity}`);
+  L.push(`•• Medicine: ${s.medicine}`);
+  L.push(`•• Apartment: ${s.apartment}`);
+  L.push(`•• Export folder: ${s.export}`);
+  L.push(`•• Email: ${s.mail}`);
+  L.push(`•• Islands: ${s.islands}`);
+  L.push('• DECISIONS');
+  L.push(`•• Total: ${dec.length}`);
+  dec.forEach((x, i) => L.push(`•••• ${i + 1}. ${x}`));
+  L.push(`•• Waiting on you: ${w.length}`);
+  w.forEach((x, i) => L.push(`•••• ${i + 1}. ${x.what} — asked ${hm(x.since)}; ${x.next}`));
+  L.push(`•• Looked at and left, with reason: ${ina.length}`);
+  ina.forEach((x) => L.push(`•••• ${x.what}: ${x.why}`));
+  return L.join('\n');
+}
+
 function row(e) {
   const g = groupOf(e.type);
   if (hidden.has(g)) return '';
+  if (e.type === 'loop.tick' && e.data?.status) {
+    const t = new Date(e.ts).toLocaleTimeString([], { hour12: false });
+    return `<div class="ev g-loop tick"><div class="head" title="click for the raw data"><span class="t">${t}</span><span class="sum"><span class="type">tick</span><pre class="tickblock">${esc(tickBlock(e.data))}</pre></span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
+  }
   if (e.type === 'usage') tokens += e.data.usage?.totalTokens ?? 0;
   const t = new Date(e.ts).toLocaleTimeString([], { hour12: false });
   return `<div class="ev g-${g} ${e.type === 'error' ? 'error' : ''}"><div class="head" title="click for the raw data"><span class="t">${t}</span><span class="sum"><span class="type">${esc(LABEL[e.type] ?? e.type)}</span>${esc(summary(e))}</span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;

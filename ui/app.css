@@ -249,7 +249,9 @@ pre { font-family: var(--mono); font-size: 0.74rem; line-height: 1.5; background
 .kv span { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--paper-dim); padding-top: 0.2rem; }
 .kv b { font-weight: 400; word-break: break-all; }
 pre.tall { max-height: 70vh; }
-.ev.g-loop .type { color: var(--clay); } .c-loop { background: var(--clay); color: var(--clay); }
+.ev.g-loop .type { color: var(--clay); }
+.ev.tick .sum { white-space: normal; }
+.tickblock { display: block; background: transparent; border: 0; padding: 0.2rem 0 0; margin: 0; color: var(--paper); font-size: 0.78rem; line-height: 1.6; max-height: none; white-space: pre-wrap; } .c-loop { background: var(--clay); color: var(--clay); }
 
 /* ---------- interview ---------- */
 .interview { position: fixed; inset: 0; z-index: 50; background: radial-gradient(ellipse 60% 50% at 50% 35%, color-mix(in srgb, var(--brass) 7%, transparent), transparent 70%), var(--ink); display: flex; align-items: center; justify-content: center; overflow: hidden; }

@@ -12,7 +12,7 @@ export function renderDesk() {
 
 function renderStrip(d) {
   const l = d.loop, last = l.last;
-  $('#loopstrip').innerHTML = `<span class="k">loop</span>${last ? `<span>last tick ${hm(last.at)}</span><span>did <b>${last.did}</b></span><span>left <b>${last.left}</b> alone</span><span>${last.ms}ms</span>` : '<span>has not ticked yet</span>'}<span>next ${l.next ? hm(l.next) : '–'}</span>${l.busy?.length ? `<span class="busy">working: ${esc(l.busy.join(', '))}</span>` : ''}<span class="spacer"></span><button class="ghost tiny" id="strip-tick">tick now</button><button class="ghost tiny" id="strip-loop">open the log</button>`;
+  $('#loopstrip').innerHTML = `<span class="k">loop</span>${last ? `<span>last tick ${hm(last.at)}</span><span><b>${last.decisions}</b> decision${last.decisions === 1 ? '' : 's'}</span><span><b>${last.waiting}</b> waiting on you</span><span>${last.ms}ms</span>` : '<span>has not ticked yet</span>'}<span>next ${l.next ? hm(l.next) : '–'}</span>${l.busy?.length ? `<span class="busy">working: ${esc(l.busy.join(', '))}</span>` : ''}<span class="spacer"></span><button class="ghost tiny" id="strip-tick">tick now</button><button class="ghost tiny" id="strip-loop">open the log</button>`;
   $('#strip-tick').addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); deskSoon(); });
   $('#strip-loop').addEventListener('click', () => import('../app.js').then((m) => m.showView('loop')));
 }
