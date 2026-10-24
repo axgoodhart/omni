@@ -6,7 +6,7 @@ import { showInterview, maybeShowInterview } from './panes/interview.js';
 import { renderSettings } from './panes/settings.js';
 import { $, api, esc, fmt, ic } from './lib.js';
 
-export const state = { view: localStorage.getItem('omni.view') || 'desk', mode: null, data: null, desk: null, thread: null, events: [], busy: false };
+export const state = { view: new URLSearchParams(location.search).get('view') || localStorage.getItem('omni.view') || 'desk', mode: null, data: null, desk: null, thread: null, events: [], busy: false };
 const pad = (n) => String(n).padStart(2, '0');
 const KIND_ICON = { make: 'brush', research: 'search', build: 'construction', story: 'menu_book', grow: 'potted_plant', open: 'radio_button_unchecked' };
 export const kindIcon = (k) => ic(KIND_ICON[k] ?? 'radio_button_unchecked');
@@ -18,6 +18,7 @@ export async function refresh() {
   if (!state.mode || !state.data.modes.some((m) => m.name === state.mode)) state.mode = localStorage.getItem('omni.mode') || state.data.modes.find((m) => m.name === 'assistant')?.name || state.data.modes[0]?.name || null;
   await loadDesk();
   renderShell();
+  if (state.view === 'settings') await renderSettings(); // a reload on Config used to come up blank
   await loadThread();
   renderSide();
   maybeShowInterview();

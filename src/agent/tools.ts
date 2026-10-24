@@ -49,19 +49,22 @@ export type ToolCtx = { mode: Mode; inserted: string[] };
 export function buildTools(ctx: ToolCtx): ToolSet {
   const thread = ctx.mode.name;
   const cart = (name: string) => {
-    if (!ctx.inserted.includes(name)) throw new Error(`cartridge "${name}" is not inserted (inserted: ${ctx.inserted.join(', ') || 'none'})`);
-    return cartridges.get(name);
+    if (ctx.inserted.includes(name)) return cartridges.get(name);
+    if (ctx.inserted.length === 1) return cartridges.get(ctx.inserted[0]); // one cartridge in: a wrong name can only mean that one
+    throw new Error(`No cartridge "${name}" is inserted. Inserted: ${ctx.inserted.join(', ') || 'none'}. A path is "<cartridge>" to list its notes, or "<cartridge>/<note>.md" to read one.`);
   };
+  const named = ctx.inserted.join(', ') || 'none';
   const split = (p: string) => { const [name, ...rest] = p.replace(/^\/+/, '').split('/'); return { name, rel: rest.join('/') }; };
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 
   const all: ToolSet = {
     memory_view: tool({
-      description: 'List a cartridge\'s memory files ("cartridge") or read one ("cartridge/file.md").',
+      description: `Read Omnii's memory. Inserted cartridges: ${named}. Path "<cartridge>" lists its notes; "<cartridge>/<note>.md" reads one.`,
       inputSchema: z.object({ path: z.string() }),
       execute: async ({ path: p }) => {
         const { name, rel } = split(p); const c = cart(name);
-        return rel ? { path: p, content: cap(files.read(c.memoriesDir, rel)) } : { cartridge: name, files: c.files };
+        const note = c.name !== name ? { note: `No cartridge "${name}"; this is "${c.name}", the only one inserted.` } : {};
+        return rel ? { path: `${c.name}/${rel}`, content: cap(files.read(c.memoriesDir, rel)), ...note } : { cartridge: c.name, files: c.files, ...note };
       },
     }),
     memory_search: tool({
