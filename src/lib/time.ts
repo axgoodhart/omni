@@ -9,12 +9,12 @@ export function parts(tz: string, d = new Date()): Parts {
   return { date: `${o.year}-${o.month}-${o.day}`, hm: `${String(hour).padStart(2, '0')}:${o.minute}`, minutes: hour * 60 + Number(o.minute), weekday: o.weekday.toLowerCase() };
 }
 export const hmToMinutes = (hm: string) => { const [h, m] = hm.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
-/** "90m", "2h", "1h30m", "45" (minutes) → ms */
+/** "90m", "2h", "1h30m", "0.5d", "1w", "45" (minutes) → ms */
 export function duration(s: string | number | undefined, fallbackMs: number) {
   if (s == null || s === '') return fallbackMs;
   if (typeof s === 'number') return s * 60_000;
   let ms = 0, found = false;
-  for (const [, n, u] of s.matchAll(/(\d+)\s*([hmd]?)/g)) { found = true; ms += Number(n) * (u === 'h' ? 3_600_000 : u === 'd' ? 86_400_000 : 60_000); }
+  for (const [, n, u] of s.matchAll(/(\d+(?:\.\d+)?)\s*([hmdw]?)/g)) { found = true; ms += Number(n) * (u === 'h' ? 3_600_000 : u === 'd' ? 86_400_000 : u === 'w' ? 604_800_000 : 60_000); }
   return found ? ms : fallbackMs;
 }
 /** ms from now until local HH:MM today (negative if passed). */

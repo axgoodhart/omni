@@ -1,5 +1,6 @@
 import { $, api, esc, ic } from '../lib.js';
 import { state, loadThread } from '../app.js';
+import { describeCall, describeResult, askCard, wireAsks } from '../describe.js';
 
 let streaming = null, buffer = '';
 
@@ -7,11 +8,18 @@ export function renderThread() {
   const box = $('#messages');
   const msgs = state.thread?.messages ?? [];
   renderBanner();
+  const parts = msgs.flatMap((m) => m.parts ?? []);
+  seen = {
+    result: new Map(parts.filter((p) => p.type === 'tool-result').map((p) => [p.toolCallId, p])),
+    asked: new Map(parts.filter((p) => p.type === 'ask' && !p.automatic).map((p) => [p.toolCallId, p.approvalId])),
+    answer: new Map(parts.filter((p) => p.type === 'approval').map((p) => [p.approvalId, p])),
+  };
   box.innerHTML = msgs.length ? msgs.map(renderMessage).join('') : intro();
-  box.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => { const pre = c.nextElementSibling; if (pre) pre.hidden = !pre.hidden; }));
+  box.querySelectorAll('.step-line').forEach((b) => b.addEventListener('click', () => { const pre = b.nextElementSibling; pre.hidden = !pre.hidden; }));
   if (streaming) box.appendChild(streaming);
   box.scrollTop = box.scrollHeight;
 }
+let seen = { result: new Map(), asked: new Map(), answer: new Map() };
 
 function intro() {
   const m = state.data?.modes.find((x) => x.name === state.mode);
@@ -23,27 +31,29 @@ function renderBanner() {
   const pending = (state.data?.pending ?? []).filter((p) => p.thread === state.mode);
   const b = $('#banner');
   if (!pending.length) { b.innerHTML = ''; return; }
-  const p = pending[0];
-  b.innerHTML = `<div class="banner"><span>Paused: it wants to run <b>${esc(p.toolName)}</b>${p.reason ? ` — ${esc(p.reason)}` : ''}.</span><span class="spacer"></span><button data-ok="1">Allow</button><button class="danger" data-ok="0">Deny</button></div>`;
-  b.querySelectorAll('button').forEach((btn) => btn.addEventListener('click', () => api(`/api/approvals/${encodeURIComponent(p.approvalId)}`, { method: 'POST', body: { approved: btn.dataset.ok === '1' } })));
+  b.innerHTML = askCard(pending[0]);
+  wireAsks(b);
 }
 
 function renderMessage(m) {
   const texts = m.parts.filter((p) => p.type === 'text').map((p) => p.text).join('\n');
-  const tools = m.parts.filter((p) => p.type !== 'text' && p.type !== 'reasoning');
   if (m.role === 'user') {
     const mm = /^(\[[^\]]+\])\n?([\s\S]*)$/.exec(texts);
+    const disc = /About this check-in: "(.*)"\. The user chose "(.*)"/s.exec(mm ? mm[2] : texts);
+    if (disc) return `<div class="msg note">From a check-in: you chose ${esc(disc[2])} on “${esc(disc[1].replace(/[:.\s]+$/, ''))}”.</div>`;
     return `<div class="msg user">${mm ? `<span class="ctx">${esc(mm[1])}</span>${esc(mm[2])}` : esc(texts)}</div>`;
   }
-  if (m.role === 'tool') return `<div class="msg tool">${tools.map(chip).join('')}</div>`;
-  return `${tools.length ? `<div class="msg tool">${tools.map(chip).join('')}</div>` : ''}${texts ? `<div class="msg assistant">${esc(texts)}</div>` : ''}`;
+  if (m.role === 'tool') return ''; // results and answers are shown with the step they belong to
+  const calls = m.parts.filter((p) => p.type === 'tool-call');
+  return `${calls.length ? `<div class="steps">${calls.map(step).join('')}</div>` : ''}${texts ? `<div class="msg assistant">${esc(texts)}</div>` : ''}`;
 }
 
-function chip(p) {
-  if (p.type === 'tool-call') return `<span class="chip call" data-tip="Click for details">used ${esc(p.toolName)}</span><pre hidden>${esc(JSON.stringify(p.input, null, 2))}</pre>`;
-  if (p.type === 'tool-result') return `<span class="chip" data-tip="Click for details">${esc(p.toolName)} result</span><pre hidden>${esc(typeof p.output === 'string' ? p.output : JSON.stringify(p.output, null, 2))}</pre>`;
-  if (p.type === 'approval') return `<span class="chip approval">you ${p.approved ? 'allowed' : 'denied'} it${p.reason ? `: ${esc(p.reason)}` : ''}</span>`;
-  return `<span class="chip">${esc(p.type)}</span>`;
+/** One line per step: what it did, how it went, and whether it asked you. */
+function step(c) {
+  const r = seen.result.get(c.toolCallId), id = seen.asked.get(c.toolCallId), a = id ? seen.answer.get(id) : null;
+  const asked = id ? (a ? (a.approved ? 'you allowed it' : 'you said no') : 'waiting for you') : '';
+  const out = r && !(a && !a.approved) ? describeResult(c.toolName, c.input, r.output) : '';
+  return `<div class="step"><button type="button" class="step-line">${esc(describeCall(c.toolName, c.input))}${out ? ` — ${esc(out)}` : ''}${asked ? `<span class="asked">${asked}</span>` : ''}</button><pre hidden>${esc(JSON.stringify({ asked: c.input, got: r?.output ?? null }, null, 2))}</pre></div>`;
 }
 
 export function startStreaming() {

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { emit } from '../events/log.ts';
 import { getEnv, setEnv } from './env.ts';
+import * as allowed from './allowed.ts';
 import * as islands from './islands.ts';
 import * as logbook from './logbook.ts';
 import * as loopcfg from './loopcfg.ts';
@@ -10,10 +11,11 @@ import * as profile from './profile.ts';
 import * as store from './store.ts';
 import * as trust from './trust.ts';
 import * as watches from './watches.ts';
+import * as exportsWatch from '../loop/exports.ts';
 import { readRaw, writeRaw } from './store.ts';
 
 /**
- * One place that reads and writes every setting the "What I do" page shows. Each change is one dotted key,
+ * One place that reads and writes every setting the Config page shows. Each change is one dotted key,
  * routed to the file that owns it, and written to the log as "you changed X from A to B".
  */
 export function get() {
@@ -24,6 +26,7 @@ export function get() {
     reach: { handle: getEnv('ALLOWED_HANDLES') },
     islands: islands.list().map(({ notes, ...i }) => ({ ...i, priority: priorities.ofIsland(i.slug) })),
     observations: observations.list(),
+    allowed: allowed.list(),
     logbook: { medicine: logbook.last('medicine'), chores: logbook.last('chores') },
   };
 }
@@ -32,7 +35,8 @@ const nest = (path: string[], value: unknown): Record<string, any> => path.reduc
 const pick = (obj: any, path: string[]) => path.reduce((o, k) => (o == null ? undefined : o[k]), obj);
 const asBool = (v: unknown) => v === true || v === 'true' || v === 1 || v === '1';
 const asTime = (v: unknown) => priorities.normTimeStr(String(v));
-const asDur = (v: unknown) => { const s = String(v).trim(); if (!/^\d+\s*[mhd]?$/.test(s)) throw new Error('use a number of minutes, like 90m, or hours, like 2h, or days, like 1d'); return s.replace(/\s+/g, ''); };
+const asDur = (v: unknown) => { const s = String(v).trim(); if (!/^\d+(\.\d+)?\s*[mhdw]?$/.test(s)) throw new Error('use minutes like 90m, hours like 2h, days like 1d, or weeks like 1w'); return s.replace(/\s+/g, ''); };
+const asVia = (v: unknown) => { if (!loopcfg.VIA.includes(v as loopcfg.Via)) throw new Error('use desk, phone or both'); return v as loopcfg.Via; };
 const asDays = (v: unknown) => { const D = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']; const list = Array.isArray(v) ? v : String(v).toLowerCase().split(/[\s,]+/); return list.map((x) => String(x).slice(0, 3).toLowerCase()).filter((x) => D.includes(x)); };
 const asLevel = (v: unknown) => { if (!['top', 'normal', 'low'].includes(String(v))) throw new Error('priority is top, normal or low'); return String(v) as priorities.Level; };
 
@@ -47,12 +51,13 @@ export function set(key: string, value: unknown, by = 'web') {
       from = pick(before.loop, rest);
       if (v === 'every_min') to = Math.max(1, Math.min(120, Number(value) || 5));
       else if (v === 'paused') to = asBool(value);
-      else if (v === 'max_open') to = Math.max(1, Math.min(10, Number(value) || 1));
+      else if (v === 'max_open') to = Math.max(1, Math.min(5, Number(value) || 1));
       else if (v === 'quiet') to = value ? { from: asTime((value as any).from), to: asTime((value as any).to) } : null;
       else if (v === 'quiet.from' || v === 'quiet.to') to = asTime(value);
-      else if (v === 'ask.text' || v.endsWith('.text')) to = asBool(value);
-      else if (v.endsWith('.remind_after') || v.endsWith('.file_after')) to = asDur(value);
-      else if (v.endsWith('.end_of_day')) to = asTime(value);
+      else if (v === 'via' || v.endsWith('.via')) to = asVia(value);
+      else if (v.endsWith('_after')) to = asDur(value);
+      else if (v.endsWith('_times')) to = Math.max(1, Math.min(3, Number(value) || 1));
+      else if (v.endsWith('.stop') || v.endsWith('.stop_text')) to = asBool(value);
       else throw new Error(`unknown setting ${key}`);
       if (v === 'quiet' && to === null) { const { data, body } = store.readFm('loop.md'); data.quiet = null; store.writeFm('loop.md', data, body); }
       else loopcfg.patch(nest(rest, to));
@@ -72,8 +77,8 @@ export function set(key: string, value: unknown, by = 'web') {
     }
     case 'watches': {
       from = pick(before.watches, rest);
-      if (key === 'watches.export.path') to = String(value ?? '').trim().replace(/^~/, process.env.HOME ?? '~');
-      else if (key === 'watches.mail.unsub_threshold') to = Math.max(1, Math.min(50, Number(value) || 3));
+      if (key === 'watches.export.path') { to = String(value ?? '').trim().replace(/^~/, process.env.HOME ?? '~'); exportsWatch.setFolder(String(to)); break; }
+      if (key === 'watches.mail.unsub_threshold') to = Math.max(1, Math.min(50, Number(value) || 3));
       else throw new Error(`unknown setting ${key}`);
       watches.patch(nest(rest, to));
       break;
@@ -109,6 +114,11 @@ export function set(key: string, value: unknown, by = 'web') {
       writeRaw('observations.md', raw.split('\n').filter((l) => !(l.startsWith('- ') && l.endsWith(` · ${value}`))).join('\n'));
       break;
     }
+    case 'allowed': {
+      if (rest[0] !== 'remove') throw new Error(`unknown setting ${key}`);
+      allowed.remove(Number(value)); // records its own event
+      return { key, from: undefined, to: null };
+    }
     case 'trust': throw new Error('Sending for real is not available yet. Everything stays written to the out/ folder.');
     default: throw new Error(`unknown setting ${key}`);
   }
@@ -124,11 +134,14 @@ export function removeIsland(slug: string, by = 'web') {
   return { ok: true };
 }
 
+const LEVEL_LABELS = Object.fromEntries((['top', 'normal', 'low'] as const).flatMap((l) => [
+  [`loop.levels.${l}.via`, `where ${l}-priority questions go`], [`loop.levels.${l}.first_after`, `${l} priority: wait before each quick nudge`], [`loop.levels.${l}.first_times`, `${l} priority: number of quick nudges`],
+  [`loop.levels.${l}.second_after`, `${l} priority: wait before each slower nudge`], [`loop.levels.${l}.second_times`, `${l} priority: number of slower nudges`], [`loop.levels.${l}.stop`, `${l} priority: file after the slower nudges`], [`loop.levels.${l}.stop_text`, `${l} priority: text you when it's filed`],
+]));
 /** Plain-English labels for the change log. */
 export const LABELS: Record<string, string> = {
-  'loop.every_min': 'how often Omnii looks (minutes)', 'loop.paused': 'paused', 'loop.max_open': 'how many questions Omnii may have out at once', 'loop.quiet': 'quiet hours', 'loop.quiet.from': 'quiet hours start', 'loop.quiet.to': 'quiet hours end', 'loop.ask.text': 'whether new questions are texted',
-  'loop.levels.top.remind_after': 'how long before a top-priority reminder', 'loop.levels.top.end_of_day': 'when top-priority questions are filed', 'loop.levels.top.text': 'whether top-priority questions are texted',
-  'loop.levels.normal.file_after': 'how long normal questions wait before filing', 'loop.levels.normal.text': 'whether normal questions are texted', 'loop.levels.low.file_after': 'how long low questions wait before filing', 'loop.levels.low.text': 'whether low questions are texted',
+  'loop.every_min': 'how often Omnii looks (minutes)', 'loop.paused': 'paused', 'loop.max_open': 'how many questions Omnii may have out at once', 'loop.quiet': 'quiet hours', 'loop.quiet.from': 'quiet hours start', 'loop.quiet.to': 'quiet hours end', 'loop.via': 'where questions reach you',
+  ...LEVEL_LABELS,
   'priorities.medicine.time': 'medicine time', 'priorities.medicine.priority': 'medicine priority', 'priorities.medicine.enabled': 'medicine rhythm on', 'priorities.chores.days': 'apartment days', 'priorities.chores.time': 'apartment time', 'priorities.chores.priority': 'apartment priority', 'priorities.chores.enabled': 'apartment rhythm on',
-  'watches.export.path': 'finished-work folder', 'watches.mail.unsub_threshold': 'messages per week before Omnii asks about unsubscribing', 'profile.name': 'your name', 'profile.timezone': 'your timezone', 'profile.writing': 'where your writing lives', 'profile.site': 'where your site lives', 'reach.handle': 'the number Omnii texts', 'mail.host': 'mail server', 'mail.user': 'mail address', 'mail.pass': 'mail app password',
+  'allowed.remove': 'an always-allowed action', 'watches.export.path': 'finished-work folder', 'watches.mail.unsub_threshold': 'messages per week before Omnii asks about unsubscribing', 'profile.name': 'your name', 'profile.timezone': 'your timezone', 'profile.writing': 'where your writing lives', 'profile.site': 'where your site lives', 'reach.handle': 'the number Omnii texts', 'mail.host': 'mail server', 'mail.user': 'mail address', 'mail.pass': 'mail app password',
 };

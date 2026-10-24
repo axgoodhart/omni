@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { readFm, patchFm, exists, writeFm } from './store.ts';
 import { getEnv, setEnv } from './env.ts';
 import type { Surface } from '../interview/types.ts';
@@ -11,6 +13,8 @@ export function get(): Watches {
 }
 export const patch = (p: Record<string, any>) => { ensure(); patchFm(FILE, p); };
 export const mailConfigured = () => !!(getEnv('IMAP_HOST') && getEnv('IMAP_USER') && getEnv('IMAP_PASS'));
+/** The files directly in a folder, hidden ones left out. */
+export const filesIn = (dir: string) => { try { return fs.readdirSync(dir).filter((f) => !f.startsWith('.') && fs.statSync(path.join(dir, f)).isFile()).sort(); } catch { return []; } };
 
 export const surface: Surface = {
   name: 'watches',
@@ -22,7 +26,7 @@ export const surface: Surface = {
   ],
   apply: (id, value) => {
     ensure();
-    if (id === 'watch.export') patch({ export: { path: value.trim().replace(/^~/, process.env.HOME ?? '~') } });
+    if (id === 'watch.export') { const dir = value.trim().replace(/^~/, process.env.HOME ?? '~'); patch({ export: { path: dir, seen: filesIn(dir) } }); } // what's already there is known, not new
     if (id === 'watch.mail_host' && value) setEnv('IMAP_HOST', value.trim());
     if (id === 'watch.mail_user' && value) setEnv('IMAP_USER', value.trim());
     if (id === 'watch.mail_pass' && value) setEnv('IMAP_PASS', value);

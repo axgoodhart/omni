@@ -41,7 +41,7 @@ export async function loadThread() {
   const thread = state.view === 'loop' ? 'loop' : state.mode;
   if (!thread) return;
   if (state.view !== 'loop') state.thread = await api(`/api/threads/${encodeURIComponent(state.mode)}`);
-  state.events = await api(`/api/events?thread=${encodeURIComponent(thread)}&limit=400`);
+  state.events = await api(state.view === 'loop' ? '/api/events?limit=800' : `/api/events?thread=${encodeURIComponent(thread)}&limit=400`); // History shows every thread
   renderThread(); renderEvents();
 }
 
@@ -70,8 +70,8 @@ export function renderShell() {
 
   $('#nav-desk').innerHTML = navItem(ic('desktop_windows'), 'desk', `data-view="desk" data-tip="Everything Omnii looks at and asks about, in one place"`, act('desk'))
     + navItem(needs ? `<b>${needs}</b>` : ic('check_circle'), needs ? 'needs you' : 'nothing waiting', `data-drawer="approvals" data-tip="${needs ? `${needs} thing${needs === 1 ? '' : 's'} waiting on your answer` : 'No questions or approvals are waiting on you'}"`, needs ? 'alert' : '')
-    + navItem(ic('tune'), 'what Omnii does', `data-view="settings" data-tip="Omnii's rules, as sentences you can change"`, act('settings'))
-    + navItem(ic('history'), 'what Omnii did', `data-view="loop" data-tip="Every look: what Omnii saw, decided, and left alone"`, act('loop'), `<span class="count">${loopNote}</span>`);
+    + navItem(ic('tune'), 'config', `data-view="settings" data-tip="Omnii's rules, one per line"`, act('settings'))
+    + navItem(ic('history'), 'history', `data-view="loop" data-tip="Every look: what Omnii saw, decided, and left alone"`, act('loop'), `<span class="count">${loopNote}</span>`);
   $('#nav-islands').innerHTML = (d.desk?.islands ?? []).map((i) => navItem(kindIcon(i.kind), esc(i.name), `data-island="${esc(i.slug)}" data-tip="${esc(i.kind)} · ${esc(i.position)} · ${esc(i.stages[i.stage] ?? '')}"`)).join('')
     + (d.desk?.islands?.length ? '' : navItem(ic('add'), 'run the interview', `data-interview="1" data-tip="A short set of questions that fills in the desk"`));
   $('#nav-modes').innerHTML = d.modes.map((m, i) => navItem(pad(i + 1), esc(m.name), `data-mode="${esc(m.name)}" data-tip="${esc(m.voice || m.model)}"`, m.name === state.mode && state.view === 'thread' ? 'active' : '', m.busy ? '<span class="live" data-tip="working"></span>' : '')).join('');
@@ -98,8 +98,8 @@ export function renderShell() {
   $('#view-thread').hidden = state.view === 'desk' || state.view === 'settings';
   $('#thread-pane').hidden = state.view === 'loop';
   $('#view-thread').classList.toggle('single', state.view === 'loop');
-  $('#op-title').textContent = state.view === 'loop' ? 'Loop' : 'Operation';
-  $('#op-head').dataset.tip = state.view === 'loop' ? 'Every look, newest last: what Omnii saw, what it decided, what is waiting on you, and what it left alone with the reason.' : 'Every step as it happens: the prompt it was given, its reasoning, each tool it used, what was allowed or blocked, and what it cost. Click a row for the raw data.';
+  $('#op-title').textContent = state.view === 'loop' ? 'Everything' : 'What it did';
+  $('#op-head').dataset.tip = state.view === 'loop' ? 'Everything Omnii did, one card per conversation, look, answer or change, newest last. Open a card for its steps; open a step for the raw record.' : 'What this mode did, one card per conversation. Open a card for its steps; open a step for the raw record.';
 
   const title = (num, text, tip) => { $('#mode-num').innerHTML = num; $('#mode-title').textContent = text; $('#mode-title').dataset.tip = tip; };
   if (state.view === 'desk') {
@@ -109,12 +109,12 @@ export function renderShell() {
     return;
   }
   if (state.view === 'settings') {
-    title(ic('tune'), 'What Omnii does', 'Every sentence on this page is a rule Omnii follows. Change the numbers and Omnii changes. Omnii never edits this page itself.');
+    title(ic('tune'), 'Config', 'Every line on this page is a rule Omnii follows. Change one and Omnii changes. Omnii never edits this page itself.');
     $('#mode-tags').innerHTML = '';
     return;
   }
   if (state.view === 'loop') {
-    title(ic('history'), 'What Omnii did', `A look every ${l?.everyMin ?? '?'} minutes. Omnii reads its own log, checks the agents, looks at what it watches, and may do a handful of bounded things. It writes down what it decided, including nothing.`);
+    title(ic('history'), 'History', `A look every ${l?.everyMin ?? '?'} minutes. Omnii reads its own log, checks the agents, looks at what it watches, and may do a handful of bounded things. It writes down what it decided, including nothing.`);
     $('#mode-tags').innerHTML = `<span class="plate-tag clay" data-tip="When Omnii next looks">${ic('schedule')}<b>${l?.next ? hm(l.next) : '–'}</b></span><button type="button" class="icon-btn small" id="tick-now" data-tip="Look now" aria-label="Look now">${ic('refresh')}</button>`;
     $('#tick-now')?.addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); refreshSoon(); });
     return;
@@ -137,7 +137,7 @@ function connect() {
     const shownThread = state.view === 'loop' ? 'loop' : state.mode;
     if (e.thread === 'loop' && DESK_EVENTS.includes(e.type)) { deskSoon(); if (state.view === 'settings' && e.type === 'desk.reloaded') renderSettings(); }
     if (e.type === 'checkin.opened' && state.view !== 'desk') openDrawer('approvals');
-    if (e.thread && e.thread !== shownThread) { if (['approval.requested', 'approval.resolved', 'usage', 'mode.reloaded', 'inbound', 'outbound'].includes(e.type)) refreshSoon(); return; }
+    if (e.thread && e.thread !== shownThread && state.view !== 'loop') { if (['approval.requested', 'approval.resolved', 'usage', 'mode.reloaded', 'inbound', 'outbound'].includes(e.type)) refreshSoon(); return; }
     if (!e.id) { pushLive(e); if (e.type === 'text.delta') onDelta(e.data.text); return; }
     state.events.push(e); pushEvent(e);
     if (state.view === 'thread') {

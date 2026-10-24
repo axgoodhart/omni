@@ -1,7 +1,4 @@
 ---
-defaults:
-  remind_after: 90m
-  end_of_day: 21:00
 medicine:
   priority: top
   time: 09:00
@@ -17,6 +14,4 @@ islands:
 ---
 
 Priorities are yours. The loop reads them and never changes them.
-top: it asks, comes back once after remind_after, archives the question at end_of_day.
-normal: it asks once, archives after a day of silence.
-low: it asks once, quietly, and archives after a day.
+Which priority each rhythm and island has, plus when the rhythms happen. What each priority does when you don't answer is in loop.md.

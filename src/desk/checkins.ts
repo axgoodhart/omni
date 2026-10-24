@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../db.ts';
-import { emit } from '../events/log.ts';
+import { activity, emit } from '../events/log.ts';
 import * as outbound from '../channels/outbound.ts';
 import * as runner from '../agent/runner.ts';
 import { duration, untilToday } from '../lib/time.ts';
@@ -59,15 +59,21 @@ export function ask(input: { kind?: 'ask' | 'nudge'; priority: Level; title: str
   return c;
 }
 async function send(c: Checkin, why: string) {
-  if (!outbound.channels().includes('imessage')) return;
+  if (!outbound.channels().includes('imessage')) { if (c.heldUntil) { c.heldUntil = null; save(c); } return; }
   try { await outbound.send('imessage', null, text(c)); c.texted = true; c.heldUntil = null; save(c); emit('checkin.sent', 'loop', { id: c.id, why }); }
   catch (e) { emit('checkin.send_error', 'loop', { id: c.id, error: (e as Error).message }); }
 }
-/** Quiet hours are over: text what was held. */
+/** Quiet hours are over: text what was held. The wait before the next nudge starts now. */
 export function releaseHeld(): Checkin[] {
   const due = live().filter((c) => c.heldUntil && c.heldUntil <= Date.now() && c.state === 'open');
-  for (const c of due) void send(c, 'quiet hours over');
+  for (const c of due) { c.lastSent = Date.now(); save(c); void send(c, 'quiet hours over'); }
   return due;
+}
+/** A text that isn't a question, e.g. that one was filed. */
+export async function notify(line: string, why: string) {
+  if (!outbound.channels().includes('imessage')) return;
+  try { await outbound.send('imessage', null, line); emit('checkin.notified', 'loop', { line, why }); }
+  catch (e) { emit('checkin.send_error', 'loop', { error: (e as Error).message }); }
 }
 /** Come back about a snoozed or silent check-in. */
 export function remind(c: Checkin, why: string, d: Delivery = { text: true }) {
@@ -86,7 +92,8 @@ export function archive(c: Checkin, reason: string) {
 }
 
 /** Answer with an option letter. Returns a one-line confirmation for the channel that answered. */
-export async function answer(id: string, k: string, via: string): Promise<string> {
+export const answer = (id: string, k: string, via: string): Promise<string> => activity('answer', 'loop', () => answerNow(id, k, via));
+async function answerNow(id: string, k: string, via: string): Promise<string> {
   const c = get(id);
   if (!c) throw new Error('no such check-in');
   if (c.state === 'answered' || c.state === 'archived') return `Already ${c.state}.`;
@@ -98,7 +105,7 @@ export async function answer(id: string, k: string, via: string): Promise<string
   let reply = `Noted: ${o.label}.`;
   switch (a.type) {
     case 'snooze': snooze(c, Date.now() + duration(a.for, 90 * 60_000), via); reply = `Omnii will come back in ${a.for}.`; break;
-    case 'snooze-eod': { const ms = untilToday(tz, loopcfg.get().levels.top.end_of_day ?? '21:00'); snooze(c, Date.now() + Math.max(ms, 60_000), via); reply = 'Omnii will come back at end of day.'; break; }
+    case 'snooze-eod': { const ms = untilToday(tz, loopcfg.endOfDay(loopcfg.get())); snooze(c, Date.now() + Math.max(ms, 60_000), via); reply = 'Omnii will come back at end of day.'; break; }
     default: {
       c.state = 'answered'; c.answered = Date.now(); save(c);
       if (a.type === 'log') {

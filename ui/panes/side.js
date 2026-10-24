@@ -1,6 +1,7 @@
 import { $, api, esc, ic } from '../lib.js';
 import { state, refresh, currentMode, deskSoon } from '../app.js';
 import { checkinHTML } from './desk.js';
+import { askCard, wireAsks } from '../describe.js';
 
 const TITLES = { approvals: 'Needs you', mode: 'This mode', memory: 'Memory', more: 'Skills, schedules, channels', desk: 'Desk files', out: 'Out' };
 const ICONS = { approvals: 'notifications', mode: 'edit', memory: 'memory', more: 'more_horiz', desk: 'description', out: 'upload' };
@@ -63,8 +64,8 @@ function renderApprovals(pending) {
   const live = state.desk?.checkins?.live ?? [];
   $('#tab-approvals').innerHTML = (live.map(checkinHTML).join('') || '<div class="muted">No check-ins open.</div>') +
     `<h3 data-tip="An agent is about to do something risky and wants your yes or no first.">Approvals</h3>` +
-    (pending.length ? pending.map((p) => `<div class="approval" data-id="${esc(p.approvalId)}"><div><b>${esc(p.toolName)}</b> <span class="muted">in ${esc(p.thread)}</span></div><div class="why">${esc(p.reason || 'needs your approval')}</div><pre>${esc(JSON.stringify(p.input, null, 2))}</pre><div class="row"><button data-ok="1">Allow</button><button class="danger" data-ok="0">Deny</button></div></div>`).join('') : '<div class="muted">Nothing is waiting.</div>');
-  $('#tab-approvals').querySelectorAll('.approval button').forEach((b) => b.addEventListener('click', () => api(`/api/approvals/${encodeURIComponent(b.closest('.approval').dataset.id)}`, { method: 'POST', body: { approved: b.dataset.ok === '1' } })));
+    (pending.length ? pending.map((p) => askCard(p, `In the ${p.thread} conversation.`)).join('') : '<div class="muted">Nothing is waiting.</div>');
+  wireAsks($('#tab-approvals'));
   $('#tab-approvals').querySelectorAll('.checkin button').forEach((b) => b.addEventListener('click', async () => {
     const box = b.closest('.checkin');
     try { const { reply } = await api(`/api/checkins/${box.dataset.id}/answer`, { method: 'POST', body: { option: b.dataset.k } }); box.innerHTML = `<div class="ci-title muted-text">${esc(reply)}</div>`; } catch (e) { alert(e.message); }

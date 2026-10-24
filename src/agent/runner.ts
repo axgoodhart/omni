@@ -1,7 +1,7 @@
 import { isStepCount, streamText, type ModelMessage } from 'ai';
 import { APPROVAL_TIMEOUT_MS, COMPACT_AT, MODEL_LIGHT } from '../config.ts';
 import { db } from '../db.ts';
-import { emit, live } from '../events/log.ts';
+import { activity, emit, live } from '../events/log.ts';
 import * as cartridges from '../memory/cartridge.ts';
 import * as modes from '../modes/registry.ts';
 import type { Mode } from '../modes/registry.ts';
@@ -10,13 +10,14 @@ import * as skills from '../skills/loader.ts';
 import * as store from '../threads/store.ts';
 import * as budget from './budget.ts';
 import { compact } from './compact.ts';
-import { decide } from './policy.ts';
+import { alwaysRule, decide } from './policy.ts';
+import * as allowed from '../desk/allowed.ts';
 import { buildInstructions, contextLine } from './prompt.ts';
 import { buildTools } from './tools.ts';
 
 export type RunInput = { mode: string; text: string; channel: string; from?: string | null; light?: boolean; onText?: (delta: string) => void };
-type Answer = { approvalId: string; approved: boolean; reason?: string };
-type Pending = { approvalId: string; thread: string; toolCallId: string; toolName: string; input: unknown; reason?: string; created: number; resolve: (a: Answer) => void; timer: NodeJS.Timeout };
+type Answer = { approvalId: string; approved: boolean; reason?: string; always?: boolean };
+type Pending = { approvalId: string; thread: string; toolCallId: string; toolName: string; input: unknown; reason?: string; always: allowed.Rule | null; created: number; resolve: (a: Answer) => void; timer: NodeJS.Timeout };
 
 const pending = new Map<string, Pending>();
 const queues = new Map<string, Promise<unknown>>();
@@ -27,11 +28,14 @@ db.prepare("UPDATE approvals SET status = 'expired', resolved = ? WHERE status =
 export const pendingApprovals = (thread?: string) =>
   [...pending.values()].filter((p) => !thread || p.thread === thread).map(({ resolve, timer, ...p }) => p);
 
-export function answerApproval(approvalId: string, approved: boolean, reason?: string) {
+/** The first answer wins; "always" also remembers the narrow rule the request offered, so the same thing doesn't ask again. */
+export function answerApproval(approvalId: string, approved: boolean, reason?: string, always = false) {
   const p = pending.get(approvalId);
   if (!p) return false;
   clearTimeout(p.timer); pending.delete(approvalId);
-  p.resolve({ approvalId, approved, reason });
+  const keep = approved && always && p.always;
+  if (keep) allowed.add(p.always!);
+  p.resolve({ approvalId, approved, reason, always: !!keep });
   return true;
 }
 export function answerLatest(thread: string, approved: boolean, reason?: string) {
@@ -41,7 +45,7 @@ export function answerLatest(thread: string, approved: boolean, reason?: string)
 
 /** One run at a time per mode thread. */
 export function run(input: RunInput): Promise<string> {
-  const next = (queues.get(input.mode) ?? Promise.resolve()).catch(() => {}).then(() => runNow(input));
+  const next = (queues.get(input.mode) ?? Promise.resolve()).catch(() => {}).then(() => activity('talk', input.mode, () => runNow(input)));
   queues.set(input.mode, next);
   next.finally(() => { if (queues.get(input.mode) === next) queues.delete(input.mode); }).catch(() => {});
   return next;
@@ -79,6 +83,7 @@ async function runNow(input: RunInput): Promise<string> {
   store.save(thread, messages);
 
   let finalText = '', lastInput = 0;
+  const granted = new Set<string>(); // calls you approved; the library re-checks them before running, and they shouldn't be asked about again
   for (let round = 0; round < 8; round++) { // a new round after every approval pause
     const estimate = Math.ceil((JSON.stringify(messages).length + instructions.length) / 4) + 2000;
     const want = input.light ? MODEL_LIGHT : mode.model;
@@ -101,7 +106,7 @@ async function runNow(input: RunInput): Promise<string> {
       tools,
       stopWhen: isStepCount(mode.maxSteps),
       providerOptions: providerOptionsFor(mode, choice.model),
-      toolApproval: ({ toolCall }) => decide(mode, toolCall.toolName, toolCall.input),
+      toolApproval: ({ toolCall }) => (granted.has(toolCall.toolCallId) ? 'approved' : decide(mode, toolCall.toolName, toolCall.input)),
       onError: ({ error }) => emit('error', thread, { message: String((error as any)?.message ?? error) }),
     });
 
@@ -116,7 +121,7 @@ async function runNow(input: RunInput): Promise<string> {
         case 'tool-result': emit('tool.result', thread, { toolCallId: part.toolCallId, toolName: part.toolName, output: trim((part as any).output) }); break;
         case 'tool-error': emit('tool.error', thread, { toolCallId: (part as any).toolCallId, toolName: (part as any).toolName, error: String((part as any).error?.message ?? (part as any).error) }); break;
         case 'tool-output-denied': emit('tool.denied', thread, { toolCallId: (part as any).toolCallId }); break;
-        case 'tool-approval-request': requests.push(part); break;
+        case 'tool-approval-request': if (!(part as any).isAutomatic) requests.push(part); break; // automatic ones were already decided and run
         case 'source': emit('source', thread, trim(part)); break;
         case 'finish-step': lastInput = part.usage.inputTokens ?? lastInput; budget.record(choice.model, part.usage); emit('usage', thread, { model: choice.model, usage: part.usage, finishReason: part.finishReason }); break;
         case 'error': emit('error', thread, { message: String((part.error as any)?.message ?? part.error) }); break;
@@ -127,7 +132,8 @@ async function runNow(input: RunInput): Promise<string> {
     if (text) finalText = text;
 
     if (!requests.length) break;
-    const answers = await Promise.all(requests.map((r) => waitForApproval(thread, r)));
+    const answers = await Promise.all(requests.map((r) => waitForApproval(thread, r, mode.permissions.mode === 'ask-always' ? null : alwaysRule(r.toolCall?.toolName, r.toolCall?.input))));
+    requests.forEach((r, i) => { if (answers[i].approved) granted.add(r.toolCall?.toolCallId ?? r.toolCallId); });
     messages.push({ role: 'tool', content: answers.map((a) => ({ type: 'tool-approval-response', approvalId: a.approvalId, approved: a.approved, reason: a.reason })) });
     store.save(thread, messages);
   }
@@ -137,19 +143,19 @@ async function runNow(input: RunInput): Promise<string> {
   return finalText;
 }
 
-function waitForApproval(thread: string, r: any): Promise<Answer> {
+function waitForApproval(thread: string, r: any, always: allowed.Rule | null): Promise<Answer> {
   const toolName: string = r.toolCall?.toolName ?? r.toolName ?? 'tool';
   const toolCallId: string = r.toolCall?.toolCallId ?? r.toolCallId ?? '';
   const input = r.toolCall?.input;
   insApproval.run(r.approvalId, thread, toolName, JSON.stringify(input ?? null), r.reason ?? null, 'pending', Date.now());
-  emit('approval.requested', thread, { approvalId: r.approvalId, toolCallId, toolName, input, reason: r.reason ?? null, timeoutMs: APPROVAL_TIMEOUT_MS });
+  emit('approval.requested', thread, { approvalId: r.approvalId, toolCallId, toolName, input, reason: r.reason ?? null, always: always?.label ?? null, timeoutMs: APPROVAL_TIMEOUT_MS });
   return new Promise((resolve) => {
-    const finish = (approved: boolean, reason?: string) => {
+    const finish = (approved: boolean, reason?: string, kept = false) => {
       updApproval.run(approved ? 'approved' : 'denied', Date.now(), r.approvalId);
-      emit('approval.resolved', thread, { approvalId: r.approvalId, toolName, approved, reason: reason ?? null });
+      emit('approval.resolved', thread, { approvalId: r.approvalId, toolName, approved, reason: reason ?? null, always: kept ? always?.label ?? null : null });
       resolve({ approvalId: r.approvalId, approved, reason });
     };
     const timer = setTimeout(() => { pending.delete(r.approvalId); finish(false, 'no answer within the approval timeout'); }, APPROVAL_TIMEOUT_MS);
-    pending.set(r.approvalId, { approvalId: r.approvalId, thread, toolCallId, toolName, input, reason: r.reason, created: Date.now(), timer, resolve: (a) => finish(a.approved, a.reason) });
+    pending.set(r.approvalId, { approvalId: r.approvalId, thread, toolCallId, toolName, input, reason: r.reason, always, created: Date.now(), timer, resolve: (a) => finish(a.approved, a.reason, a.always) });
   });
 }

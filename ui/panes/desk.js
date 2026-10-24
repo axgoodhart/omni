@@ -57,7 +57,7 @@ function wireCheckins(root) {
 }
 
 function renderNeeds(d) {
-  const general = d.checkins.live.filter((c) => !c.island);
+  const general = d.checkins.live.filter((c) => !c.island && c.onDesk !== false);
   const pending = state.data?.pending ?? [];
   const box = $('#desk-needs');
   box.innerHTML = (general.map(checkinHTML).join('') + (pending.length ? `<div class="checkin p-top"><div class="ci-title">${pending.length} tool approval${pending.length === 1 ? '' : 's'} waiting.</div><div class="ci-opts"><button data-drawer="approvals">open</button></div></div>` : ''))
@@ -102,7 +102,7 @@ function renderRhythms(d) {
 
 function renderIslands(d) {
   const box = $('#desk-islands');
-  const byIsland = (slug) => d.checkins.live.filter((c) => c.island === slug);
+  const byIsland = (slug) => d.checkins.live.filter((c) => c.island === slug && c.onDesk !== false);
   box.innerHTML = d.islands.map((i) => `<article class="island" data-slug="${esc(i.slug)}" data-position="${esc(i.position)}">
     <header><span class="ic" data-tip="${esc(i.kind)}">${kindIcon(i.kind)}</span><h3>${esc(i.name)}</h3>
       <span class="island-state">${priority(d.priorities.islands[i.slug] ?? 'normal')}<span class="position-dot" tabindex="0" data-tip="Where it stands: ${esc(i.position)}">${ic(POS_ICON[i.position] ?? 'radio_button_unchecked')}</span></span></header>
@@ -157,7 +157,7 @@ function renderWatches(d) {
   const TRUST_ICON = { mail: 'mail', site: 'public', submissions: 'upload' };
   $('#desk-watches').innerHTML = `
     <div class="watch-grid">
-      ${cell('folder', !!w.export.path, w.export.path ? `Export folder: ${w.export.path} · ${w.export.seen} file${w.export.seen === 1 ? '' : 's'} asked about` : 'Export folder not set. Set it under What Omnii does.', 'watches.md')}
+      ${cell('folder', !!w.export.path, w.export.path ? `Export folder: ${w.export.path} · ${w.export.seen} file${w.export.seen === 1 ? '' : 's'} asked about` : 'Export folder not set. Set it on the Config page.', 'watches.md')}
       ${cell('mail', w.mail.configured, w.mail.configured ? `Mail: reading${w.mail.since ? ` from message ${w.mail.since}` : ''}` : 'Mail not connected', 'watches.md')}
       ${cell('database', d.observations.length > 0, `${d.observations.length} thing${d.observations.length === 1 ? '' : 's'} Omnii has noticed about you. They never change a setting.`, 'observations.md', d.observations.length)}
       ${cell('person', !!p.name, p.name ? `${p.name} · ${p.timezone}` : 'Profile not filled in yet', 'profile.md')}

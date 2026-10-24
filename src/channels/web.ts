@@ -26,7 +26,10 @@ import * as loop from '../loop/index.ts';
 import * as settings from '../desk/settings.ts';
 import * as mail from '../loop/mail.ts';
 import * as logbook from '../desk/logbook.ts';
+import * as loopcfg from '../desk/loopcfg.ts';
 const logbookLast = (kind: string) => logbook.last(kind);
+/** Live check-ins, each marked with whether it belongs on the desk (a phone-only priority doesn't, while texting works). */
+const liveForDesk = () => { const cfg = loopcfg.get(), canText = outbound.channels().includes('imessage'); return checkins.live().map((c) => ({ ...c, onDesk: loopcfg.reach(cfg, c.priority, canText).desk })); };
 
 export const api = new Hono();
 const bad = (c: any, e: unknown, status = 400) => c.json({ error: (e as Error).message ?? String(e) }, status);
@@ -54,7 +57,7 @@ api.get('/api/desk', (c) => {
   return c.json({
     profile: profile.get(), islands: islands.list(), priorities: priorities.get(), trust: trust.get(),
     watches: { export: { path: w.export.path, seen: w.export.seen.length }, mail: { configured: watches.mailConfigured(), since: w.mail.since, lastCheck: w.mail.lastCheck, lastError: w.mail.lastError, ignore: w.mail.ignore } },
-    checkins: { live: checkins.live(), recent: checkins.recent(30) },
+    checkins: { live: liveForDesk(), recent: checkins.recent(30) },
     mail: { needsYou: mail.needsYou(), recent: mail.recent(20) },
     out: out.list(), observations: observations.list(), loop: loop.status(), interview: interview.current(),
     logbook: { medicine: logbookLast('medicine'), chores: logbookLast('chores') },
@@ -140,8 +143,8 @@ api.get('/api/cartridges/:name/files/*', (c) => {
 
 api.get('/api/approvals', (c) => c.json(runner.pendingApprovals()));
 api.post('/api/approvals/:id', async (c) => {
-  const { approved, reason } = await c.req.json<{ approved: boolean; reason?: string }>();
-  return c.json({ ok: runner.answerApproval(c.req.param('id'), !!approved, reason ?? (approved ? 'approved in web app' : 'denied in web app')) });
+  const { approved, reason, always } = await c.req.json<{ approved: boolean; reason?: string; always?: boolean }>();
+  return c.json({ ok: runner.answerApproval(c.req.param('id'), !!approved, reason ?? (approved ? 'approved in web app' : 'denied in web app'), !!always) });
 });
 
 api.get('/api/usage', (c) => c.json(budget.todayUsage()));
@@ -167,9 +170,10 @@ function view(m: ModelMessage) {
     : (m.content as any[]).map((p) =>
       p.type === 'text' ? { type: 'text', text: p.text }
       : p.type === 'reasoning' ? { type: 'reasoning', text: p.text }
-      : p.type === 'tool-call' ? { type: 'tool-call', toolName: p.toolName, input: p.input }
-      : p.type === 'tool-result' ? { type: 'tool-result', toolName: p.toolName, output: p.output }
-      : p.type === 'tool-approval-response' ? { type: 'approval', approved: p.approved, reason: p.reason }
+      : p.type === 'tool-call' ? { type: 'tool-call', toolCallId: p.toolCallId, toolName: p.toolName, input: p.input }
+      : p.type === 'tool-result' ? { type: 'tool-result', toolCallId: p.toolCallId, toolName: p.toolName, output: p.output }
+      : p.type === 'tool-approval-request' ? { type: 'ask', approvalId: p.approvalId, toolCallId: p.toolCallId, automatic: !!p.isAutomatic }
+      : p.type === 'tool-approval-response' ? { type: 'approval', approvalId: p.approvalId, approved: p.approved, reason: p.reason }
       : { type: p.type });
   return { role: m.role, parts };
 }

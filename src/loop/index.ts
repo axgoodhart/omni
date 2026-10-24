@@ -1,6 +1,7 @@
 import { Cron } from 'croner';
-import { emit } from '../events/log.ts';
+import { activity, emit } from '../events/log.ts';
 import * as runner from '../agent/runner.ts';
+import * as outbound from '../channels/outbound.ts';
 import * as modes from '../modes/registry.ts';
 import * as store from '../threads/store.ts';
 import { duration, fmtHm, hmToMinutes, parts } from '../lib/time.ts';
@@ -64,7 +65,9 @@ function quietEnds(cfg: loopcfg.LoopCfg, tz: string): number | null {
   return Date.now() + (untilTo > 0 ? untilTo : untilTo + 1440) * 60_000;
 }
 
-export async function tick(why: string) {
+/** One look, recorded as one activity. */
+export const tick = (why: string) => activity('look', 'loop', () => tickNow(why));
+async function tickNow(why: string) {
   if (running || loopcfg.get().paused) return;
   running = true;
   const t0 = Date.now();
@@ -76,14 +79,15 @@ export async function tick(why: string) {
     const hm = (ts: number) => fmtHm(ts, tz);
     const qEnd = quietEnds(cfg, tz);
     T.status.quiet = cfg.quiet ? (qEnd ? `quiet until ${hm(qEnd)}; texts are held` : `texts allowed; quiet from ${cfg.quiet.from} to ${cfg.quiet.to}`) : 'no quiet hours';
-    const deliver = (level: Level): checkins.Delivery => ({ text: cfg.ask.text && cfg.levels[level].text, holdUntil: qEnd });
+    const canText = outbound.channels().includes('imessage');
+    const deliver = (level: Level): checkins.Delivery => ({ text: loopcfg.reach(cfg, level, canText).phone, holdUntil: qEnd });
     const room = () => checkins.open().length < cfg.max_open;
     const heldBack = (what: string) => T.inaction.push({ what, why: `held back: you already have ${checkins.open().length} question${checkins.open().length === 1 ? '' : 's'} out (your limit is ${cfg.max_open})` });
 
     if (cfg.paused) {
       T.paused = true;
       T.status.activity = 'paused by you; nothing looks, nothing asks';
-      T.inaction.push({ what: 'Everything', why: 'you paused Omnii on the "What Omnii does" page' });
+      T.inaction.push({ what: 'Everything', why: 'you paused Omnii on the Config page' });
       return;
     }
 
@@ -97,7 +101,7 @@ export async function tick(why: string) {
     const medLogged = logbook.loggedOn('medicine', tz, now.date);
     const medDue = now.minutes >= hmToMinutes(pr.medicine.time);
     let medPrior = checkins.latestByDedupe(medKey);
-    const top = cfg.levels.top;
+    const medLater = cfg.levels[pr.medicine.priority].second_after;
     if (!pr.medicine.enabled) T.status.medicine = 'turned off';
     else if (medLogged) T.status.medicine = `Logged today at ${hm(medLast!.ts)} via ${medLast!.via}`;
     else if (!medDue) T.status.medicine = `Due at ${pr.medicine.time}, not yet asked`;
@@ -106,7 +110,7 @@ export async function tick(why: string) {
       else {
         medPrior = checkins.ask({ priority: pr.medicine.priority, dedupe: medKey, title: 'Medicine logging is a top priority. You should:', options: [
           opt('a', 'Take now if necessary and have it logged', { type: 'log', kind: 'medicine' }),
-          opt('b', `Be reminded in ${top.remind_after}`, { type: 'snooze', for: top.remind_after ?? '90m' }),
+          opt('b', `Be reminded in ${medLater}`, { type: 'snooze', for: medLater }),
           opt('c', 'Be reminded at end of day', { type: 'snooze-eod' }),
           discuss,
         ] }, deliver(pr.medicine.priority));
@@ -115,7 +119,7 @@ export async function tick(why: string) {
       }
     } else if (medPrior.state === 'archived') T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked at ${hm(medPrior.created)}, filed unanswered at ${hm(medPrior.answered ?? medPrior.created)}`;
     else if (medPrior.state === 'snoozed') T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked at ${hm(medPrior.created)}, you asked to be reminded at ${hm(medPrior.snoozedUntil ?? Date.now())}`;
-    else T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked at ${hm(medPrior.created)}, not answered${medPrior.reminders ? ', reminded once' : ''}${medPrior.heldUntil ? `, text held until ${hm(medPrior.heldUntil)}` : ''}`;
+    else T.status.medicine = `Due since ${pr.medicine.time}, not logged, asked at ${hm(medPrior.created)}, not answered${medPrior.reminders ? `, nudged ${medPrior.reminders}×` : ''}${medPrior.heldUntil ? `, text held until ${hm(medPrior.heldUntil)}` : ''}`;
 
     // ---- 3. apartment: a nudge, never a chase
     const choresToday = pr.chores.days.includes(now.weekday);
@@ -201,21 +205,29 @@ export async function tick(why: string) {
     for (const i of all) byPos[i.position] = (byPos[i.position] ?? 0) + 1;
     T.status.islands = all.length ? `${all.length} total · ${Object.entries(byPos).map(([k, v]) => `${v} ${k}`).join(' · ')}` : 'none yet';
 
-    // ---- 7. recap: every question out to you and what happens if it stays unanswered; reminders and filing by level
+    // ---- 7. nudges by priority: the quick ones, then the slower ones, then filed (or slower nudges for good). Quiet hours pause the count.
     for (const c of checkins.live()) {
-      const silent = Date.now() - c.lastSent, L = cfg.levels[c.priority];
-      const held = c.heldUntil && c.heldUntil > Date.now() ? ` (text held until ${hm(c.heldUntil)})` : '';
-      if (c.state === 'snoozed') { T.waiting.push({ what: clean(c.title), since: c.created, next: `paused at your request until ${hm(c.snoozedUntil ?? Date.now())}` }); continue; }
-      if (c.priority === 'top') {
-        const ra = duration(L.remind_after, 90 * 60_000), eod = L.end_of_day ?? '21:00';
-        if (c.reminders === 0 && silent >= ra) { checkins.remind(c, 'silent', deliver('top')); T.decisions.push(`Reminded you once, after ${Math.round(silent / 60_000)} minutes of silence: "${clean(c.title)}"`); T.waiting.push({ what: clean(c.title), since: c.created, next: `files as unanswered at ${eod}` }); }
-        else if (now.minutes >= hmToMinutes(eod) && silent >= 30 * 60_000) { checkins.archive(c, 'unanswered'); T.decisions.push(`Filed as unanswered at end of day: "${clean(c.title)}"`); }
-        else T.waiting.push({ what: clean(c.title), since: c.created, next: (c.reminders ? `already reminded once; files as unanswered at ${eod}` : `reminder at ${hm(c.lastSent + ra)}, then files at ${eod}`) + held });
-      } else {
-        const fa = duration(L.file_after, 24 * 3_600_000);
-        if (silent >= fa) { checkins.archive(c, 'unanswered'); T.decisions.push(`Filed as unanswered after ${L.file_after ?? 'a day'}: "${clean(c.title)}"`); }
-        else T.waiting.push({ what: clean(c.title), since: c.created, next: `${c.priority} priority: no reminder${L.text ? '' : ', not texted'}; files as unanswered at ${hm(c.lastSent + fa)}` + held });
+      const R = cfg.levels[c.priority], what = clean(c.title), total = R.first_times + R.second_times;
+      const held = () => (c.heldUntil && c.heldUntil > Date.now() ? ` (text held until ${hm(c.heldUntil)})` : '');
+      if (c.state === 'snoozed') { T.waiting.push({ what, since: c.created, next: `paused at your request until ${hm(c.snoozedUntil ?? Date.now())}` }); continue; }
+      const step = () => {
+        const n = c.reminders, quick = n < R.first_times, files = R.stop && n >= total;
+        const at = c.lastSent + duration(quick ? R.first_after : R.second_after, 90 * 60_000);
+        return { at, quick, files, label: files ? `files as unanswered at ${hm(at)}` : `${quick ? 'quick' : 'slower'} nudge ${n + 1}${R.stop ? ` of ${total}` : ''} at ${hm(at)}` };
+      };
+      const s = step();
+      if (qEnd) { T.waiting.push({ what, since: c.created, next: `nothing moves until quiet hours end at ${hm(qEnd)}${held()}` }); continue; }
+      if (Date.now() < s.at) { T.waiting.push({ what, since: c.created, next: s.label + held() }); continue; }
+      if (s.files) {
+        checkins.archive(c, 'unanswered');
+        T.decisions.push(`Filed as unanswered after ${total} nudge${total === 1 ? '' : 's'}: "${what}"`);
+        if (R.stop_text && deliver(c.priority).text) { void checkins.notify(`Filed without an answer: "${what}". It stays in the desk's history.`, 'filed'); T.decisions.push(`Texted you that "${what}" was filed`); }
+        continue;
       }
+      const silentMin = Math.round((Date.now() - c.lastSent) / 60_000);
+      checkins.remind(c, s.quick ? 'quick nudge' : 'slower nudge', deliver(c.priority));
+      T.decisions.push(`Nudged you (${s.quick ? 'quick' : 'slower'}, ${c.reminders}${R.stop ? ` of ${total}` : ''}) after ${silentMin} minutes of silence: "${what}"`);
+      T.waiting.push({ what, since: c.created, next: step().label + held() });
     }
     const liveNow = checkins.live();
     const answeredToday = checkins.recent(200).filter((c) => c.state === 'answered' && c.answered && parts(tz, new Date(c.answered)).date === now.date).length;
@@ -229,8 +241,8 @@ export async function tick(why: string) {
       if (i.position === 'finished, not shared') continue;
       T.inaction.push({ what: `Island "${i.name}"`, why: `${i.position}, ${priorities.ofIsland(i.slug)} priority; nothing is due and no rule applies to this position yet` });
     }
-    if (!ex.path) T.inaction.push({ what: 'Export folder', why: 'not set; set it on the "What Omnii does" page' });
-    if (!watches.mailConfigured()) T.inaction.push({ what: 'Email', why: 'not connected; connect it on the "What Omnii does" page' });
+    if (!ex.path) T.inaction.push({ what: 'Export folder', why: 'not set; set it on the Config page' });
+    if (!watches.mailConfigured()) T.inaction.push({ what: 'Email', why: 'not connected; connect it on the Config page' });
 
     // ---- 9. observations: only from patterns in his own answers
     const med = checkins.recent(200).filter((c) => c.dedupe?.startsWith('medicine') && c.state === 'answered' && c.answer === 'a' && c.answered);
