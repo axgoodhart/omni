@@ -12,6 +12,7 @@ const KIND_ICON = { make: 'brush', research: 'search', build: 'construction', st
 export const kindIcon = (k) => ic(KIND_ICON[k] ?? 'radio_button_unchecked');
 const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+
 export async function refresh() {
   state.data = await api('/api/state');
   if (!state.mode || !state.data.modes.some((m) => m.name === state.mode)) state.mode = localStorage.getItem('omni.mode') || state.data.modes.find((m) => m.name === 'assistant')?.name || state.data.modes[0]?.name || null;
@@ -21,7 +22,20 @@ export async function refresh() {
   renderSide();
   maybeShowInterview();
 }
-export async function loadDesk() { state.desk = await api('/api/desk'); if (state.view === 'desk') renderDesk(); }
+export async function loadDesk() {
+  state.desk = await api('/api/desk'); if (state.view === 'desk') renderDesk();
+  const deskNeeds = document.getElementById('desk-needs');
+  const emptyVisual = document.getElementById('emptyVisual');
+  const panelNeeds = document.getElementById('panel-needs');
+
+
+  if (deskNeeds.firstElementChild === emptyVisual) {
+    panelNeeds.classList.add('mini');
+  }else {
+    panelNeeds.classList.remove('mini');
+  }
+
+ }
 
 export async function loadThread() {
   const thread = state.view === 'loop' ? 'loop' : state.mode;
@@ -45,7 +59,7 @@ export async function showView(v) {
 /** Open the assistant thread with a line already typed. */
 export async function discuss(text) { await switchMode(state.data.modes.some((m) => m.name === 'assistant') ? 'assistant' : state.mode); $('#input').value = text; $('#input').focus(); }
 
-const navItem = (icon, label, attrs, cls = '', right = '') => `<li><button class="nav-item ${cls}" ${attrs}><span class="n">${icon}</span>${label}${right}</button></li>`;
+const navItem = (icon, label, attrs, cls = '', right = '') => `<li><button class="nav-item ${cls}" ${attrs}><span class="n">${icon}</span><span class="label">${label}${right}</span></button></li>`;
 
 export function renderShell() {
   const d = state.data, cur = currentMode(), idx = d.modes.findIndex((m) => m.name === state.mode);
@@ -156,7 +170,7 @@ function showTip(el) {
   const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
   const x = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
   const y = r.bottom + h + 16 > window.innerHeight ? r.top - h - 8 : r.bottom + 8;
-  tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+
 }
 function hideTip() { tipFor = null; tip.hidden = true; }
 document.addEventListener('mouseover', (e) => { const el = e.target.closest?.('[data-tip]'); if (!el) { if (tipFor) hideTip(); } else if (el !== tipFor) showTip(el); });
@@ -166,3 +180,4 @@ document.addEventListener('mousedown', hideTip);
 document.addEventListener('scroll', hideTip, true);
 
 refresh().then(connect).catch((e) => { $('#mode-title').textContent = `Failed to load: ${e.message}`; });
+

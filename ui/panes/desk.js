@@ -10,7 +10,7 @@ const POS_ICON = { 'not started': 'radio_button_unchecked', 'in progress': 'pend
 const OUT_ICON = { mail: 'mail', site: 'public', submissions: 'upload' };
 export const priority = (p, what = 'Priority') => `<span class="priority" data-level="${LEVEL[p] ?? 2}" data-tip="${esc(what)}: ${esc(p)}"><i></i><i></i><i></i></span>`;
 const week = (on, tip) => `<span class="week" data-tip="${esc(tip)}">${DAYS.map((d) => `<i class="day ${on.includes(d) ? 'on' : ''}"></i>`).join('')}</span>`;
-const empty = (a, b, tip, n = '0') => `<div class="empty-visual" tabindex="0" data-tip="${esc(tip)}">${ic(a, 'zero')}<span class="empty-line"></span>${n === null ? ic(b) : `<span class="num">${n}</span>`}</div>`;
+const empty = (a, b, tip, n = '0') => `<div class="empty-visual" id="emptyVisual" tabindex="0" data-tip="${esc(tip)}">${ic(a, 'zero')}<span class="empty-line"></span>${n === null ? ic(b) : `<span class="num">${n}</span>`}</div>`;
 
 export function renderDesk() {
   const d = state.desk; if (!d) return;

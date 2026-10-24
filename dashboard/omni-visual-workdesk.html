@@ -1,760 +1,2291 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Omni visual workdesk</title>
-<style>
-  * { box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-  body { color: var(--kimi-color-text-primary); }
-  button, input, select, textarea { font: inherit; }
-  button { color: inherit; }
-  button:focus-visible, input:focus-visible { outline: 2px solid var(--kimi-color-text-primary); outline-offset: 2px; }
-  .workdesk {
-    width: 100%; height: 100%; min-height: 720px;
-    padding-block-start: var(--kimi-space-4); padding-inline: var(--kimi-space-4); padding-block-end: var(--kimi-space-4);
-    display: flex; flex-direction: column; gap: var(--kimi-space-3);
-    font-family: var(--kimi-font-sans); font-size: 14px; line-height: 20px;
-  }
-  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-  kimi-icon { width: 20px; height: 20px; flex: 0 0 auto; }
-  .custom-icon { width: 20px; height: 20px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; font-size: 12px; line-height: 16px; }
-  .muted { color: var(--kimi-color-text-tertiary); }
-  .positive { color: var(--kimi-color-positive); }
-  .warning { color: var(--kimi-color-warning); }
-  .danger { color: var(--kimi-color-danger); }
-  .accent { color: var(--kimi-color-accent); }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Omni visual workdesk</title>
 
-  .topbar { flex: 0 0 40px; display: flex; align-items: center; gap: var(--kimi-space-4); padding-inline: var(--kimi-space-2); }
-  .brand { display: flex; align-items: center; gap: var(--kimi-space-3); min-width: 140px; }
-  .orb { position: relative; width: 28px; height: 28px; border: 1px solid var(--kimi-color-text-secondary); border-radius: var(--kimi-radius-full); display: grid; place-items: center; }
-  .orb::before { content: ""; width: 8px; height: 8px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-text-primary); }
-  .orb::after { content: ""; position: absolute; width: 34px; height: 12px; border: 1px solid var(--kimi-color-text-quaternary); border-radius: 50%; transform: rotate(-28deg); }
-  .live-dot { width: 8px; height: 8px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-warning); box-shadow: 0 0 0 4px color-mix(in srgb, var(--kimi-color-warning) 12%, transparent); }
-  .live-dot.on { background: var(--kimi-color-positive); box-shadow: 0 0 0 4px color-mix(in srgb, var(--kimi-color-positive) 12%, transparent); }
-  .topology { display: flex; align-items: center; gap: var(--kimi-space-2); color: var(--kimi-color-text-tertiary); }
-  .topology .link { width: 32px; height: 1px; background: var(--kimi-color-border); position: relative; }
-  .topology .link::after { content: ""; position: absolute; right: 0; top: -2px; width: 4px; height: 4px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-text-quaternary); }
-  .top-stats { margin-left: auto; display: flex; align-items: center; gap: var(--kimi-space-2); padding-right: 72px; }
-  .stat { min-width: 40px; height: 28px; padding-inline: var(--kimi-space-2); border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-chip); display: flex; align-items: center; justify-content: center; gap: var(--kimi-space-1); color: var(--kimi-color-text-secondary); }
-  .stat kimi-icon { width: 16px; height: 16px; }
+  <!-- Google Material Symbols Light Rounded -->
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300,0,0" />
 
-  .shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 152px minmax(0, 1fr); border-top: 1px solid var(--kimi-color-border); }
-  .rail { min-height: 0; padding-block: var(--kimi-space-3); padding-right: var(--kimi-space-3); border-right: 1px solid var(--kimi-color-border); display: flex; flex-direction: column; gap: var(--kimi-space-2); overflow-y: auto; }
-  .nav-set { display: grid; grid-template-columns: repeat(4, 32px); gap: var(--kimi-space-1); padding-block-end: var(--kimi-space-2); border-bottom: 1px solid var(--kimi-color-border); }
-  .nav-set.six { grid-template-columns: repeat(6, 20px); gap: var(--kimi-space-1); }
-  .icon-btn { position: relative; width: 32px; height: 32px; min-width: 32px; padding: 0; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: var(--kimi-radius-button); background: transparent; color: var(--kimi-color-text-secondary); cursor: pointer; transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out); }
-  .icon-btn:hover { color: var(--kimi-color-text-primary); background: var(--kimi-color-surface-muted); }
-  .icon-btn[aria-pressed="true"], .icon-btn.active { color: var(--kimi-color-text-primary); background: var(--kimi-color-surface-muted); border-color: var(--kimi-color-border); }
-  .icon-btn.small { width: 28px; height: 28px; min-width: 28px; }
-  .icon-btn.small kimi-icon, .icon-btn.small .custom-icon { width: 18px; height: 18px; }
-  .nav-set.six .icon-btn { width: 20px; min-width: 20px; height: 28px; }
-  .nav-set.six kimi-icon { width: 16px; height: 16px; }
-  .badge { position: absolute; top: -3px; right: -3px; min-width: 14px; height: 14px; padding-inline: 2px; border-radius: var(--kimi-radius-full); display: grid; place-items: center; background: var(--kimi-color-text-primary); color: var(--kimi-color-surface); font-size: 10px; line-height: 12px; }
-  .nav-mark { width: 20px; height: 20px; display: grid; place-items: center; position: relative; }
-  .nav-mark .mini { position: absolute; right: -5px; bottom: -3px; width: 12px; height: 12px; }
-  .nav-mark .mini kimi-icon { width: 12px; height: 12px; }
-  .rail-foot { margin-top: auto; padding-top: var(--kimi-space-3); border-top: 1px solid var(--kimi-color-border); display: flex; align-items: center; justify-content: space-between; gap: var(--kimi-space-2); }
-  .usage { display: flex; align-items: center; gap: var(--kimi-space-1); color: var(--kimi-color-text-tertiary); }
-  .usage svg { width: 24px; height: 24px; transform: rotate(-90deg); }
-  .usage circle { fill: none; stroke-width: 3; }
-  .usage .base { stroke: var(--kimi-color-border); }
-  .usage .fill { stroke: var(--kimi-color-chart-1); stroke-dasharray: 4 60; }
+  <style>
+    :root {
+      /* ==========================================
+     1. COLOR SYSTEM
+     ========================================== */
+      /* Text */
+      --color-text-primary: gold;
+      --color-text-secondary: limegreen;
+      --color-text-tertiary: skyblue;
+      --color-text-quaternary: gray;;
 
-  .surface { min-width: 0; min-height: 0; padding-left: var(--kimi-space-3); padding-top: var(--kimi-space-3); display: flex; flex-direction: column; gap: var(--kimi-space-3); }
-  .loopstrip { flex: 0 0 56px; display: flex; align-items: center; gap: var(--kimi-space-3); padding: var(--kimi-space-2) var(--kimi-space-3); border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-panel); }
-  .loop-core { display: flex; align-items: center; gap: var(--kimi-space-2); }
-  .loop-track { flex: 1; display: flex; align-items: center; min-width: 120px; }
-  .loop-node { display: flex; align-items: center; flex: 1; color: var(--kimi-color-text-tertiary); }
-  .loop-node:last-child { flex: 0; }
-  .loop-node::after { content: ""; height: 1px; flex: 1; margin-inline: var(--kimi-space-2); background: var(--kimi-color-border); }
-  .loop-node:last-child::after { display: none; }
-  .loop-node.done { color: var(--kimi-color-positive); }
-  .loop-node.done::after { background: color-mix(in srgb, var(--kimi-color-positive) 40%, var(--kimi-color-border)); }
-  .loop-actions { display: flex; align-items: center; gap: var(--kimi-space-1); }
-  .frequency { height: 28px; display: flex; align-items: center; gap: var(--kimi-space-1); padding-inline: var(--kimi-space-2); border-left: 1px solid var(--kimi-color-border); color: var(--kimi-color-text-secondary); }
+      /* Surfaces & Borders */
+      --color-surface: #0a0a0a;
+      --color-surface-muted: #161616;
+      --color-border: gray;;
+      --color-scroll:rgb(255,255,255,.1);
 
-  .views { flex: 1; min-height: 0; }
-  .view { height: 100%; min-height: 0; }
-  .view[hidden] { display: none !important; }
-  .desk-grid { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(400px, 1.35fr) minmax(260px, .9fr); gap: var(--kimi-space-3); }
-  .column { min-height: 0; display: flex; flex-direction: column; gap: var(--kimi-space-3); overflow-y: auto; padding-right: var(--kimi-space-1); }
-  .panel { border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-panel); padding: var(--kimi-space-3); }
-  .panel-head { min-height: 28px; display: flex; align-items: center; gap: var(--kimi-space-2); margin-block-end: var(--kimi-space-2); color: var(--kimi-color-text-secondary); }
-  .panel-head::after { content: ""; order: 2; height: 1px; flex: 1; background: var(--kimi-color-border); }
-  .panel-head > * { order: 1; }
-  .panel-head > .head-action { order: 3; }
-  .panel-head .head-action + .head-action { margin-left: calc(-1 * var(--kimi-space-1)); }
-  .panel-body { min-height: 32px; }
-  .empty-visual { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: var(--kimi-space-3); color: var(--kimi-color-text-quaternary); }
-  .empty-visual .zero { width: 28px; height: 28px; border: 1px dashed var(--kimi-color-border); border-radius: var(--kimi-radius-full); display: grid; place-items: center; }
-  .empty-visual kimi-icon { width: 24px; height: 24px; }
-  .empty-visual .empty-line { width: 56px; height: 1px; background: var(--kimi-color-border); }
-  .attention-pulse { animation: attention 1.2s var(--ease-out) 2; }
-  @keyframes attention { 50% { border-color: var(--kimi-color-warning); } }
+      /* Semantic / Status */
+      --color-positive: #10b981;
+      --color-warning: #f59e0b;
+      --color-danger: #ef4444;
+      --color-accent: #6366f1;
 
-  .rhythms { display: grid; gap: var(--kimi-space-1); }
-  .rhythm { display: grid; grid-template-columns: 28px 52px 1fr auto auto; align-items: center; gap: var(--kimi-space-2); min-height: 40px; padding-block: var(--kimi-space-1); border-top: 1px solid var(--kimi-color-border); }
-  .rhythm:first-child { border-top: 0; }
-  .time { color: var(--kimi-color-text-secondary); }
-  .week { display: flex; gap: var(--kimi-space-1); }
-  .day { width: 8px; height: 8px; border: 1px solid var(--kimi-color-text-quaternary); border-radius: var(--kimi-radius-full); }
-  .day.on { background: var(--kimi-color-text-primary); border-color: var(--kimi-color-text-primary); }
-  .priority { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; }
-  .priority i { display: block; width: 3px; border-radius: 2px; background: var(--kimi-color-border); }
-  .priority i:nth-child(1) { height: 5px; }
-  .priority i:nth-child(2) { height: 10px; }
-  .priority i:nth-child(3) { height: 15px; }
-  .priority[data-level="1"] i:nth-child(1), .priority[data-level="2"] i:nth-child(-n+2), .priority[data-level="3"] i { background: var(--kimi-color-warning); }
+      /* Charts & Data Viz */
+      --color-chart-1: #3b82f6;
 
-  .islands { display: grid; gap: var(--kimi-space-2); }
-  .island { position: relative; border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-input); padding: var(--kimi-space-3); scroll-margin: var(--kimi-space-4); transition: border-color var(--t-fast) var(--ease-out), opacity var(--t-fast) var(--ease-out); }
-  .island:hover, .island:focus-within, .island.selected { border-color: var(--kimi-color-text-quaternary); }
-  .island[data-state="blocked"] { border-color: color-mix(in srgb, var(--kimi-color-danger) 55%, var(--kimi-color-border)); }
-  .island[data-state="done"] { border-color: color-mix(in srgb, var(--kimi-color-positive) 55%, var(--kimi-color-border)); }
-  .island-head { display: flex; align-items: center; gap: var(--kimi-space-2); }
-  .island-symbol { position: relative; width: 40px; height: 28px; display: flex; align-items: center; color: var(--kimi-color-text-primary); }
-  .island-symbol > :last-child { margin-left: -4px; color: var(--kimi-color-text-tertiary); }
-  .island-state { margin-left: auto; display: flex; align-items: center; gap: var(--kimi-space-2); }
-  .position-dot { width: 16px; height: 16px; border: 1px solid var(--kimi-color-text-quaternary); border-radius: var(--kimi-radius-full); display: grid; place-items: center; }
-  .position-dot::after { content: ""; width: 6px; height: 6px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-text-quaternary); }
-  .island[data-state="done"] .position-dot { border-color: var(--kimi-color-positive); }
-  .island[data-state="done"] .position-dot::after { background: var(--kimi-color-positive); }
-  .island[data-state="blocked"] .position-dot { border-color: var(--kimi-color-danger); }
-  .island[data-state="blocked"] .position-dot::after { background: var(--kimi-color-danger); }
-  .stage-track { display: flex; align-items: center; margin-block: var(--kimi-space-3); }
-  .stage-step { display: flex; align-items: center; flex: 1; }
-  .stage-step:last-child { flex: 0; }
-  .stage-step::after { content: ""; height: 1px; flex: 1; background: var(--kimi-color-border); }
-  .stage-step:last-child::after { display: none; }
-  .stage-dot { width: 20px; height: 20px; padding: 0; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
-  .stage-dot::before { content: ""; width: 8px; height: 8px; border: 1px solid var(--kimi-color-text-quaternary); border-radius: var(--kimi-radius-full); background: var(--kimi-color-surface); transition: transform var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out); }
-  .stage-dot:hover::before { transform: scale(1.35); }
-  .stage-dot.on::before { background: var(--kimi-color-text-primary); border-color: var(--kimi-color-text-primary); }
-  .stage-dot.current::before { width: 12px; height: 12px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--kimi-color-text-primary) 10%, transparent); }
-  .stage-step:has(.stage-dot.on)::after { background: var(--kimi-color-text-quaternary); }
-  .visual-status { display: flex; align-items: center; gap: var(--kimi-space-1); padding-block: var(--kimi-space-1); border-top: 1px dashed var(--kimi-color-border); border-bottom: 1px dashed var(--kimi-color-border); }
-  .visual-status::before { content: ""; flex: 1; height: 4px; border-radius: 4px; background: repeating-linear-gradient(90deg, var(--kimi-color-border) 0 12px, transparent 12px 20px); }
-  .visual-status .icon-btn { width: 24px; min-width: 24px; height: 24px; }
-  .visual-status .icon-btn kimi-icon { width: 16px; height: 16px; }
-  .island-foot { display: flex; align-items: center; gap: var(--kimi-space-1); margin-top: var(--kimi-space-2); }
-  .file-count { display: flex; align-items: center; gap: var(--kimi-space-1); color: var(--kimi-color-text-tertiary); margin-right: auto; }
-  .file-count kimi-icon { width: 16px; height: 16px; }
-  .visual-composer, .note-visual { display: none; align-items: center; gap: var(--kimi-space-1); padding-top: var(--kimi-space-2); margin-top: var(--kimi-space-2); border-top: 1px solid var(--kimi-color-border); }
-  .visual-composer.open, .note-visual.open { display: flex; }
-  .visual-composer .chosen { flex: 1; min-height: 28px; display: flex; align-items: center; gap: var(--kimi-space-1); padding-inline: var(--kimi-space-2); border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-button); }
-  .note-visual { min-height: 40px; flex-direction: column; align-items: stretch; gap: var(--kimi-space-1); }
-  .skeleton { height: 4px; border-radius: 4px; background: var(--kimi-color-border); }
-  .skeleton.short { width: 42%; }
-  .skeleton.mid { width: 68%; }
+      /* ==========================================
+     2. SPACING SCALE
+     ========================================== */
+      --space-1: 2px;
+      --space-2: 10px;
+      --space-3: 20px;
+      --space-4: 36px;
 
-  .mail-visual { min-height: 88px; display: grid; place-items: center; }
-  .disconnected { display: flex; align-items: center; justify-content: center; gap: var(--kimi-space-3); color: var(--kimi-color-text-quaternary); }
-  .disconnected .break { width: 32px; border-top: 1px dashed var(--kimi-color-text-quaternary); transform: rotate(-24deg); }
-  .mail-list { display: none; gap: var(--kimi-space-2); }
-  .mail-panel.connected .disconnected { display: none; }
-  .mail-panel.connected .mail-list { display: grid; }
-  .mail-item { display: grid; grid-template-columns: 24px 1fr auto auto; align-items: center; gap: var(--kimi-space-2); }
-  .avatar { width: 24px; height: 24px; border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-full); display: grid; place-items: center; }
-  .avatar kimi-icon { width: 16px; height: 16px; }
-  .mail-lines { display: grid; gap: var(--kimi-space-1); }
-  .out-visual { display: flex; align-items: center; justify-content: center; gap: var(--kimi-space-3); min-height: 52px; color: var(--kimi-color-text-quaternary); }
-  .out-arrow { width: 44px; height: 1px; border-top: 1px dashed var(--kimi-color-text-quaternary); position: relative; }
-  .out-arrow::after { content: ""; position: absolute; right: 0; top: -4px; width: 7px; height: 7px; border-top: 1px solid var(--kimi-color-text-quaternary); border-right: 1px solid var(--kimi-color-text-quaternary); transform: rotate(45deg); }
-  .out-files { display: flex; flex-wrap: wrap; gap: var(--kimi-space-1); }
-  .out-file { width: 32px; height: 36px; border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-chip); display: grid; place-items: center; color: var(--kimi-color-text-secondary); background: transparent; cursor: pointer; }
-  .out-file.selected { color: var(--kimi-color-positive); border-color: var(--kimi-color-positive); }
-  .watch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--kimi-space-2); margin-block-end: var(--kimi-space-3); }
-  .watch-cell { min-height: 56px; border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-input); display: grid; place-items: center; gap: 2px; color: var(--kimi-color-text-tertiary); background: transparent; cursor: pointer; }
-  .watch-cell .signal { width: 20px; height: 4px; border-radius: 4px; background: var(--kimi-color-border); }
-  .watch-cell[aria-pressed="true"] { color: var(--kimi-color-positive); border-color: color-mix(in srgb, var(--kimi-color-positive) 40%, var(--kimi-color-border)); }
-  .watch-cell[aria-pressed="true"] .signal { background: var(--kimi-color-positive); }
-  .trust-row { display: grid; grid-template-columns: 24px 1fr 28px; align-items: center; gap: var(--kimi-space-2); min-height: 36px; border-top: 1px solid var(--kimi-color-border); }
-  .sandbox-track { height: 8px; display: flex; align-items: center; gap: var(--kimi-space-1); }
-  .sandbox-track::before { content: ""; flex: 1; height: 1px; background: var(--kimi-color-border); }
-  .sandbox-track i { width: 6px; height: 6px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-positive); }
-  .file-tabs { display: flex; justify-content: space-between; gap: var(--kimi-space-1); margin-top: var(--kimi-space-2); padding-top: var(--kimi-space-2); border-top: 1px solid var(--kimi-color-border); }
+      /* ==========================================
+     3. BORDER RADIUS
+     ========================================== */
+      --radius-full: 9999px;
+      --radius-chip: 1px;
+      --radius-button: 4px;
+      --radius-panel: 6px;
+      --radius-input: 10px;
 
-  .settings-grid { height: 100%; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: var(--kimi-space-3); align-content: start; }
-  .setting-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: var(--kimi-space-3); min-height: 48px; border-top: 1px solid var(--kimi-color-border); }
-  .setting-row:first-child { border-top: 0; }
-  .setting-row input[type="range"] { width: 100%; accent-color: var(--kimi-color-text-primary); }
-  .stepper { display: flex; align-items: center; gap: var(--kimi-space-1); }
-  .switch { width: 36px; height: 20px; padding: 2px; border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-full); background: transparent; cursor: pointer; }
-  .switch::before { content: ""; display: block; width: 14px; height: 14px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-text-quaternary); transition: transform var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out); }
-  .switch[aria-pressed="true"]::before { transform: translateX(16px); background: var(--kimi-color-positive); }
-  .quiet-visual { display: flex; align-items: center; gap: var(--kimi-space-2); color: var(--kimi-color-text-secondary); }
-  .quiet-line { flex: 1; height: 8px; border-radius: 8px; background: linear-gradient(90deg, var(--kimi-color-text-quaternary) 0 38%, var(--kimi-color-border) 38% 100%); }
+      /* ==========================================
+     4. TYPOGRAPHY
+     ========================================== */
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-  .loop-log { height: 100%; overflow-y: auto; padding: var(--kimi-space-4); }
-  .tick { display: grid; grid-template-columns: 32px 1fr repeat(4, 40px); align-items: center; gap: var(--kimi-space-3); min-height: 64px; }
-  .tick-line { align-self: stretch; position: relative; display: grid; place-items: center; }
-  .tick-line::before { content: ""; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--kimi-color-border); }
-  .tick-line i { position: relative; width: 10px; height: 10px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-positive); box-shadow: 0 0 0 4px var(--kimi-color-surface); }
-  .tick.paused .tick-line i { background: var(--kimi-color-warning); }
-  .tick-wave { height: 16px; display: flex; align-items: center; gap: var(--kimi-space-1); }
-  .tick-wave i { width: 3px; border-radius: 3px; background: var(--kimi-color-text-quaternary); }
-  .tick-wave i:nth-child(1) { height: 5px; } .tick-wave i:nth-child(2) { height: 12px; } .tick-wave i:nth-child(3) { height: 8px; } .tick-wave i:nth-child(4) { height: 15px; } .tick-wave i:nth-child(5) { height: 6px; }
-  .tick-state { width: 32px; height: 32px; border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-button); display: grid; place-items: center; color: var(--kimi-color-text-tertiary); }
-
-  .workbench { height: 100%; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--kimi-space-3); }
-  .conversation, .operation { min-height: 0; display: flex; flex-direction: column; }
-  .message-flow { flex: 1; min-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--kimi-space-3); padding: var(--kimi-space-2); }
-  .bubble { max-width: 82%; display: flex; align-items: center; gap: var(--kimi-space-2); padding: var(--kimi-space-3); border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-panel); }
-  .bubble.user { align-self: flex-end; background: var(--kimi-color-surface-muted); }
-  .bubble.agent { align-self: flex-start; }
-  .composer { display: flex; align-items: center; gap: var(--kimi-space-1); padding-top: var(--kimi-space-2); border-top: 1px solid var(--kimi-color-border); }
-  .composer .chosen { flex: 1; min-height: 36px; display: flex; align-items: center; gap: var(--kimi-space-2); padding-inline: var(--kimi-space-2); border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-input); }
-  .operation-flow { flex: 1; display: flex; flex-direction: column; align-items: stretch; padding: var(--kimi-space-2); overflow-y: auto; }
-  .op-node { display: grid; grid-template-columns: 32px 1fr 24px; align-items: center; gap: var(--kimi-space-2); min-height: 44px; position: relative; }
-  .op-node:not(:last-child)::after { content: ""; position: absolute; left: 15px; top: 36px; bottom: -8px; width: 1px; background: var(--kimi-color-border); }
-  .op-icon { width: 32px; height: 32px; border: 1px solid var(--kimi-color-border); border-radius: var(--kimi-radius-full); display: grid; place-items: center; }
-  .op-lines { display: grid; gap: var(--kimi-space-1); }
-  .op-status { width: 8px; height: 8px; border-radius: var(--kimi-radius-full); background: var(--kimi-color-positive); }
-
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-thumb { background: var(--kimi-color-border); border-radius: var(--kimi-radius-full); }
-  @media (max-width: 860px) {
-    .shell { grid-template-columns: 52px minmax(0, 1fr); }
-    .nav-set, .nav-set.six { grid-template-columns: 32px; }
-    .brand { min-width: 40px; }
-    .topology { display: none; }
-    .desk-grid { grid-template-columns: 1fr; overflow-y: auto; }
-    .column { overflow: visible; }
-    .top-stats { padding-right: 48px; }
-  }
-  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
-</style>
-</head>
-<body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <symbol id="pill-icon" viewBox="0 0 24 24"><path d="M8.2 3.8a5 5 0 0 1 7.1 0l4.9 4.9a5 5 0 0 1-7.1 7.1l-4.9-4.9a5 5 0 0 1 0-7.1Z"/><path d="m8.2 15.8 7.6-7.6"/></symbol>
-    <symbol id="home-icon" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></symbol>
-    <symbol id="room-icon" viewBox="0 0 24 24"><path d="M3 20V5m0 10h18v5M7 15V9h6a4 4 0 0 1 4 4v2M3 11h4V7"/><path d="M18 20v2M5 20v2"/></symbol>
-    <symbol id="eye-icon" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
-    <symbol id="clock-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
-  </defs>
-</svg>
-<div class="workdesk">
-  <header class="topbar" aria-label="Omni status">
-    <div class="brand"><span class="orb" aria-hidden="true"></span><span class="live-dot" id="live-dot" title="Loop paused"></span></div>
-    <div class="topology" aria-hidden="true">
-      <svg class="custom-icon"><use href="#eye-icon"/></svg><span class="link"></span>
-      <kimi-icon name="DataIcon"></kimi-icon><span class="link"></span>
-      <kimi-icon name="TaskIcon"></kimi-icon><span class="link"></span>
-      <kimi-icon name="DocDoneIcon"></kimi-icon>
-    </div>
-    <div class="top-stats">
-      <span class="stat" title="Open check-ins"><kimi-icon name="NotificationIcon"></kimi-icon><span class="num" id="open-count">0</span></span>
-      <span class="stat" title="Islands"><kimi-icon name="DiagramIcon"></kimi-icon><span class="num" id="island-count">3</span></span>
-      <span class="stat" title="Sandboxed"><kimi-icon name="SafeIcon"></kimi-icon><span class="num">3</span></span>
-    </div>
-  </header>
-
-  <div class="shell">
-    <aside class="rail" aria-label="Visual navigation">
-      <nav class="nav-set" aria-label="Desk views">
-        <button class="kimi-icon-button icon-btn active" data-view="desk" aria-label="Desk" title="Desk" aria-pressed="true"><kimi-icon name="DesktopIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-view="attention" aria-label="Needs you" title="Needs you" aria-pressed="false"><kimi-icon name="NotificationIcon"></kimi-icon><span class="badge" id="needs-badge">0</span></button>
-        <button class="kimi-icon-button icon-btn" data-view="settings" aria-label="Loop settings" title="Loop settings" aria-pressed="false"><kimi-icon name="SettingIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-view="loop" aria-label="Loop history" title="Loop history" aria-pressed="false"><kimi-icon name="HistoryIcon"></kimi-icon></button>
-      </nav>
-      <nav class="nav-set" aria-label="Islands">
-        <button class="kimi-icon-button icon-btn" data-island="students" aria-label="Getting music students" title="Getting music students"><span class="nav-mark"><kimi-icon name="GroupIcon"></kimi-icon><span class="mini"><kimi-icon name="MusicIcon"></kimi-icon></span></span></button>
-        <button class="kimi-icon-button icon-btn" data-island="room" aria-label="Getting my room setup" title="Getting my room setup"><svg class="custom-icon"><use href="#room-icon"/></svg></button>
-        <button class="kimi-icon-button icon-btn" data-island="sharing" aria-label="Sharing my music online" title="Sharing my music online"><span class="nav-mark"><kimi-icon name="ShareIcon"></kimi-icon><span class="mini"><kimi-icon name="MusicIcon"></kimi-icon></span></span></button>
-        <button class="kimi-icon-button icon-btn" id="rail-add" aria-label="Add island" title="Add island"><kimi-icon name="AddIcon"></kimi-icon></button>
-      </nav>
-      <nav class="nav-set six" aria-label="Modes">
-        <button class="kimi-icon-button icon-btn" data-mode="assistant" aria-label="Assistant mode" title="Assistant"><kimi-icon name="ProfileIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-mode="brief" aria-label="Brief mode" title="Brief"><kimi-icon name="HistoryIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-mode="carrier" aria-label="Carrier mode" title="Carrier"><kimi-icon name="Send_aIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-mode="drafter" aria-label="Drafter mode" title="Drafter"><kimi-icon name="EditIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-mode="researcher" aria-label="Researcher mode" title="Researcher"><kimi-icon name="SearchIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-mode="triage" aria-label="Triage mode" title="Triage"><kimi-icon name="TabularIcon"></kimi-icon></button>
-      </nav>
-      <nav class="nav-set" aria-label="Memory">
-        <button class="kimi-icon-button icon-btn active" id="memory-toggle" aria-label="Personal memory inserted" title="Personal memory" aria-pressed="true"><kimi-icon name="DataIcon"></kimi-icon><span class="badge">0</span></button>
-        <button class="kimi-icon-button icon-btn" id="memory-add" aria-label="Create memory cartridge" title="Create memory cartridge"><kimi-icon name="AddIcon"></kimi-icon></button>
-      </nav>
-      <nav class="nav-set" aria-label="Setup">
-        <button class="kimi-icon-button icon-btn" data-view="settings" aria-label="Desk configuration" title="Desk configuration"><kimi-icon name="TodoIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-mode="assistant" aria-label="Mode configuration" title="Mode configuration"><kimi-icon name="EditIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" data-view="settings" aria-label="Skills schedules and channels" title="Skills schedules and channels"><kimi-icon name="MoreIcon"></kimi-icon></button>
-        <button class="kimi-icon-button icon-btn" id="interview" aria-label="Visual interview" title="Visual interview"><kimi-icon name="QuestionIcon"></kimi-icon></button>
-      </nav>
-      <div class="rail-foot">
-        <span class="usage" title="Daily token usage"><svg viewBox="0 0 24 24" aria-hidden="true"><circle class="base" cx="12" cy="12" r="9"/><circle class="fill" cx="12" cy="12" r="9"/></svg><span class="num">0</span></span>
-        <button class="kimi-icon-button icon-btn small" id="imessage-toggle" aria-label="Toggle iMessage" title="iMessage" aria-pressed="false"><kimi-icon name="MessageIcon"></kimi-icon></button>
-      </div>
-    </aside>
-
-    <main class="surface">
-      <section class="loopstrip" aria-label="Loop controls">
-        <div class="loop-core">
-          <button class="kimi-icon-button icon-btn" id="loop-toggle" aria-label="Resume loop" title="Resume loop" aria-pressed="false"><kimi-icon name="PlayIcon"></kimi-icon></button>
-          <span class="live-dot" id="loop-dot"></span>
-        </div>
-        <div class="loop-track" aria-hidden="true">
-          <span class="loop-node done"><svg class="custom-icon"><use href="#eye-icon"/></svg></span>
-          <span class="loop-node done"><kimi-icon name="DataIcon"></kimi-icon></span>
-          <span class="loop-node"><kimi-icon name="TaskIcon"></kimi-icon></span>
-          <span class="loop-node"><kimi-icon name="SafeIcon"></kimi-icon></span>
-        </div>
-        <span class="frequency" title="Loop interval"><svg class="custom-icon"><use href="#clock-icon"/></svg><span class="num" id="frequency-value">15</span></span>
-        <div class="loop-actions">
-          <button class="kimi-icon-button icon-btn small" id="tick-now" aria-label="Look now" title="Look now"><kimi-icon name="RefreshIcon"></kimi-icon></button>
-          <button class="kimi-icon-button icon-btn small" data-view="loop" aria-label="Loop history" title="Loop history"><kimi-icon name="HistoryIcon"></kimi-icon></button>
-        </div>
-      </section>
-
-      <div class="views">
-        <section class="view" id="view-desk">
-          <div class="desk-grid">
-            <div class="column">
-              <section class="panel" id="needs-panel" aria-label="Needs you">
-                <div class="panel-head"><kimi-icon name="NotificationIcon"></kimi-icon><button class="kimi-icon-button icon-btn small head-action" data-view="attention" aria-label="Focus check-ins" title="Focus check-ins"><kimi-icon name="ExpandIcon"></kimi-icon></button></div>
-                <div class="empty-visual"><span class="zero"><kimi-icon name="CompletedIcon"></kimi-icon></span><span class="empty-line"></span><span class="num">0</span></div>
-              </section>
-
-              <section class="panel" aria-label="Rhythms">
-                <div class="panel-head"><kimi-icon name="RefreshIcon"></kimi-icon><button class="kimi-icon-button icon-btn small head-action" id="rhythm-history" aria-label="Rhythm history" title="Rhythm history"><kimi-icon name="HistoryIcon"></kimi-icon></button></div>
-                <div class="rhythms">
-                  <div class="rhythm" data-rhythm="medicine">
-                    <svg class="custom-icon accent"><use href="#pill-icon"/></svg>
-                    <span class="time num">09:00</span>
-                    <span class="week" aria-label="Daily"><i class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i></span>
-                    <span class="priority" data-level="3" title="Top priority"><i></i><i></i><i></i></span>
-                    <button class="kimi-icon-button icon-btn small log-rhythm" aria-label="Log medicine" title="Log medicine"><kimi-icon name="CheckIcon"></kimi-icon></button>
-                  </div>
-                  <div class="rhythm" data-rhythm="chores">
-                    <svg class="custom-icon"><use href="#home-icon"/></svg>
-                    <span class="time num">11:00</span>
-                    <span class="week" aria-label="Saturday"><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day on"></i></span>
-                    <span class="priority" data-level="1" title="Low priority"><i></i><i></i><i></i></span>
-                    <button class="kimi-icon-button icon-btn small log-rhythm" aria-label="Log apartment chores" title="Log apartment chores"><kimi-icon name="CheckIcon"></kimi-icon></button>
-                  </div>
-                </div>
-              </section>
-
-              <section class="panel" aria-label="Islands">
-                <div class="panel-head"><kimi-icon name="DiagramIcon"></kimi-icon><button class="kimi-icon-button icon-btn small head-action" id="add-island" aria-label="Add island" title="Add island"><kimi-icon name="AddIcon"></kimi-icon></button></div>
-                <div class="islands" id="islands">
-                  <article class="island" id="island-students" data-island-card="students" data-kind="grow" data-stage="0" data-state="blank">
-                    <div class="island-head">
-                      <div class="island-symbol"><kimi-icon name="GroupIcon"></kimi-icon><kimi-icon name="MusicIcon"></kimi-icon></div>
-                      <div class="island-state"><span class="priority" data-level="2" title="Normal priority"><i></i><i></i><i></i></span><span class="position-dot"></span></div>
-                    </div>
-                    <div class="stage-track" aria-label="Grow stage"></div>
-                    <div class="visual-status" aria-label="Visual status">
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="blank" aria-label="No status" title="No status" aria-pressed="true"><kimi-icon name="NormalIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="blocked" aria-label="Blocked" title="Blocked" aria-pressed="false"><kimi-icon name="WarningIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="done" aria-label="Done" title="Done" aria-pressed="false"><kimi-icon name="CompletedIcon"></kimi-icon></button>
-                    </div>
-                    <div class="island-foot">
-                      <span class="file-count"><kimi-icon name="ClipIcon"></kimi-icon><span class="num">0</span></span>
-                      <button class="kimi-icon-button icon-btn small attach-file" aria-label="Attach visual file" title="Attach file"><kimi-icon name="AddIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn small discuss" aria-label="Discuss with pictograms" title="Discuss"><kimi-icon name="MessageIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn small show-note" aria-label="Show visual note" title="Visual note"><kimi-icon name="DocumentIcon"></kimi-icon></button>
-                    </div>
-                    <div class="visual-composer"><div class="chosen"></div><button class="kimi-icon-button icon-btn small picto" aria-label="Add music"><kimi-icon name="MusicIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add people"><kimi-icon name="GroupIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add image"><kimi-icon name="ImageIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small send-picto" aria-label="Send pictograms"><kimi-icon name="Send_aIcon"></kimi-icon></button></div>
-                    <div class="note-visual"><span class="skeleton"></span><span class="skeleton mid"></span><span class="skeleton short"></span></div>
-                  </article>
-
-                  <article class="island" id="island-room" data-island-card="room" data-kind="grow" data-stage="0" data-state="blank">
-                    <div class="island-head">
-                      <div class="island-symbol"><svg class="custom-icon"><use href="#room-icon"/></svg><kimi-icon name="SettingIcon"></kimi-icon></div>
-                      <div class="island-state"><span class="priority" data-level="2" title="Normal priority"><i></i><i></i><i></i></span><span class="position-dot"></span></div>
-                    </div>
-                    <div class="stage-track" aria-label="Grow stage"></div>
-                    <div class="visual-status" aria-label="Visual status">
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="blank" aria-label="No status" title="No status" aria-pressed="true"><kimi-icon name="NormalIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="blocked" aria-label="Blocked" title="Blocked" aria-pressed="false"><kimi-icon name="WarningIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="done" aria-label="Done" title="Done" aria-pressed="false"><kimi-icon name="CompletedIcon"></kimi-icon></button>
-                    </div>
-                    <div class="island-foot">
-                      <span class="file-count"><kimi-icon name="ClipIcon"></kimi-icon><span class="num">0</span></span>
-                      <button class="kimi-icon-button icon-btn small attach-file" aria-label="Attach visual file" title="Attach file"><kimi-icon name="AddIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn small discuss" aria-label="Discuss with pictograms" title="Discuss"><kimi-icon name="MessageIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn small show-note" aria-label="Show visual note" title="Visual note"><kimi-icon name="DocumentIcon"></kimi-icon></button>
-                    </div>
-                    <div class="visual-composer"><div class="chosen"></div><button class="kimi-icon-button icon-btn small picto" aria-label="Add room"><svg class="custom-icon"><use href="#room-icon"/></svg></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add image"><kimi-icon name="ImageIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add settings"><kimi-icon name="SettingIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small send-picto" aria-label="Send pictograms"><kimi-icon name="Send_aIcon"></kimi-icon></button></div>
-                    <div class="note-visual"><span class="skeleton"></span><span class="skeleton mid"></span><span class="skeleton short"></span></div>
-                  </article>
-
-                  <article class="island" id="island-sharing" data-island-card="sharing" data-kind="build" data-stage="0" data-state="blank">
-                    <div class="island-head">
-                      <div class="island-symbol"><kimi-icon name="ShareIcon"></kimi-icon><kimi-icon name="MusicIcon"></kimi-icon></div>
-                      <div class="island-state"><span class="priority" data-level="3" title="Top priority"><i></i><i></i><i></i></span><span class="position-dot"></span></div>
-                    </div>
-                    <div class="stage-track" aria-label="Build stage"></div>
-                    <div class="visual-status" aria-label="Visual status">
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="blank" aria-label="No status" title="No status" aria-pressed="true"><kimi-icon name="NormalIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="blocked" aria-label="Blocked" title="Blocked" aria-pressed="false"><kimi-icon name="WarningIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn state-btn" data-state="done" aria-label="Done" title="Done" aria-pressed="false"><kimi-icon name="CompletedIcon"></kimi-icon></button>
-                    </div>
-                    <div class="island-foot">
-                      <span class="file-count"><kimi-icon name="ClipIcon"></kimi-icon><span class="num">0</span></span>
-                      <button class="kimi-icon-button icon-btn small attach-file" aria-label="Attach visual file" title="Attach file"><kimi-icon name="AddIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn small discuss" aria-label="Discuss with pictograms" title="Discuss"><kimi-icon name="MessageIcon"></kimi-icon></button>
-                      <button class="kimi-icon-button icon-btn small show-note" aria-label="Show visual note" title="Visual note"><kimi-icon name="DocumentIcon"></kimi-icon></button>
-                    </div>
-                    <div class="visual-composer"><div class="chosen"></div><button class="kimi-icon-button icon-btn small picto" aria-label="Add music"><kimi-icon name="MusicIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add share"><kimi-icon name="ShareIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add browser"><kimi-icon name="BrowserIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small send-picto" aria-label="Send pictograms"><kimi-icon name="Send_aIcon"></kimi-icon></button></div>
-                    <div class="note-visual"><span class="skeleton"></span><span class="skeleton mid"></span><span class="skeleton short"></span></div>
-                  </article>
-                </div>
-              </section>
-            </div>
-
-            <div class="column">
-              <section class="panel mail-panel" aria-label="Mail">
-                <div class="panel-head"><kimi-icon name="MessageIcon"></kimi-icon><span class="live-dot" id="mail-dot" style="width:6px;height:6px;box-shadow:none"></span><button class="kimi-icon-button icon-btn small head-action" id="mail-toggle" aria-label="Connect mail" title="Connect mail" aria-pressed="false"><kimi-icon name="LinkIcon"></kimi-icon></button></div>
-                <div class="mail-visual">
-                  <div class="disconnected"><kimi-icon name="MessageIcon"></kimi-icon><span class="break"></span><kimi-icon name="LinkIcon"></kimi-icon></div>
-                  <div class="mail-list">
-                    <div class="mail-item"><span class="avatar"><kimi-icon name="ProfileIcon"></kimi-icon></span><span class="mail-lines"><i class="skeleton"></i><i class="skeleton mid"></i></span><button class="kimi-icon-button icon-btn small draft-mail" aria-label="Draft reply"><kimi-icon name="EditIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small handle-mail" aria-label="Mark handled"><kimi-icon name="CheckIcon"></kimi-icon></button></div>
-                    <div class="mail-item"><span class="avatar"><kimi-icon name="ProfileIcon"></kimi-icon></span><span class="mail-lines"><i class="skeleton mid"></i><i class="skeleton short"></i></span><button class="kimi-icon-button icon-btn small draft-mail" aria-label="Draft reply"><kimi-icon name="EditIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small handle-mail" aria-label="Mark handled"><kimi-icon name="CheckIcon"></kimi-icon></button></div>
-                  </div>
-                </div>
-              </section>
-
-              <section class="panel" aria-label="Sandboxed output">
-                <div class="panel-head"><kimi-icon name="UploadIcon"></kimi-icon><button class="kimi-icon-button icon-btn small head-action" id="add-output" aria-label="Create sandboxed output" title="Create output"><kimi-icon name="AddIcon"></kimi-icon></button></div>
-                <div class="out-visual" id="out-empty"><kimi-icon name="SafeIcon"></kimi-icon><span class="out-arrow"></span><kimi-icon name="FolderOpenIcon"></kimi-icon></div>
-                <div class="out-files" id="out-files"></div>
-              </section>
-
-              <section class="panel" aria-label="Watches and trust">
-                <div class="panel-head"><kimi-icon name="SafeIcon"></kimi-icon><button class="kimi-icon-button icon-btn small head-action" data-view="settings" aria-label="Configure watches and trust" title="Configure"><kimi-icon name="SettingIcon"></kimi-icon></button></div>
-                <div class="watch-grid">
-                  <button class="kimi-icon-button icon-btn watch-cell" data-watch="export" aria-label="Toggle export folder watch" title="Export folder" aria-pressed="false"><kimi-icon name="FolderIcon"></kimi-icon><span class="signal"></span></button>
-                  <button class="kimi-icon-button icon-btn watch-cell" data-watch="mail" aria-label="Toggle mail watch" title="Mail watch" aria-pressed="false"><kimi-icon name="MessageIcon"></kimi-icon><span class="signal"></span></button>
-                  <button class="kimi-icon-button icon-btn watch-cell" data-watch="observations" aria-label="Add observation" title="Observations" aria-pressed="false"><kimi-icon name="DataIcon"></kimi-icon><span class="num" id="observation-count">0</span></button>
-                  <button class="kimi-icon-button icon-btn watch-cell" data-watch="profile" aria-label="Profile connected" title="Profile" aria-pressed="true"><kimi-icon name="ProfileIcon"></kimi-icon><span class="signal"></span></button>
-                </div>
-                <div class="trust-row"><kimi-icon name="MessageIcon"></kimi-icon><span class="sandbox-track"><i></i><i></i><i></i></span><button class="kimi-icon-button icon-btn small trust-toggle" aria-label="Toggle mail trust" title="Mail sandbox" aria-pressed="false"><kimi-icon name="SafeIcon"></kimi-icon></button></div>
-                <div class="trust-row"><kimi-icon name="BrowserIcon"></kimi-icon><span class="sandbox-track"><i></i><i></i><i></i></span><button class="kimi-icon-button icon-btn small trust-toggle" aria-label="Toggle site trust" title="Site sandbox" aria-pressed="false"><kimi-icon name="SafeIcon"></kimi-icon></button></div>
-                <div class="trust-row"><kimi-icon name="UploadIcon"></kimi-icon><span class="sandbox-track"><i></i><i></i><i></i></span><button class="kimi-icon-button icon-btn small trust-toggle" aria-label="Toggle submissions trust" title="Submissions sandbox" aria-pressed="false"><kimi-icon name="SafeIcon"></kimi-icon></button></div>
-                <div class="file-tabs">
-                  <button class="kimi-icon-button icon-btn small" data-view="settings" aria-label="Priorities" title="Priorities"><kimi-icon name="NotificationIcon"></kimi-icon></button>
-                  <button class="kimi-icon-button icon-btn small" data-view="settings" aria-label="Trust" title="Trust"><kimi-icon name="SafeIcon"></kimi-icon></button>
-                  <button class="kimi-icon-button icon-btn small" data-view="settings" aria-label="Watches" title="Watches"><kimi-icon name="SearchIcon"></kimi-icon></button>
-                  <button class="kimi-icon-button icon-btn small" id="file-observations" aria-label="Observations" title="Observations"><kimi-icon name="DataIcon"></kimi-icon></button>
-                  <button class="kimi-icon-button icon-btn small" id="file-profile" aria-label="Profile" title="Profile"><kimi-icon name="ProfileIcon"></kimi-icon></button>
-                </div>
-              </section>
-            </div>
-          </div>
-        </section>
-
-        <section class="view" id="view-settings" hidden>
-          <div class="settings-grid">
-            <section class="panel" aria-label="Loop settings">
-              <div class="panel-head"><kimi-icon name="RefreshIcon"></kimi-icon></div>
-              <div class="setting-row"><svg class="custom-icon"><use href="#clock-icon"/></svg><input id="interval-range" type="range" min="5" max="60" step="5" value="15" aria-label="Loop interval"><span class="num" id="interval-output">15</span></div>
-              <div class="setting-row"><kimi-icon name="DarkModeIcon"></kimi-icon><div class="quiet-visual"><span class="num">00</span><span class="quiet-line"></span><span class="num">09</span></div><kimi-icon name="LightModeIcon"></kimi-icon></div>
-              <div class="setting-row"><kimi-icon name="NotificationIcon"></kimi-icon><div class="stepper"><button class="kimi-icon-button icon-btn small" id="max-minus" aria-label="Fewer open questions"><kimi-icon name="MinusIcon"></kimi-icon></button><span class="num" id="max-open">2</span><button class="kimi-icon-button icon-btn small" id="max-plus" aria-label="More open questions"><kimi-icon name="AddIcon"></kimi-icon></button></div><kimi-icon name="TodoIcon"></kimi-icon></div>
-              <div class="setting-row"><kimi-icon name="MessageIcon"></kimi-icon><span class="sandbox-track"><i></i><i></i><i></i></span><button class="switch" aria-label="Toggle question texting" aria-pressed="true"></button></div>
-            </section>
-            <section class="panel" aria-label="Priority settings">
-              <div class="panel-head"><kimi-icon name="NotificationIcon"></kimi-icon></div>
-              <div class="setting-row"><span class="priority" data-level="3"><i></i><i></i><i></i></span><input type="range" min="15" max="180" value="90" aria-label="Top priority reminder"><span class="num">90</span></div>
-              <div class="setting-row"><span class="priority" data-level="2"><i></i><i></i><i></i></span><div class="week"><i class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i></div><span class="num">1</span></div>
-              <div class="setting-row"><span class="priority" data-level="1"><i></i><i></i><i></i></span><div class="week"><i class="day on"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day on"></i></div><button class="switch" aria-label="Toggle low priority texting" aria-pressed="false"></button></div>
-              <div class="setting-row"><svg class="custom-icon"><use href="#pill-icon"/></svg><span class="time num">09:00</span><button class="kimi-icon-button icon-btn small" aria-label="Adjust medicine rhythm"><kimi-icon name="EditIcon"></kimi-icon></button></div>
-              <div class="setting-row"><svg class="custom-icon"><use href="#home-icon"/></svg><div class="week"><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i class="day on"></i></div><span class="time num">11:00</span></div>
-            </section>
-            <section class="panel" aria-label="Watch settings">
-              <div class="panel-head"><svg class="custom-icon"><use href="#eye-icon"/></svg></div>
-              <div class="setting-row"><kimi-icon name="FolderIcon"></kimi-icon><span class="sandbox-track"></span><button class="switch" aria-label="Toggle export watch" aria-pressed="false"></button></div>
-              <div class="setting-row"><kimi-icon name="MessageIcon"></kimi-icon><span class="sandbox-track"></span><button class="switch" aria-label="Toggle mail watch" aria-pressed="false"></button></div>
-              <div class="setting-row"><kimi-icon name="DataIcon"></kimi-icon><span class="sandbox-track"></span><button class="kimi-icon-button icon-btn small" id="settings-observation" aria-label="Add observation"><kimi-icon name="AddIcon"></kimi-icon></button></div>
-            </section>
-            <section class="panel" aria-label="Trust settings">
-              <div class="panel-head"><kimi-icon name="SafeIcon"></kimi-icon></div>
-              <div class="setting-row"><kimi-icon name="MessageIcon"></kimi-icon><span class="sandbox-track"><i></i><i></i><i></i></span><button class="switch" aria-label="Toggle mail trust" aria-pressed="false"></button></div>
-              <div class="setting-row"><kimi-icon name="BrowserIcon"></kimi-icon><span class="sandbox-track"><i></i><i></i><i></i></span><button class="switch" aria-label="Toggle site trust" aria-pressed="false"></button></div>
-              <div class="setting-row"><kimi-icon name="UploadIcon"></kimi-icon><span class="sandbox-track"><i></i><i></i><i></i></span><button class="switch" aria-label="Toggle submissions trust" aria-pressed="false"></button></div>
-            </section>
-          </div>
-        </section>
-
-        <section class="view" id="view-loop" hidden>
-          <section class="panel loop-log" id="loop-log" aria-label="Visual loop history"></section>
-        </section>
-
-        <section class="view" id="view-mode" hidden>
-          <div class="workbench">
-            <section class="panel conversation" aria-label="Pictorial conversation">
-              <div class="panel-head"><kimi-icon name="MessageIcon"></kimi-icon><button class="kimi-icon-button icon-btn small head-action" id="reset-thread" aria-label="Reset conversation" title="Reset"><kimi-icon name="RefreshIcon"></kimi-icon></button></div>
-              <div class="message-flow" id="message-flow">
-                <div class="bubble user"><kimi-icon name="MusicIcon"></kimi-icon><kimi-icon name="GroupIcon"></kimi-icon><kimi-icon name="QuestionIcon"></kimi-icon></div>
-                <div class="bubble agent"><kimi-icon name="SearchIcon"></kimi-icon><kimi-icon name="DiagramIcon"></kimi-icon><kimi-icon name="CheckIcon"></kimi-icon></div>
-              </div>
-              <div class="composer" id="main-composer"><div class="chosen"></div><button class="kimi-icon-button icon-btn small picto" aria-label="Add image"><kimi-icon name="ImageIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add music"><kimi-icon name="MusicIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add search"><kimi-icon name="SearchIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small picto" aria-label="Add task"><kimi-icon name="TaskIcon"></kimi-icon></button><button class="kimi-icon-button icon-btn small send-picto" aria-label="Send pictograms"><kimi-icon name="Send_aIcon"></kimi-icon></button></div>
-            </section>
-            <section class="panel operation" aria-label="Visual operation trace">
-              <div class="panel-head"><kimi-icon name="LinechartIcon"></kimi-icon><button class="kimi-icon-button icon-btn small head-action" id="operation-filter" aria-label="Filter operation trace" aria-pressed="true"><kimi-icon name="ViewAllIcon"></kimi-icon></button></div>
-              <div class="operation-flow">
-                <div class="op-node"><span class="op-icon"><kimi-icon name="EnterIcon"></kimi-icon></span><span class="op-lines"><i class="skeleton mid"></i><i class="skeleton short"></i></span><i class="op-status"></i></div>
-                <div class="op-node"><span class="op-icon"><kimi-icon name="DocumentIcon"></kimi-icon></span><span class="op-lines"><i class="skeleton"></i><i class="skeleton mid"></i></span><i class="op-status"></i></div>
-                <div class="op-node"><span class="op-icon"><kimi-icon name="DataIcon"></kimi-icon></span><span class="op-lines"><i class="skeleton mid"></i><i class="skeleton short"></i></span><i class="op-status"></i></div>
-                <div class="op-node"><span class="op-icon"><kimi-icon name="SafeIcon"></kimi-icon></span><span class="op-lines"><i class="skeleton"></i><i class="skeleton mid"></i></span><i class="op-status"></i></div>
-                <div class="op-node"><span class="op-icon"><kimi-icon name="Send_aIcon"></kimi-icon></span><span class="op-lines"><i class="skeleton mid"></i><i class="skeleton short"></i></span><i class="op-status"></i></div>
-              </div>
-            </section>
-          </div>
-        </section>
-      </div>
-    </main>
-  </div>
-</div>
-<script>
-(() => {
-  const $ = (s, root = document) => root.querySelector(s);
-  const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-  const icon = (name) => `<kimi-icon name="${name}"></kimi-icon>`;
-  const stages = { grow: 4, build: 5, open: 3 };
-
-  function renderStages(card) {
-    const track = $('.stage-track', card);
-    const total = stages[card.dataset.kind] || 3;
-    const current = Number(card.dataset.stage || 0);
-    track.innerHTML = Array.from({ length: total }, (_, i) => `<span class="stage-step"><button class="stage-dot ${i <= current ? 'on' : ''} ${i === current ? 'current' : ''}" data-stage="${i}" aria-label="Set stage ${i + 1} of ${total}" aria-pressed="${i === current}"></button></span>`).join('');
-  }
-  $$('[data-island-card]').forEach(renderStages);
-
-  function setView(name) {
-    const actual = name === 'attention' ? 'desk' : name;
-    ['desk', 'settings', 'loop', 'mode'].forEach(v => { $(`#view-${v}`).hidden = v !== actual; });
-    $$('[data-view]').forEach(b => {
-      if (!b.closest('.rail')) return;
-      const active = b.dataset.view === name || (name === 'mode' && false);
-      b.classList.toggle('active', active);
-      b.setAttribute('aria-pressed', String(active));
-    });
-    $$('[data-mode]').forEach(b => b.classList.toggle('active', name === 'mode' && b.dataset.mode === currentMode));
-    if (name === 'attention') {
-      const panel = $('#needs-panel');
-      panel.classList.remove('attention-pulse');
-      requestAnimationFrame(() => panel.classList.add('attention-pulse'));
-      panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      /* ==========================================
+     5. MOTION & TRANSITIONS
+     ========================================== */
+      --t-fast: 150ms;
+      --ease-out: cubic-bezier(0, 0, 0.2, 1);
     }
-  }
 
-  let currentMode = 'assistant';
-  document.addEventListener('click', (event) => {
-    const view = event.target.closest('[data-view]');
-    if (view) setView(view.dataset.view);
-    const mode = event.target.closest('[data-mode]');
-    if (mode) { currentMode = mode.dataset.mode; setView('mode'); }
-    const island = event.target.closest('[data-island]');
-    if (island) {
-      setView('desk');
-      $$('.island').forEach(c => c.classList.toggle('selected', c.dataset.islandCard === island.dataset.island));
-      $(`#island-${island.dataset.island}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    * {
+      box-sizing: border-box;
     }
-  });
 
-  $('#loop-toggle').addEventListener('click', () => {
-    const button = $('#loop-toggle');
-    const running = button.getAttribute('aria-pressed') !== 'true';
-    button.setAttribute('aria-pressed', String(running));
-    button.setAttribute('aria-label', running ? 'Pause loop' : 'Resume loop');
-    button.title = running ? 'Pause loop' : 'Resume loop';
-    button.innerHTML = icon(running ? 'PauseIcon' : 'PlayIcon');
-    [$('#live-dot'), $('#loop-dot')].forEach(d => d.classList.toggle('on', running));
-    $$('.loop-node').forEach(n => n.classList.toggle('done', running));
-  });
+    #omniibg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: .5;
+      filter: blur(35px);
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
-  $('#tick-now').addEventListener('click', () => {
-    const button = $('#tick-now');
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
-    button.innerHTML = icon('LoadingRightIcon');
-    $$('.loop-node').forEach((n, i) => setTimeout(() => n.classList.add('done'), i * 120));
-    setTimeout(() => {
-      button.innerHTML = icon('CheckIcon');
-      addTick(false);
-      setTimeout(() => { button.innerHTML = icon('RefreshIcon'); button.disabled = false; button.removeAttribute('aria-busy'); }, 700);
-    }, 650);
-  });
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
 
-  function addTick(paused = false) {
-    const log = $('#loop-log');
-    const tick = document.createElement('div');
-    tick.className = `tick${paused ? ' paused' : ''}`;
-    tick.innerHTML = `<span class="tick-line"><i></i></span><span class="tick-wave"><i></i><i></i><i></i><i></i><i></i></span><span class="tick-state"><svg class="custom-icon"><use href="#eye-icon"/></svg></span><span class="tick-state">${icon(paused ? 'MinusIcon' : 'CheckIcon')}</span><span class="tick-state">${icon(paused ? 'PauseIcon' : 'TaskIcon')}</span><span class="tick-state">${icon('SafeIcon')}</span>`;
-    log.prepend(tick);
-  }
-  for (let i = 0; i < 6; i++) addTick(i > 1);
+    body {
+      color: var(--color-text-primary);
+    }
 
-  $$('.stage-track').forEach(track => track.addEventListener('click', event => {
-    const dot = event.target.closest('.stage-dot');
-    if (!dot) return;
-    const card = dot.closest('.island');
-    card.dataset.stage = dot.dataset.stage;
-    renderStages(card);
-  }));
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
 
-  $$('.state-btn').forEach(button => button.addEventListener('click', () => {
-    const card = button.closest('.island');
-    card.dataset.state = button.dataset.state;
-    $$('.state-btn', card).forEach(b => b.setAttribute('aria-pressed', String(b === button)));
-    if (button.dataset.state === 'done') { card.dataset.stage = String((stages[card.dataset.kind] || 3) - 1); renderStages(card); }
-  }));
+    button {
+      color: inherit;
+    }
 
-  $$('.attach-file').forEach(button => button.addEventListener('click', () => {
-    const count = $('.file-count .num', button.closest('.island'));
-    count.textContent = String(Number(count.textContent) + 1);
-    button.innerHTML = icon('CheckIcon');
-    setTimeout(() => button.innerHTML = icon('AddIcon'), 600);
-  }));
-  $$('.discuss').forEach(button => button.addEventListener('click', () => {
-    const composer = $('.visual-composer', button.closest('.island'));
-    composer.classList.toggle('open');
-    button.setAttribute('aria-pressed', String(composer.classList.contains('open')));
-  }));
-  $$('.show-note').forEach(button => button.addEventListener('click', () => {
-    const note = $('.note-visual', button.closest('.island'));
-    note.classList.toggle('open');
-    button.setAttribute('aria-pressed', String(note.classList.contains('open')));
-  }));
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--color-text-primary);
+      outline-offset: 2px;
+    }
 
-  function wireComposer(composer) {
-    const chosen = $('.chosen', composer);
-    $$('.picto', composer).forEach(button => button.addEventListener('click', () => {
-      if (chosen.children.length >= 5) chosen.firstElementChild.remove();
-      const clone = button.querySelector('kimi-icon, svg').cloneNode(true);
-      chosen.appendChild(clone);
-    }));
-    $('.send-picto', composer)?.addEventListener('click', () => {
-      if (!chosen.children.length) return;
-      if (composer.id === 'main-composer') {
-        const bubble = document.createElement('div');
-        bubble.className = 'bubble user';
-        bubble.innerHTML = chosen.innerHTML;
-        $('#message-flow').appendChild(bubble);
-        bubble.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } else {
-        const card = composer.closest('.island');
-        card.dataset.state = 'blank';
-        const count = $('.file-count .num', card);
-        count.textContent = String(Number(count.textContent) + 1);
+    /* Material Symbols Configuration */
+    .material-symbols-rounded {
+      font-family: 'Material Symbols Rounded';
+      font-weight: 300;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    .workdesk {
+      width: 100%;
+      height: 100%;
+      min-height: 720px;
+      padding-block-start: var(--space-4);
+      padding-inline: var(--space-4);
+      padding-block-end: var(--space-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 20px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .num {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      font-size: 12px;
+      line-height: 16px;
+    }
+
+    .muted {
+      color: var(--color-text-tertiary);
+    }
+
+    .positive {
+      color: var(--color-positive);
+    }
+
+    .warning {
+      color: var(--color-warning);
+    }
+
+    .danger {
+      color: var(--color-danger);
+    }
+
+    .accent {
+      color: var(--color-accent);
+    }
+
+    .topbar {
+      flex: 0 0 40px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding-inline: var(--space-2);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      min-width: 140px;
+    }
+
+    .orb {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--color-text-secondary);
+      border-radius: var(--radius-full);
+      display: grid;
+      place-items: center;
+    }
+
+    .orb::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      background: var(--color-text-primary);
+    }
+
+    .orb::after {
+      content: "";
+      position: absolute;
+      width: 34px;
+      height: 12px;
+      border: 1px solid var(--color-text-quaternary);
+      border-radius: 50%;
+      transform: rotate(-28deg);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      background: var(--color-warning);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-warning) 12%, transparent);
+    }
+
+    .live-dot.on {
+      background: var(--color-positive);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-positive) 12%, transparent);
+    }
+
+    .topology {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--color-text-tertiary);
+    }
+
+    .topology .link {
+      width: 32px;
+      height: .1px;
+      background: var(--color-border);
+      position: relative;
+    }
+
+    .topology .link::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: -2px;
+      width: 4px;
+      height: 4px;
+      border-radius: var(--radius-full);
+      background: var(--color-text-quaternary);
+    }
+
+    .top-stats {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding-right: 72px;
+    }
+
+    .stat {
+      min-width: 40px;
+      height: 28px;
+      padding-inline: var(--space-2);
+      border: 0px solid var(--color-border);
+      border-radius: var(--radius-chip);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-1);
+      color: var(--color-text-secondary);
+    }
+
+    .stat .material-symbols-rounded {
+      font-size: 16px;
+    }
+
+    .shell {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 152px minmax(0, 1fr);
+      border-top: 0px solid var(--color-border);
+    }
+
+    .rail {
+      min-height: 0;
+      padding-block: var(--space-3);
+      padding-right: var(--space-3);
+      border-right: 1px solid var(--color-border);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      overflow-y: auto;
+    }
+
+    .nav-set {
+      display: grid;
+      grid-template-columns: repeat(4, 32px);
+      gap: var(--space-1);
+      padding-block-end: var(--space-2);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .nav-set.six {
+      grid-template-columns: repeat(6, 20px);
+      gap: var(--space-1);
+    }
+
+    .icon-btn {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid transparent;
+      border-radius: var(--radius-button);
+      background: transparent;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
+    }
+
+    .icon-btn:hover {
+      color: var(--color-text-primary);
+      background: var(--color-surface-muted);
+    }
+
+    .icon-btn[aria-pressed="true"],
+    .icon-btn.active {
+      color: var(--color-text-primary);
+      background: var(--color-surface-muted);
+      border-color: var(--color-border);
+    }
+
+    .icon-btn.small {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+    }
+
+    .icon-btn.small .material-symbols-rounded {
+      font-size: 18px;
+    }
+
+    .nav-set.six .icon-btn {
+      width: 20px;
+      min-width: 20px;
+      height: 28px;
+    }
+
+    .nav-set.six .material-symbols-rounded {
+      font-size: 16px;
+    }
+
+    .badge {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      min-width: 14px;
+      height: 14px;
+      padding-inline: 2px;
+      border-radius: var(--radius-full);
+      display: grid;
+      place-items: center;
+      background: var(--color-text-primary);
+      color: var(--color-surface);
+      font-size: 10px;
+      line-height: 12px;
+    }
+
+    .nav-mark {
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .nav-mark .mini {
+      position: absolute;
+      right: -5px;
+      bottom: -3px;
+      width: 12px;
+      height: 12px;
+    }
+
+    .nav-mark .mini .material-symbols-rounded {
+      font-size: 12px;
+    }
+
+    .rail-foot {
+      margin-top: auto;
+      padding-top: var(--space-3);
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+    }
+
+    .usage {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      color: var(--color-text-tertiary);
+    }
+
+    .usage svg {
+      width: 24px;
+      height: 24px;
+      transform: rotate(-90deg);
+    }
+
+    .usage circle {
+      fill: none;
+      stroke-width: 3;
+    }
+
+    .usage .base {
+      stroke: var(--color-border);
+    }
+
+    .usage .fill {
+      stroke: var(--color-chart-1);
+      stroke-dasharray: 4 60;
+    }
+
+    .surface {
+      min-width: 0;
+      min-height: 0;
+      padding-left: var(--space-3);
+      padding-top: var(--space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .loopstrip {
+      flex: 0 0 56px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-panel);
+    }
+
+    .loop-core {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .loop-track {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      min-width: 120px;
+    }
+
+    .loop-node {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      color: var(--color-text-tertiary);
+    }
+
+    .loop-node:last-child {
+      flex: 0;
+    }
+
+    .loop-node::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      margin-inline: var(--space-2);
+      background: var(--color-border);
+    }
+
+    .loop-node:last-child::after {
+      display: none;
+    }
+
+    .loop-node.done {
+      color: var(--color-positive);
+    }
+
+    .loop-node.done::after {
+      background: color-mix(in srgb, var(--color-positive) 40%, var(--color-border));
+    }
+
+    .loop-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .frequency {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      padding-inline: var(--space-2);
+      border-left: 1px solid var(--color-border);
+      color: var(--color-text-secondary);
+    }
+
+    .views {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .view {
+      height: 100%;
+      min-height: 0;
+    }
+
+    .view[hidden] {
+      display: none !important;
+    }
+
+    .desk-grid {
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(400px, 1.35fr) minmax(260px, .9fr);
+      gap: var(--space-3);
+    }
+
+    .column {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      overflow-y: auto;
+      padding-right: var(--space-1);
+    }
+
+    .panel {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-panel);
+      padding: var(--space-3);
+    }
+
+    .panel-head {
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-block-end: var(--space-2);
+      color: var(--color-text-secondary);
+    }
+
+    .panel-head::after {
+      content: "";
+      order: 2;
+      height: 1px;
+      flex: 1;
+      background: var(--color-border);
+    }
+
+    .panel-head>* {
+      order: 1;
+    }
+
+    .panel-head>.head-action {
+      order: 3;
+    }
+
+    .panel-head>.head-action+.head-action {
+      margin-left: calc(-1 * var(--space-1));
+    }
+
+    .panel-body {
+      min-height: 32px;
+    }
+
+    .empty-visual {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      color: var(--color-text-quaternary);
+    }
+
+    .empty-visual .zero {
+      width: 28px;
+      height: 28px;
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-full);
+      display: grid;
+      place-items: center;
+    }
+
+    .empty-visual .material-symbols-rounded {
+      font-size: 24px;
+    }
+
+    .empty-visual .empty-line {
+      width: 56px;
+      height: 1px;
+      background: var(--color-border);
+    }
+
+    .attention-pulse {
+      animation: attention 1.2s var(--ease-out) 2;
+    }
+
+    @keyframes attention {
+      50% {
+        border-color: var(--color-warning);
       }
-      chosen.innerHTML = '';
-      composer.classList.remove('open');
-    });
-  }
-  $$('.visual-composer, #main-composer').forEach(wireComposer);
+    }
 
-  function addIsland() {
-    const index = $$('.island').length + 1;
-    const card = document.createElement('article');
-    card.className = 'island selected';
-    card.id = `island-open-${index}`;
-    card.dataset.islandCard = `open-${index}`;
-    card.dataset.kind = 'open'; card.dataset.stage = '0'; card.dataset.state = 'blank';
-    card.innerHTML = `<div class="island-head"><div class="island-symbol">${icon('AddIcon')}${icon('DiagramIcon')}</div><div class="island-state"><span class="priority" data-level="2"><i></i><i></i><i></i></span><span class="position-dot"></span></div></div><div class="stage-track"></div><div class="visual-status"><button class="kimi-icon-button icon-btn state-btn" data-state="blank" aria-label="No status" aria-pressed="true">${icon('NormalIcon')}</button><button class="kimi-icon-button icon-btn state-btn" data-state="blocked" aria-label="Blocked" aria-pressed="false">${icon('WarningIcon')}</button><button class="kimi-icon-button icon-btn state-btn" data-state="done" aria-label="Done" aria-pressed="false">${icon('CompletedIcon')}</button></div><div class="island-foot"><span class="file-count">${icon('ClipIcon')}<span class="num">0</span></span><button class="kimi-icon-button icon-btn small attach-file" aria-label="Attach visual file">${icon('AddIcon')}</button><button class="kimi-icon-button icon-btn small discuss" aria-label="Discuss with pictograms">${icon('MessageIcon')}</button><button class="kimi-icon-button icon-btn small show-note" aria-label="Show visual note">${icon('DocumentIcon')}</button></div><div class="visual-composer"><div class="chosen"></div><button class="kimi-icon-button icon-btn small picto" aria-label="Add task">${icon('TaskIcon')}</button><button class="kimi-icon-button icon-btn small picto" aria-label="Add image">${icon('ImageIcon')}</button><button class="kimi-icon-button icon-btn small send-picto" aria-label="Send pictograms">${icon('Send_aIcon')}</button></div><div class="note-visual"><span class="skeleton"></span><span class="skeleton mid"></span><span class="skeleton short"></span></div>`;
-    $('#islands').appendChild(card);
-    $('#island-count').textContent = String($$('.island').length);
-    renderStages(card);
-    wireIsland(card);
-    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
-  function wireIsland(card) {
-    $('.stage-track', card).addEventListener('click', event => {
-      const dot = event.target.closest('.stage-dot'); if (!dot) return;
-      card.dataset.stage = dot.dataset.stage; renderStages(card);
-    });
-    $$('.state-btn', card).forEach(button => button.addEventListener('click', () => {
-      card.dataset.state = button.dataset.state;
-      $$('.state-btn', card).forEach(b => b.setAttribute('aria-pressed', String(b === button)));
-      if (button.dataset.state === 'done') { card.dataset.stage = String((stages[card.dataset.kind] || 3) - 1); renderStages(card); }
-    }));
-    $('.attach-file', card).addEventListener('click', event => {
-      const button = event.currentTarget;
-      const count = $('.file-count .num', card); count.textContent = String(Number(count.textContent) + 1);
-      button.innerHTML = icon('CheckIcon'); setTimeout(() => button.innerHTML = icon('AddIcon'), 600);
-    });
-    $('.discuss', card).addEventListener('click', () => $('.visual-composer', card).classList.toggle('open'));
-    $('.show-note', card).addEventListener('click', () => $('.note-visual', card).classList.toggle('open'));
-    wireComposer($('.visual-composer', card));
-  }
-  $('#add-island').addEventListener('click', addIsland);
-  $('#rail-add').addEventListener('click', () => { setView('desk'); addIsland(); });
+    .rhythms {
+      display: grid;
+      gap: var(--space-1);
+    }
 
-  $$('.log-rhythm').forEach(button => button.addEventListener('click', () => {
-    button.classList.add('positive'); button.innerHTML = icon('CompletedIcon');
-    const days = $('.week', button.closest('.rhythm'));
-    days.style.opacity = '.45';
-    setTimeout(() => { days.style.opacity = '1'; }, 500);
-  }));
-  $('#rhythm-history').addEventListener('click', () => setView('loop'));
+    .rhythm {
+      display: grid;
+      grid-template-columns: 28px 52px 1fr auto auto;
+      align-items: center;
+      gap: var(--space-2);
+      min-height: 40px;
+      padding-block: var(--space-1);
+      border-top: 1px solid var(--color-border);
+    }
 
-  $('#mail-toggle').addEventListener('click', () => {
-    const panel = $('.mail-panel');
-    const connected = panel.classList.toggle('connected');
-    $('#mail-toggle').setAttribute('aria-pressed', String(connected));
-    $('#mail-dot').classList.toggle('on', connected);
-    $('[data-watch="mail"]').setAttribute('aria-pressed', String(connected));
-  });
-  $$('.draft-mail').forEach(button => button.addEventListener('click', () => { addOutput('EditIcon'); button.innerHTML = icon('CheckIcon'); }));
-  $$('.handle-mail').forEach(button => button.addEventListener('click', () => { button.closest('.mail-item').style.opacity = '.3'; button.disabled = true; }));
+    .rhythm:first-child {
+      border-top: 0;
+    }
 
-  function addOutput(kind = 'DocumentIcon') {
-    const file = document.createElement('button');
-    file.className = 'out-file'; file.setAttribute('aria-label', 'Open visual output'); file.innerHTML = icon(kind);
-    file.addEventListener('click', () => { $$('.out-file').forEach(f => f.classList.toggle('selected', f === file)); });
-    $('#out-files').appendChild(file);
-    $('#out-empty').style.display = 'none';
-  }
-  $('#add-output').addEventListener('click', () => addOutput());
+    .time {
+      color: var(--color-text-secondary);
+    }
 
-  $$('.watch-cell').forEach(button => button.addEventListener('click', () => {
-    if (button.dataset.watch === 'observations') {
-      const count = Number($('#observation-count').textContent) + 1;
-      $('#observation-count').textContent = String(count);
-      button.setAttribute('aria-pressed', String(count > 0));
-    } else button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
-  }));
-  $$('.trust-toggle, .switch').forEach(button => button.addEventListener('click', () => {
-    const on = button.getAttribute('aria-pressed') !== 'true';
-    button.setAttribute('aria-pressed', String(on));
-    button.classList.toggle('positive', on);
-    if (button.classList.contains('trust-toggle')) button.innerHTML = icon(on ? 'CheckIcon' : 'SafeIcon');
-  }));
+    .week {
+      display: flex;
+      gap: var(--space-1);
+    }
 
-  $('#interval-range').addEventListener('input', event => {
-    $('#interval-output').textContent = event.target.value;
-    $('#frequency-value').textContent = event.target.value;
-  });
-  $('#max-minus').addEventListener('click', () => { $('#max-open').textContent = String(Math.max(0, Number($('#max-open').textContent) - 1)); });
-  $('#max-plus').addEventListener('click', () => { $('#max-open').textContent = String(Math.min(9, Number($('#max-open').textContent) + 1)); });
-  $('#settings-observation').addEventListener('click', () => $('[data-watch="observations"]').click());
-  $('#file-observations').addEventListener('click', () => $('[data-watch="observations"]').click());
-  $('#file-profile').addEventListener('click', () => $('[data-watch="profile"]').click());
+    .day {
+      width: 8px;
+      height: 8px;
+      border: 1px solid var(--color-text-quaternary);
+      border-radius: var(--radius-full);
+    }
 
-  $('#memory-toggle').addEventListener('click', () => {
-    const button = $('#memory-toggle'); const on = button.getAttribute('aria-pressed') !== 'true';
-    button.setAttribute('aria-pressed', String(on)); button.classList.toggle('active', on);
-  });
-  $('#memory-add').addEventListener('click', () => { $('#memory-toggle .badge').textContent = String(Number($('#memory-toggle .badge').textContent) + 1); });
-  $('#imessage-toggle').addEventListener('click', event => {
-    const on = event.currentTarget.getAttribute('aria-pressed') !== 'true';
-    event.currentTarget.setAttribute('aria-pressed', String(on)); event.currentTarget.classList.toggle('positive', on);
-  });
-  $('#interview').addEventListener('click', () => { setView('settings'); $('#interval-range').focus(); });
-  $('#reset-thread').addEventListener('click', () => { $('#message-flow').innerHTML = ''; $('#main-composer .chosen').innerHTML = ''; });
-  $('#operation-filter').addEventListener('click', event => {
-    const on = event.currentTarget.getAttribute('aria-pressed') !== 'true';
-    event.currentTarget.setAttribute('aria-pressed', String(on));
-    $$('.op-node').forEach((node, i) => node.style.display = on || i % 2 === 0 ? '' : 'none');
-  });
-})();
-</script>
+    .day.on {
+      background: var(--color-text-primary);
+      border-color: var(--color-text-primary);
+    }
+
+    .priority {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 16px;
+    }
+
+    .priority i {
+      display: block;
+      width: 3px;
+      border-radius: 2px;
+      background: var(--color-border);
+    }
+
+    .priority i:nth-child(1) {
+      height: 5px;
+    }
+
+    .priority i:nth-child(2) {
+      height: 10px;
+    }
+
+    .priority i:nth-child(3) {
+      height: 15px;
+    }
+
+    .priority[data-level="1"] i:nth-child(1),
+    .priority[data-level="2"] i:nth-child(-n+2),
+    .priority[data-level="3"] i {
+      background: var(--color-warning);
+    }
+
+    .islands {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--space-2);
+    }
+
+    .island {
+      position: relative;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-input);
+      padding: var(--space-3);
+      background:rgba(0,255,0,.02);
+      border-color:green;
+      scroll-margin: var(--space-4);
+      transition: border-color var(--t-fast) var(--ease-out), opacity var(--t-fast) var(--ease-out);
+    }
+
+    .island:hover,
+    .island:focus-within,
+    .island.selected {
+      border-color: var(--color-text-quaternary);
+    }
+
+    .island[data-state="blocked"] {
+      border-color: color-mix(in srgb, var(--color-danger) 55%, var(--color-border));
+    }
+
+    .island[data-state="done"] {
+      border-color: color-mix(in srgb, var(--color-positive) 55%, var(--color-border));
+    }
+
+    .island-head {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .island-symbol {
+      position: relative;
+      width: 40px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      color: var(--color-text-primary);
+    }
+
+    .island-symbol> :last-child {
+      margin-left: -4px;
+      color: var(--color-text-tertiary);
+    }
+
+    .island-state {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .position-dot {
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--color-text-quaternary);
+      border-radius: var(--radius-full);
+      display: grid;
+      place-items: center;
+    }
+
+    .position-dot::after {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: var(--radius-full);
+      background: var(--color-text-quaternary);
+    }
+
+    .island[data-state="done"] .position-dot {
+      border-color: var(--color-positive);
+    }
+
+    .island[data-state="done"] .position-dot::after {
+      background: var(--color-positive);
+    }
+
+    .island[data-state="blocked"] .position-dot {
+      border-color: var(--color-danger);
+    }
+
+    .island[data-state="blocked"] .position-dot::after {
+      background: var(--color-danger);
+    }
+
+    .stage-track {
+      display: flex;
+      align-items: center;
+      margin-block: var(--space-3);
+    }
+
+    .stage-step {
+      display: flex;
+      align-items: center;
+      flex: 1;
+    }
+
+    .stage-step:last-child {
+      flex: 0;
+    }
+
+    .stage-step::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: var(--color-border);
+    }
+
+    .stage-step:last-child::after {
+      display: none;
+    }
+
+    .stage-dot {
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .stage-dot::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border: 1px solid var(--color-text-quaternary);
+      border-radius: var(--radius-full);
+      background: var(--color-surface);
+      transition: transform var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+    }
+
+    .stage-dot:hover::before {
+      transform: scale(1.35);
+    }
+
+    .stage-dot.on::before {
+      background: var(--color-text-primary);
+      border-color: var(--color-text-primary);
+    }
+
+    .stage-dot.current::before {
+      width: 12px;
+      height: 12px;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+    }
+
+    .stage-step:has(.stage-dot.on)::after {
+      background: var(--color-text-quaternary);
+    }
+
+    .visual-status {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      padding-block: var(--space-1);
+      border-top: 1px dashed var(--color-border);
+      border-bottom: 1px dashed var(--color-border);
+    }
+
+    .visual-status::before {
+      content: "";
+      flex: 1;
+      height: 4px;
+      border-radius: 4px;
+      background: repeating-linear-gradient(90deg, var(--color-border) 0 12px, transparent 12px 20px);
+    }
+
+    .visual-status .icon-btn {
+      width: 24px;
+      min-width: 24px;
+      height: 24px;
+    }
+
+    .visual-status .icon-btn .material-symbols-rounded {
+      font-size: 16px;
+    }
+
+    .island-foot {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      margin-top: var(--space-2);
+    }
+
+    .file-count {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      color: var(--color-text-tertiary);
+      margin-right: auto;
+    }
+
+    .file-count .material-symbols-rounded {
+      font-size: 16px;
+    }
+
+    .visual-composer,
+    .note-visual {
+      display: none;
+      align-items: center;
+      gap: var(--space-1);
+      padding-top: var(--space-2);
+      margin-top: var(--space-2);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .visual-composer.open,
+    .note-visual.open {
+      display: flex;
+    }
+
+    .visual-composer .chosen {
+      flex: 1;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      padding-inline: var(--space-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-button);
+    }
+
+    .visual-composer .chosen .material-symbols-rounded {
+      font-size: 18px;
+    }
+
+    .note-visual {
+      min-height: 40px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-1);
+    }
+
+    .skeleton {
+      height: 4px;
+      border-radius: 4px;
+      background: var(--color-border);
+    }
+
+    .skeleton.short {
+      width: 42%;
+    }
+
+    .skeleton.mid {
+      width: 68%;
+    }
+
+    .mail-visual {
+      min-height: 88px;
+      display: grid;
+      place-items: center;
+    }
+
+    .disconnected {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      color: var(--color-text-quaternary);
+    }
+
+    .disconnected .break {
+      width: 32px;
+      border-top: 1px dashed var(--color-text-quaternary);
+      transform: rotate(-24deg);
+    }
+
+    .mail-list {
+      display: none;
+      gap: var(--space-2);
+    }
+
+    .mail-panel.connected .disconnected {
+      display: none;
+    }
+
+    .mail-panel.connected .mail-list {
+      display: grid;
+    }
+
+    .mail-item {
+      display: grid;
+      grid-template-columns: 24px 1fr auto auto;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .avatar {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      display: grid;
+      place-items: center;
+    }
+
+    .avatar .material-symbols-rounded {
+      font-size: 16px;
+    }
+
+    .mail-lines {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .out-visual {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      min-height: 52px;
+      color: var(--color-text-quaternary);
+    }
+
+    .out-arrow {
+      width: 44px;
+      height: 1px;
+      border-top: 1px dashed var(--color-text-quaternary);
+      position: relative;
+    }
+
+    .out-arrow::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: -4px;
+      width: 7px;
+      height: 7px;
+      border-top: 1px solid var(--color-text-quaternary);
+      border-right: 1px solid var(--color-text-quaternary);
+      transform: rotate(45deg);
+    }
+
+    .out-files {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-1);
+    }
+
+    .out-file {
+      width: 32px;
+      height: 36px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-chip);
+      display: grid;
+      place-items: center;
+      color: var(--color-text-secondary);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .out-file.selected {
+      color: var(--color-positive);
+      border-color: var(--color-positive);
+    }
+
+    .watch-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-2);
+      margin-block-end: var(--space-3);
+    }
+
+    .watch-cell {
+      min-height: 56px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-input);
+      display: grid;
+      place-items: center;
+      gap: 2px;
+      color: var(--color-text-tertiary);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .watch-cell .signal {
+      width: 20px;
+      height: 4px;
+      border-radius: 4px;
+      background: var(--color-border);
+    }
+
+    .watch-cell[aria-pressed="true"] {
+      color: var(--color-positive);
+      border-color: color-mix(in srgb, var(--color-positive) 40%, var(--color-border));
+    }
+
+    .watch-cell[aria-pressed="true"] .signal {
+      background: var(--color-positive);
+    }
+
+    .trust-row {
+      display: grid;
+      grid-template-columns: 24px 1fr 28px;
+      align-items: center;
+      gap: var(--space-2);
+      min-height: 36px;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .sandbox-track {
+      height: 8px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .sandbox-track::before {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--color-border);
+    }
+
+    .sandbox-track i {
+      width: 6px;
+      height: 6px;
+      border-radius: var(--radius-full);
+      background: var(--color-positive);
+    }
+
+    .file-tabs {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-1);
+      margin-top: var(--space-2);
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .settings-grid {
+      height: 100%;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-3);
+      align-content: start;
+    }
+
+    .setting-row {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      align-items: center;
+      gap: var(--space-3);
+      min-height: 48px;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .setting-row:first-child {
+      border-top: 0;
+    }
+
+    .setting-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--color-text-primary);
+    }
+
+    .stepper {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .switch {
+      width: 36px;
+      height: 20px;
+      padding: 2px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .switch::before {
+      content: "";
+      display: block;
+      width: 14px;
+      height: 14px;
+      border-radius: var(--radius-full);
+      background: var(--color-text-quaternary);
+      transition: transform var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+    }
+
+    .switch[aria-pressed="true"]::before {
+      transform: translateX(16px);
+      background: var(--color-positive);
+    }
+
+    .quiet-visual {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--color-text-secondary);
+    }
+
+    .quiet-line {
+      flex: 1;
+      height: 8px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, var(--color-text-quaternary) 0 38%, var(--color-border) 38% 100%);
+    }
+
+    .loop-log {
+      height: 100%;
+      overflow-y: auto;
+      padding: var(--space-4);
+    }
+
+    .tick {
+      display: grid;
+      grid-template-columns: 32px 1fr repeat(4, 40px);
+      align-items: center;
+      gap: var(--space-3);
+      min-height: 64px;
+    }
+
+    .tick-line {
+      align-self: stretch;
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+
+    .tick-line::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--color-border);
+    }
+
+    .tick-line i {
+      position: relative;
+      width: 10px;
+      height: 10px;
+      border-radius: var(--radius-full);
+      background: var(--color-positive);
+      box-shadow: 0 0 0 4px var(--color-surface);
+    }
+
+    .tick.paused .tick-line i {
+      background: var(--color-warning);
+    }
+
+    .tick-wave {
+      height: 16px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+    }
+
+    .tick-wave i {
+      width: 3px;
+      border-radius: 3px;
+      background: var(--color-text-quaternary);
+    }
+
+    .tick-wave i:nth-child(1) {
+      height: 5px;
+    }
+
+    .tick-wave i:nth-child(2) {
+      height: 12px;
+    }
+
+    .tick-wave i:nth-child(3) {
+      height: 8px;
+    }
+
+    .tick-wave i:nth-child(4) {
+      height: 15px;
+    }
+
+    .tick-wave i:nth-child(5) {
+      height: 6px;
+    }
+
+    .tick-state {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-button);
+      display: grid;
+      place-items: center;
+      color: var(--color-text-tertiary);
+    }
+
+    .workbench {
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-3);
+    }
+
+    .conversation,
+    .operation {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .message-flow {
+      flex: 1;
+      min-height: 160px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      padding: var(--space-2);
+    }
+
+    .bubble {
+      max-width: 82%;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-panel);
+    }
+
+    .bubble.user {
+      align-self: flex-end;
+      background: var(--color-surface-muted);
+    }
+
+    .bubble.agent {
+      align-self: flex-start;
+    }
+
+    .composer {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--color-border);
+    }
+
+    .composer .chosen {
+      flex: 1;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding-inline: var(--space-2);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-input);
+    }
+
+    .operation-flow {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: var(--space-2);
+      overflow-y: auto;
+    }
+
+    .op-node {
+      display: grid;
+      grid-template-columns: 32px 1fr 24px;
+      align-items: center;
+      gap: var(--space-2);
+      min-height: 44px;
+      position: relative;
+    }
+
+    .op-node:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 15px;
+      top: 36px;
+      bottom: -8px;
+      width: 1px;
+      background: var(--color-border);
+    }
+
+    .op-icon {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      display: grid;
+      place-items: center;
+    }
+
+    .op-lines {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .op-status {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      background: var(--color-positive);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--color-scroll);
+      border-radius: var(--radius-full);
+    }
+
+    @media (max-width: 860px) {
+      .shell {
+        grid-template-columns: 52px minmax(0, 1fr);
+      }
+
+      .nav-set,
+      .nav-set.six {
+        grid-template-columns: 32px;
+      }
+
+      .brand {
+        min-width: 40px;
+      }
+
+      .topology {
+        display: none;
+      }
+
+      .desk-grid {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+      }
+
+      .column {
+        overflow: visible;
+      }
+
+      .top-stats {
+        padding-right: 48px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: .001ms !important;
+        transition-duration: .001ms !important;
+      }
+    }
+    .islands-panel {
+      display:grid;
+      grid-template-columns: 1fr 1fr;;
+      gap: var(--space-3);
+      padding: var(--space-3);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="workdesk">
+    <header class="topbar" aria-label="Omni status">
+      <div class="brand"><span class="orb" aria-hidden="true"></span><span class="live-dot" id="live-dot"
+          title="Loop paused"></span></div>
+      <div class="topology" aria-hidden="true">
+        <span class="material-symbols-rounded">visibility</span><span class="link"></span>
+        <span class="material-symbols-rounded">database</span><span class="link"></span>
+        <span class="material-symbols-rounded">task</span><span class="link"></span>
+        <span class="material-symbols-rounded">check_circle</span>
+      </div>
+      <div class="top-stats">
+        <span class="stat" title="Open check-ins"><span class="material-symbols-rounded">notifications</span><span
+            class="num" id="open-count">0</span></span>
+        <span class="stat" title="Islands"><span class="material-symbols-rounded">account_tree</span><span class="num"
+            id="island-count">3</span></span>
+        <span class="stat" title="Sandboxed"><span class="material-symbols-rounded">shield</span><span
+            class="num">3</span></span>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="rail" aria-label="Visual navigation">
+        <nav class="nav-set" aria-label="Desk views">
+          <button class="icon-button icon-btn active" data-view="desk" aria-label="Desk" title="Desk"
+            aria-pressed="true"><span class="material-symbols-rounded">desktop_windows</span></button>
+          <button class="icon-button icon-btn" data-view="attention" aria-label="Needs you" title="Needs you"
+            aria-pressed="false"><span class="material-symbols-rounded">notifications</span><span class="badge"
+              id="needs-badge">0</span></button>
+          <button class="icon-button icon-btn" data-view="settings" aria-label="Loop settings" title="Loop settings"
+            aria-pressed="false"><span class="material-symbols-rounded">settings</span></button>
+          <button class="icon-button icon-btn" data-view="loop" aria-label="Loop history" title="Loop history"
+            aria-pressed="false"><span class="material-symbols-rounded">history</span></button>
+        </nav>
+        <nav class="nav-set" aria-label="Islands">
+          <button class="icon-button icon-btn" data-island="students" aria-label="Getting music students"
+            title="Getting music students"><span class="nav-mark"><span
+                class="material-symbols-rounded">groups</span><span class="mini"><span
+                  class="material-symbols-rounded">music_note</span></span></span></button>
+          <button class="icon-button icon-btn" data-island="room" aria-label="Getting my room setup"
+            title="Getting my room setup"><span class="material-symbols-rounded">meeting_room</span></button>
+          <button class="icon-button icon-btn" data-island="sharing" aria-label="Sharing my music online"
+            title="Sharing my music online"><span class="nav-mark"><span
+                class="material-symbols-rounded">share</span><span class="mini"><span
+                  class="material-symbols-rounded">music_note</span></span></span></button>
+          <button class="icon-button icon-btn" id="rail-add" aria-label="Add island" title="Add island"><span
+              class="material-symbols-rounded">add</span></button>
+        </nav>
+        <nav class="nav-set six" aria-label="Modes">
+          <button class="icon-button icon-btn" data-mode="assistant" aria-label="Assistant mode" title="Assistant"><span
+              class="material-symbols-rounded">person</span></button>
+          <button class="icon-button icon-btn" data-mode="brief" aria-label="Brief mode" title="Brief"><span
+              class="material-symbols-rounded">history</span></button>
+          <button class="icon-button icon-btn" data-mode="carrier" aria-label="Carrier mode" title="Carrier"><span
+              class="material-symbols-rounded">send</span></button>
+          <button class="icon-button icon-btn" data-mode="drafter" aria-label="Drafter mode" title="Drafter"><span
+              class="material-symbols-rounded">edit</span></button>
+          <button class="icon-button icon-btn" data-mode="researcher" aria-label="Researcher mode"
+            title="Researcher"><span class="material-symbols-rounded">search</span></button>
+          <button class="icon-button icon-btn" data-mode="triage" aria-label="Triage mode" title="Triage"><span
+              class="material-symbols-rounded">table_chart</span></button>
+        </nav>
+        <nav class="nav-set" aria-label="Memory">
+          <button class="icon-button icon-btn active" id="memory-toggle" aria-label="Personal memory inserted"
+            title="Personal memory" aria-pressed="true"><span class="material-symbols-rounded">database</span><span
+              class="badge">0</span></button>
+          <button class="icon-button icon-btn" id="memory-add" aria-label="Create memory cartridge"
+            title="Create memory cartridge"><span class="material-symbols-rounded">add</span></button>
+        </nav>
+        <nav class="nav-set" aria-label="Setup">
+          <button class="icon-button icon-btn" data-view="settings" aria-label="Desk configuration"
+            title="Desk configuration"><span class="material-symbols-rounded">task</span></button>
+          <button class="icon-button icon-btn" data-mode="assistant" aria-label="Mode configuration"
+            title="Mode configuration"><span class="material-symbols-rounded">edit</span></button>
+          <button class="icon-button icon-btn" data-view="settings" aria-label="Skills schedules and channels"
+            title="Skills schedules and channels"><span class="material-symbols-rounded">more_horiz</span></button>
+          <button class="icon-button icon-btn" id="interview" aria-label="Visual interview"
+            title="Visual interview"><span class="material-symbols-rounded">help</span></button>
+        </nav>
+        <div class="rail-foot">
+          <span class="usage" title="Daily token usage"><svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle class="base" cx="12" cy="12" r="9" />
+              <circle class="fill" cx="12" cy="12" r="9" />
+            </svg><span class="num">0</span></span>
+          <button class="icon-button icon-btn small" id="imessage-toggle" aria-label="Toggle iMessage" title="iMessage"
+            aria-pressed="false"><span class="material-symbols-rounded">chat_bubble</span></button>
+        </div>
+      </aside>
+
+      <main class="surface">
+        <section class="loopstrip" aria-label="Loop controls">
+          <div class="loop-core">
+            <button class="icon-button icon-btn" id="loop-toggle" aria-label="Resume loop" title="Resume loop"
+              aria-pressed="false"><span class="material-symbols-rounded">play_arrow</span></button>
+            <span class="live-dot" id="loop-dot"></span>
+          </div>
+          <div class="loop-track" aria-hidden="true">
+            <span class="loop-node done"><span class="material-symbols-rounded">visibility</span></span>
+            <span class="loop-node done"><span class="material-symbols-rounded">database</span></span>
+            <span class="loop-node"><span class="material-symbols-rounded">task</span></span>
+            <span class="loop-node"><span class="material-symbols-rounded">shield</span></span>
+          </div>
+          <span class="frequency" title="Loop interval"><span class="material-symbols-rounded">schedule</span><span
+              class="num" id="frequency-value">15</span></span>
+          <div class="loop-actions">
+            <button class="icon-button icon-btn small" id="tick-now" aria-label="Look now" title="Look now"><span
+                class="material-symbols-rounded">refresh</span></button>
+            <button class="icon-button icon-btn small" data-view="loop" aria-label="Loop history"
+              title="Loop history"><span class="material-symbols-rounded">history</span></button>
+          </div>
+        </section>
+
+        <div class="views">
+          <section class="view" id="view-desk">
+            <div class="desk-grid">
+              <div class="column">
+                <section class="panel" id="needs-panel" aria-label="Needs you">
+                  <div class="panel-head"><span class="material-symbols-rounded">notifications</span><button
+                      class="icon-button icon-btn small head-action" data-view="attention" aria-label="Focus check-ins"
+                      title="Focus check-ins"><span class="material-symbols-rounded">open_in_full</span></button></div>
+                  <div class="empty-visual"><span class="zero"><span
+                        class="material-symbols-rounded">check_circle</span></span><span class="empty-line"></span><span
+                      class="num">0</span></div>
+                </section>
+
+                <section class="panel" aria-label="Rhythms">
+                  <div class="panel-head"><span class="material-symbols-rounded">refresh</span><button
+                      class="icon-button icon-btn small head-action" id="rhythm-history" aria-label="Rhythm history"
+                      title="Rhythm history"><span class="material-symbols-rounded">history</span></button></div>
+                  <div class="rhythms">
+                    <div class="rhythm" data-rhythm="medicine">
+                      <span class="material-symbols-rounded accent">medication</span>
+                      <span class="time num">09:00</span>
+                      <span class="week" aria-label="Daily"><i class="day on"></i><i class="day on"></i><i
+                          class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i><i
+                          class="day on"></i></span>
+                      <span class="priority" data-level="3" title="Top priority"><i></i><i></i><i></i></span>
+                      <button class="icon-button icon-btn small log-rhythm" aria-label="Log medicine"
+                        title="Log medicine"><span class="material-symbols-rounded">check</span></button>
+                    </div>
+                    <div class="rhythm" data-rhythm="chores">
+                      <span class="material-symbols-rounded">home</span>
+                      <span class="time num">11:00</span>
+                      <span class="week" aria-label="Saturday"><i class="day"></i><i class="day"></i><i
+                          class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i
+                          class="day on"></i></span>
+                      <span class="priority" data-level="1" title="Low priority"><i></i><i></i><i></i></span>
+                      <button class="icon-button icon-btn small log-rhythm" aria-label="Log apartment chores"
+                        title="Log apartment chores"><span class="material-symbols-rounded">check</span></button>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="panel" aria-label="Islands">
+                  <div class="panel-head"><span class="material-symbols-rounded">account_tree</span><button
+                      class="icon-button icon-btn small head-action" id="add-island" aria-label="Add island"
+                      title="Add island"><span class="material-symbols-rounded">add</span></button></div>
+                  <div class="islands" id="islands">
+                    <article class="island" id="island-students" data-island-card="students" data-kind="grow"
+                      data-stage="0" data-state="blank">
+                      <div class="island-head">
+                        <div class="island-symbol"><span class="material-symbols-rounded">groups</span><span
+                            class="material-symbols-rounded">music_note</span></div>
+                        <div class="island-state"><span class="priority" data-level="2"
+                            title="Normal priority"><i></i><i></i><i></i></span><span class="position-dot"></span></div>
+                      </div>
+                      <div class="stage-track" aria-label="Grow stage"></div>
+                      <div class="visual-status" aria-label="Visual status">
+                        <button class="icon-button icon-btn state-btn" data-state="blank" aria-label="No status"
+                          title="No status" aria-pressed="true"><span
+                            class="material-symbols-rounded">radio_button_unchecked</span></button>
+                        <button class="icon-button icon-btn state-btn" data-state="blocked" aria-label="Blocked"
+                          title="Blocked" aria-pressed="false"><span
+                            class="material-symbols-rounded">warning</span></button>
+                        <button class="icon-button icon-btn state-btn" data-state="done" aria-label="Done" title="Done"
+                          aria-pressed="false"><span class="material-symbols-rounded">check_circle</span></button>
+                      </div>
+                      <div class="island-foot">
+                        <span class="file-count"><span class="material-symbols-rounded">attachment</span><span
+                            class="num">0</span></span>
+                        <button class="icon-button icon-btn small attach-file" aria-label="Attach visual file"
+                          title="Attach file"><span class="material-symbols-rounded">add</span></button>
+                        <button class="icon-button icon-btn small discuss" aria-label="Discuss with pictograms"
+                          title="Discuss"><span class="material-symbols-rounded">chat_bubble</span></button>
+                        <button class="icon-button icon-btn small show-note" aria-label="Show visual note"
+                          title="Visual note"><span class="material-symbols-rounded">description</span></button>
+                      </div>
+                      <div class="visual-composer">
+                        <div class="chosen"></div><button class="icon-button icon-btn small picto"
+                          aria-label="Add music"><span
+                            class="material-symbols-rounded">music_note</span></button><button
+                          class="icon-button icon-btn small picto" aria-label="Add people"><span
+                            class="material-symbols-rounded">groups</span></button><button
+                          class="icon-button icon-btn small picto" aria-label="Add image"><span
+                            class="material-symbols-rounded">image</span></button><button
+                          class="icon-button icon-btn small send-picto" aria-label="Send pictograms"><span
+                            class="material-symbols-rounded">send</span></button>
+                      </div>
+                      <div class="note-visual"><span class="skeleton"></span><span class="skeleton mid"></span><span
+                          class="skeleton short"></span></div>
+                    </article>
+
+                    <article class="island" id="island-room" data-island-card="room" data-kind="grow" data-stage="0"
+                      data-state="blank">
+                      <div class="island-head">
+                        <div class="island-symbol"><span class="material-symbols-rounded">meeting_room</span><span
+                            class="material-symbols-rounded">settings</span></div>
+                        <div class="island-state"><span class="priority" data-level="2"
+                            title="Normal priority"><i></i><i></i><i></i></span><span class="position-dot"></span></div>
+                      </div>
+                      <div class="stage-track" aria-label="Grow stage"></div>
+                      <div class="visual-status" aria-label="Visual status">
+                        <button class="icon-button icon-btn state-btn" data-state="blank" aria-label="No status"
+                          title="No status" aria-pressed="true"><span
+                            class="material-symbols-rounded">radio_button_unchecked</span></button>
+                        <button class="icon-button icon-btn state-btn" data-state="blocked" aria-label="Blocked"
+                          title="Blocked" aria-pressed="false"><span
+                            class="material-symbols-rounded">warning</span></button>
+                        <button class="icon-button icon-btn state-btn" data-state="done" aria-label="Done" title="Done"
+                          aria-pressed="false"><span class="material-symbols-rounded">check_circle</span></button>
+                      </div>
+                      <div class="island-foot">
+                        <span class="file-count"><span class="material-symbols-rounded">attachment</span><span
+                            class="num">0</span></span>
+                        <button class="icon-button icon-btn small attach-file" aria-label="Attach visual file"
+                          title="Attach file"><span class="material-symbols-rounded">add</span></button>
+                        <button class="icon-button icon-btn small discuss" aria-label="Discuss with pictograms"
+                          title="Discuss"><span class="material-symbols-rounded">chat_bubble</span></button>
+                        <button class="icon-button icon-btn small show-note" aria-label="Show visual note"
+                          title="Visual note"><span class="material-symbols-rounded">description</span></button>
+                      </div>
+                      <div class="visual-composer">
+                        <div class="chosen"></div><button class="icon-button icon-btn small picto"
+                          aria-label="Add room"><span
+                            class="material-symbols-rounded">meeting_room</span></button><button
+                          class="icon-button icon-btn small picto" aria-label="Add image"><span
+                            class="material-symbols-rounded">image</span></button><button
+                          class="icon-button icon-btn small picto" aria-label="Add settings"><span
+                            class="material-symbols-rounded">settings</span></button><button
+                          class="icon-button icon-btn small send-picto" aria-label="Send pictograms"><span
+                            class="material-symbols-rounded">send</span></button>
+                      </div>
+                      <div class="note-visual"><span class="skeleton"></span><span class="skeleton mid"></span><span
+                          class="skeleton short"></span></div>
+                    </article>
+
+                    <article class="island" id="island-sharing" data-island-card="sharing" data-kind="build"
+                      data-stage="0" data-state="blank">
+                      <div class="island-head">
+                        <div class="island-symbol"><span class="material-symbols-rounded">share</span><span
+                            class="material-symbols-rounded">music_note</span></div>
+                        <div class="island-state"><span class="priority" data-level="3"
+                            title="Top priority"><i></i><i></i><i></i></span><span class="position-dot"></span></div>
+                      </div>
+                      <div class="stage-track" aria-label="Build stage"></div>
+                      <div class="visual-status" aria-label="Visual status">
+                        <button class="icon-button icon-btn state-btn" data-state="blank" aria-label="No status"
+                          title="No status" aria-pressed="true"><span
+                            class="material-symbols-rounded">radio_button_unchecked</span></button>
+                        <button class="icon-button icon-btn state-btn" data-state="blocked" aria-label="Blocked"
+                          title="Blocked" aria-pressed="false"><span
+                            class="material-symbols-rounded">warning</span></button>
+                        <button class="icon-button icon-btn state-btn" data-state="done" aria-label="Done" title="Done"
+                          aria-pressed="false"><span class="material-symbols-rounded">check_circle</span></button>
+                      </div>
+                      <div class="island-foot">
+                        <span class="file-count"><span class="material-symbols-rounded">attachment</span><span
+                            class="num">0</span></span>
+                        <button class="icon-button icon-btn small attach-file" aria-label="Attach visual file"
+                          title="Attach file"><span class="material-symbols-rounded">add</span></button>
+                        <button class="icon-button icon-btn small discuss" aria-label="Discuss with pictograms"
+                          title="Discuss"><span class="material-symbols-rounded">chat_bubble</span></button>
+                        <button class="icon-button icon-btn small show-note" aria-label="Show visual note"
+                          title="Visual note"><span class="material-symbols-rounded">description</span></button>
+                      </div>
+                      <div class="visual-composer">
+                        <div class="chosen"></div><button class="icon-button icon-btn small picto"
+                          aria-label="Add music"><span
+                            class="material-symbols-rounded">music_note</span></button><button
+                          class="icon-button icon-btn small picto" aria-label="Add share"><span
+                            class="material-symbols-rounded">share</span></button><button
+                          class="icon-button icon-btn small picto" aria-label="Add browser"><span
+                            class="material-symbols-rounded">public</span></button><button
+                          class="icon-button icon-btn small send-picto" aria-label="Send pictograms"><span
+                            class="material-symbols-rounded">send</span></button>
+                      </div>
+                      <div class="note-visual"><span class="skeleton"></span><span class="skeleton mid"></span><span
+                          class="skeleton short"></span></div>
+                    </article>
+                  </div>
+                </section>
+              </div>
+
+              <div class="column">
+                <section class="panel mail-panel" aria-label="Mail">
+                  <div class="panel-head"><span class="material-symbols-rounded">chat_bubble</span><span
+                      class="live-dot" id="mail-dot" style="width:6px;height:6px;box-shadow:none"></span><button
+                      class="icon-button icon-btn small head-action" id="mail-toggle" aria-label="Connect mail"
+                      title="Connect mail" aria-pressed="false"><span
+                        class="material-symbols-rounded">link</span></button></div>
+                  <div class="mail-visual">
+                    <div class="disconnected"><span class="material-symbols-rounded">chat_bubble</span><span
+                        class="break"></span><span class="material-symbols-rounded">link</span></div>
+                    <div class="mail-list">
+                      <div class="mail-item"><span class="avatar"><span
+                            class="material-symbols-rounded">person</span></span><span class="mail-lines"><i
+                            class="skeleton"></i><i class="skeleton mid"></i></span><button
+                          class="icon-button icon-btn small draft-mail" aria-label="Draft reply"><span
+                            class="material-symbols-rounded">edit</span></button><button
+                          class="icon-button icon-btn small handle-mail" aria-label="Mark handled"><span
+                            class="material-symbols-rounded">check</span></button></div>
+                      <div class="mail-item"><span class="avatar"><span
+                            class="material-symbols-rounded">person</span></span><span class="mail-lines"><i
+                            class="skeleton mid"></i><i class="skeleton short"></i></span><button
+                          class="icon-button icon-btn small draft-mail" aria-label="Draft reply"><span
+                            class="material-symbols-rounded">edit</span></button><button
+                          class="icon-button icon-btn small handle-mail" aria-label="Mark handled"><span
+                            class="material-symbols-rounded">check</span></button></div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="panel" aria-label="Sandboxed output">
+                  <div class="panel-head"><span class="material-symbols-rounded">upload</span><button
+                      class="icon-button icon-btn small head-action" id="add-output"
+                      aria-label="Create sandboxed output" title="Create output"><span
+                        class="material-symbols-rounded">add</span></button></div>
+                  <div class="out-visual" id="out-empty"><span class="material-symbols-rounded">shield</span><span
+                      class="out-arrow"></span><span class="material-symbols-rounded">folder_open</span></div>
+                  <div class="out-files" id="out-files"></div>
+                </section>
+
+                <section class="panel" aria-label="Watches and trust">
+                  <div class="panel-head"><span class="material-symbols-rounded">shield</span><button
+                      class="icon-button icon-btn small head-action" data-view="settings"
+                      aria-label="Configure watches and trust" title="Configure"><span
+                        class="material-symbols-rounded">settings</span></button></div>
+                  <div class="watch-grid">
+                    <button class="icon-button icon-btn watch-cell" data-watch="export"
+                      aria-label="Toggle export folder watch" title="Export folder" aria-pressed="false"><span
+                        class="material-symbols-rounded">folder</span><span class="signal"></span></button>
+                    <button class="icon-button icon-btn watch-cell" data-watch="mail" aria-label="Toggle mail watch"
+                      title="Mail watch" aria-pressed="false"><span
+                        class="material-symbols-rounded">chat_bubble</span><span class="signal"></span></button>
+                    <button class="icon-button icon-btn watch-cell" data-watch="observations"
+                      aria-label="Add observation" title="Observations" aria-pressed="false"><span
+                        class="material-symbols-rounded">database</span><span class="num"
+                        id="observation-count">0</span></button>
+                    <button class="icon-button icon-btn watch-cell" data-watch="profile" aria-label="Profile connected"
+                      title="Profile" aria-pressed="true"><span class="material-symbols-rounded">person</span><span
+                        class="signal"></span></button>
+                  </div>
+                  <div class="trust-row"><span class="material-symbols-rounded">chat_bubble</span><span
+                      class="sandbox-track"><i></i><i></i><i></i></span><button
+                      class="icon-button icon-btn small trust-toggle" aria-label="Toggle mail trust"
+                      title="Mail sandbox" aria-pressed="false"><span
+                        class="material-symbols-rounded">shield</span></button></div>
+                  <div class="trust-row"><span class="material-symbols-rounded">public</span><span
+                      class="sandbox-track"><i></i><i></i><i></i></span><button
+                      class="icon-button icon-btn small trust-toggle" aria-label="Toggle site trust"
+                      title="Site sandbox" aria-pressed="false"><span
+                        class="material-symbols-rounded">shield</span></button></div>
+                  <div class="trust-row"><span class="material-symbols-rounded">upload</span><span
+                      class="sandbox-track"><i></i><i></i><i></i></span><button
+                      class="icon-button icon-btn small trust-toggle" aria-label="Toggle submissions trust"
+                      title="Submissions sandbox" aria-pressed="false"><span
+                        class="material-symbols-rounded">shield</span></button></div>
+                  <div class="file-tabs">
+                    <button class="icon-button icon-btn small" data-view="settings" aria-label="Priorities"
+                      title="Priorities"><span class="material-symbols-rounded">notifications</span></button>
+                    <button class="icon-button icon-btn small" data-view="settings" aria-label="Trust"
+                      title="Trust"><span class="material-symbols-rounded">shield</span></button>
+                    <button class="icon-button icon-btn small" data-view="settings" aria-label="Watches"
+                      title="Watches"><span class="material-symbols-rounded">search</span></button>
+                    <button class="icon-button icon-btn small" id="file-observations" aria-label="Observations"
+                      title="Observations"><span class="material-symbols-rounded">database</span></button>
+                    <button class="icon-button icon-btn small" id="file-profile" aria-label="Profile"
+                      title="Profile"><span class="material-symbols-rounded">person</span></button>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section class="view" id="view-settings" hidden>
+            <div class="settings-grid">
+              <section class="panel" aria-label="Loop settings">
+                <div class="panel-head"><span class="material-symbols-rounded">refresh</span></div>
+                <div class="setting-row"><span class="material-symbols-rounded">schedule</span><input
+                    id="interval-range" type="range" min="5" max="60" step="5" value="15"
+                    aria-label="Loop interval"><span class="num" id="interval-output">15</span></div>
+                <div class="setting-row"><span class="material-symbols-rounded">dark_mode</span>
+                  <div class="quiet-visual"><span class="num">00</span><span class="quiet-line"></span><span
+                      class="num">09</span></div><span class="material-symbols-rounded">light_mode</span>
+                </div>
+                <div class="setting-row"><span class="material-symbols-rounded">notifications</span>
+                  <div class="stepper"><button class="icon-button icon-btn small" id="max-minus"
+                      aria-label="Fewer open questions"><span
+                        class="material-symbols-rounded">remove</span></button><span class="num"
+                      id="max-open">2</span><button class="icon-button icon-btn small" id="max-plus"
+                      aria-label="More open questions"><span class="material-symbols-rounded">add</span></button></div>
+                  <span class="material-symbols-rounded">task</span>
+                </div>
+                <div class="setting-row"><span class="material-symbols-rounded">chat_bubble</span><span
+                    class="sandbox-track"><i></i><i></i><i></i></span><button class="switch"
+                    aria-label="Toggle question texting" aria-pressed="true"></button></div>
+              </section>
+              <section class="panel" aria-label="Priority settings">
+                <div class="panel-head"><span class="material-symbols-rounded">notifications</span></div>
+                <div class="setting-row"><span class="priority" data-level="3"><i></i><i></i><i></i></span><input
+                    type="range" min="15" max="180" value="90" aria-label="Top priority reminder"><span
+                    class="num">90</span></div>
+                <div class="setting-row"><span class="priority" data-level="2"><i></i><i></i><i></i></span>
+                  <div class="week"><i class="day on"></i><i class="day on"></i><i class="day on"></i><i
+                      class="day on"></i><i class="day on"></i><i class="day on"></i><i class="day on"></i></div><span
+                    class="num">1</span>
+                </div>
+                <div class="setting-row"><span class="priority" data-level="1"><i></i><i></i><i></i></span>
+                  <div class="week"><i class="day on"></i><i class="day"></i><i class="day"></i><i class="day"></i><i
+                      class="day"></i><i class="day"></i><i class="day on"></i></div><button class="switch"
+                    aria-label="Toggle low priority texting" aria-pressed="false"></button>
+                </div>
+                <div class="setting-row"><span class="material-symbols-rounded accent">medication</span><span
+                    class="time num">09:00</span><button class="icon-button icon-btn small"
+                    aria-label="Adjust medicine rhythm"><span class="material-symbols-rounded">edit</span></button>
+                </div>
+                <div class="setting-row"><span class="material-symbols-rounded">home</span>
+                  <div class="week"><i class="day"></i><i class="day"></i><i class="day"></i><i class="day"></i><i
+                      class="day"></i><i class="day"></i><i class="day on"></i></div><span class="time num">11:00</span>
+                </div>
+              </section>
+              <section class="panel" aria-label="Watch settings">
+                <div class="panel-head"><span class="material-symbols-rounded">visibility</span></div>
+                <div class="setting-row"><span class="material-symbols-rounded">folder</span><span
+                    class="sandbox-track"></span><button class="switch" aria-label="Toggle export watch"
+                    aria-pressed="false"></button></div>
+                <div class="setting-row"><span class="material-symbols-rounded">chat_bubble</span><span
+                    class="sandbox-track"></span><button class="switch" aria-label="Toggle mail watch"
+                    aria-pressed="false"></button></div>
+                <div class="setting-row"><span class="material-symbols-rounded">database</span><span
+                    class="sandbox-track"></span><button class="icon-button icon-btn small" id="settings-observation"
+                    aria-label="Add observation"><span class="material-symbols-rounded">add</span></button></div>
+              </section>
+              <section class="panel" aria-label="Trust settings">
+                <div class="panel-head"><span class="material-symbols-rounded">shield</span></div>
+                <div class="setting-row"><span class="material-symbols-rounded">chat_bubble</span><span
+                    class="sandbox-track"><i></i><i></i><i></i></span><button class="switch"
+                    aria-label="Toggle mail trust" aria-pressed="false"></button></div>
+                <div class="setting-row"><span class="material-symbols-rounded">public</span><span
+                    class="sandbox-track"><i></i><i></i><i></i></span><button class="switch"
+                    aria-label="Toggle site trust" aria-pressed="false"></button></div>
+                <div class="setting-row"><span class="material-symbols-rounded">upload</span><span
+                    class="sandbox-track"><i></i><i></i><i></i></span><button class="switch"
+                    aria-label="Toggle submissions trust" aria-pressed="false"></button></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="view" id="view-loop" hidden>
+            <section class="panel loop-log" id="loop-log" aria-label="Visual loop history"></section>
+          </section>
+
+          <section class="view" id="view-mode" hidden>
+            <div class="workbench">
+              <section class="panel conversation" aria-label="Pictorial conversation">
+                <div class="panel-head"><span class="material-symbols-rounded">chat_bubble</span><button
+                    class="icon-button icon-btn small head-action" id="reset-thread" aria-label="Reset conversation"
+                    title="Reset"><span class="material-symbols-rounded">refresh</span></button></div>
+                <div class="message-flow" id="message-flow">
+                  <div class="bubble user"><span class="material-symbols-rounded">music_note</span><span
+                      class="material-symbols-rounded">groups</span><span class="material-symbols-rounded">help</span>
+                  </div>
+                  <div class="bubble agent"><span class="material-symbols-rounded">search</span><span
+                      class="material-symbols-rounded">account_tree</span><span
+                      class="material-symbols-rounded">check</span></div>
+                </div>
+                <div class="composer" id="main-composer">
+                  <div class="chosen"></div><button class="icon-button icon-btn small picto"
+                    aria-label="Add image"><span class="material-symbols-rounded">image</span></button><button
+                    class="icon-button icon-btn small picto" aria-label="Add music"><span
+                      class="material-symbols-rounded">music_note</span></button><button
+                    class="icon-button icon-btn small picto" aria-label="Add search"><span
+                      class="material-symbols-rounded">search</span></button><button
+                    class="icon-button icon-btn small picto" aria-label="Add task"><span
+                      class="material-symbols-rounded">task</span></button><button
+                    class="icon-button icon-btn small send-picto" aria-label="Send pictograms"><span
+                      class="material-symbols-rounded">send</span></button>
+                </div>
+              </section>
+              <section class="panel operation" aria-label="Visual operation trace">
+                <div class="panel-head"><span class="material-symbols-rounded">show_chart</span><button
+                    class="icon-button icon-btn small head-action" id="operation-filter"
+                    aria-label="Filter operation trace" aria-pressed="true"><span
+                      class="material-symbols-rounded">grid_view</span></button></div>
+                <div class="operation-flow">
+                  <div class="op-node"><span class="op-icon"><span
+                        class="material-symbols-rounded">login</span></span><span class="op-lines"><i
+                        class="skeleton mid"></i><i class="skeleton short"></i></span><i class="op-status"></i></div>
+                  <div class="op-node"><span class="op-icon"><span
+                        class="material-symbols-rounded">description</span></span><span class="op-lines"><i
+                        class="skeleton"></i><i class="skeleton mid"></i></span><i class="op-status"></i></div>
+                  <div class="op-node"><span class="op-icon"><span
+                        class="material-symbols-rounded">database</span></span><span class="op-lines"><i
+                        class="skeleton mid"></i><i class="skeleton short"></i></span><i class="op-status"></i></div>
+                  <div class="op-node"><span class="op-icon"><span
+                        class="material-symbols-rounded">shield</span></span><span class="op-lines"><i
+                        class="skeleton"></i><i class="skeleton mid"></i></span><i class="op-status"></i></div>
+                  <div class="op-node"><span class="op-icon"><span
+                        class="material-symbols-rounded">send</span></span><span class="op-lines"><i
+                        class="skeleton mid"></i><i class="skeleton short"></i></span><i class="op-status"></i></div>
+                </div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const $ = (s, root = document) => root.querySelector(s);
+      const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+
+      const iconMap = {
+        'DesktopIcon': 'desktop_windows',
+        'NotificationIcon': 'notifications',
+        'SettingIcon': 'settings',
+        'HistoryIcon': 'history',
+        'GroupIcon': 'groups',
+        'MusicIcon': 'music_note',
+        'ShareIcon': 'share',
+        'AddIcon': 'add',
+        'ProfileIcon': 'person',
+        'Send_aIcon': 'send',
+        'EditIcon': 'edit',
+        'SearchIcon': 'search',
+        'TabularIcon': 'table_chart',
+        'DataIcon': 'database',
+        'TodoIcon': 'task',
+        'MoreIcon': 'more_horiz',
+        'QuestionIcon': 'help',
+        'MessageIcon': 'chat_bubble',
+        'PlayIcon': 'play_arrow',
+        'PauseIcon': 'pause',
+        'RefreshIcon': 'refresh',
+        'LoadingRightIcon': 'sync',
+        'CheckIcon': 'check',
+        'CompletedIcon': 'check_circle',
+        'NormalIcon': 'radio_button_unchecked',
+        'WarningIcon': 'warning',
+        'ClipIcon': 'attachment',
+        'DocumentIcon': 'description',
+        'ImageIcon': 'image',
+        'UploadIcon': 'upload',
+        'FolderOpenIcon': 'folder_open',
+        'FolderIcon': 'folder',
+        'BrowserIcon': 'public',
+        'DarkModeIcon': 'dark_mode',
+        'LightModeIcon': 'light_mode',
+        'MinusIcon': 'remove',
+        'LinechartIcon': 'show_chart',
+        'ViewAllIcon': 'grid_view',
+        'EnterIcon': 'login',
+        'DiagramIcon': 'account_tree',
+        'SafeIcon': 'shield',
+        'ExpandIcon': 'open_in_full'
+      };
+
+      const icon = (name) => {
+        const matName = iconMap[name] || 'help';
+        return `<span class="material-symbols-rounded">${matName}</span>`;
+      };
+
+      const stages = { grow: 4, build: 5, open: 3 };
+
+      function renderStages(card) {
+        const track = $('.stage-track', card);
+        const total = stages[card.dataset.kind] || 3;
+        const current = Number(card.dataset.stage || 0);
+        track.innerHTML = Array.from({ length: total }, (_, i) => `<span class="stage-step"><button class="stage-dot ${i <= current ? 'on' : ''} ${i === current ? 'current' : ''}" data-stage="${i}" aria-label="Set stage ${i + 1} of ${total}" aria-pressed="${i === current}"></button></span>`).join('');
+      }
+      $$('[data-island-card]').forEach(renderStages);
+
+      function setView(name) {
+        const actual = name === 'attention' ? 'desk' : name;
+        ['desk', 'settings', 'loop', 'mode'].forEach(v => { $(`#view-${v}`).hidden = v !== actual; });
+        $$('[data-view]').forEach(b => {
+          if (!b.closest('.rail')) return;
+          const active = b.dataset.view === name || (name === 'mode' && false);
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-pressed', String(active));
+        });
+        $$('[data-mode]').forEach(b => b.classList.toggle('active', name === 'mode' && b.dataset.mode === currentMode));
+        if (name === 'attention') {
+          const panel = $('#needs-panel');
+          panel.classList.remove('attention-pulse');
+          requestAnimationFrame(() => panel.classList.add('attention-pulse'));
+          panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+
+      let currentMode = 'assistant';
+      document.addEventListener('click', (event) => {
+        const view = event.target.closest('[data-view]');
+        if (view) setView(view.dataset.view);
+        const mode = event.target.closest('[data-mode]');
+        if (mode) { currentMode = mode.dataset.mode; setView('mode'); }
+        const island = event.target.closest('[data-island]');
+        if (island) {
+          setView('desk');
+          $$('.island').forEach(c => c.classList.toggle('selected', c.dataset.islandCard === island.dataset.island));
+          $(`#island-${island.dataset.island}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+      });
+
+      $('#loop-toggle').addEventListener('click', () => {
+        const button = $('#loop-toggle');
+        const running = button.getAttribute('aria-pressed') !== 'true';
+        button.setAttribute('aria-pressed', String(running));
+        button.setAttribute('aria-label', running ? 'Pause loop' : 'Resume loop');
+        button.title = running ? 'Pause loop' : 'Resume loop';
+        button.innerHTML = icon(running ? 'PauseIcon' : 'PlayIcon');
+        [$('#live-dot'), $('#loop-dot')].forEach(d => d.classList.toggle('on', running));
+        $$('.loop-node').forEach(n => n.classList.toggle('done', running));
+      });
+
+      $('#tick-now').addEventListener('click', () => {
+        const button = $('#tick-now');
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML = icon('LoadingRightIcon');
+        $$('.loop-node').forEach((n, i) => setTimeout(() => n.classList.add('done'), i * 120));
+        setTimeout(() => {
+          button.innerHTML = icon('CheckIcon');
+          addTick(false);
+          setTimeout(() => { button.innerHTML = icon('RefreshIcon'); button.disabled = false; button.removeAttribute('aria-busy'); }, 700);
+        }, 650);
+      });
+
+      function addTick(paused = false) {
+        const log = $('#loop-log');
+        const tick = document.createElement('div');
+        tick.className = `tick${paused ? ' paused' : ''}`;
+        tick.innerHTML = `<span class="tick-line"><i></i></span><span class="tick-wave"><i></i><i></i><i></i><i></i><i></i></span><span class="tick-state"><span class="material-symbols-rounded">visibility</span></span><span class="tick-state">${icon(paused ? 'MinusIcon' : 'CheckIcon')}</span><span class="tick-state">${icon(paused ? 'PauseIcon' : 'TodoIcon')}</span><span class="tick-state">${icon('SafeIcon')}</span>`;
+        log.prepend(tick);
+      }
+      for (let i = 0; i < 6; i++) addTick(i > 1);
+
+      $$('.stage-track').forEach(track => track.addEventListener('click', event => {
+        const dot = event.target.closest('.stage-dot');
+        if (!dot) return;
+        const card = dot.closest('.island');
+        card.dataset.stage = dot.dataset.stage;
+        renderStages(card);
+      }));
+
+      $$('.state-btn').forEach(button => button.addEventListener('click', () => {
+        const card = button.closest('.island');
+        card.dataset.state = button.dataset.state;
+        $$('.state-btn', card).forEach(b => b.setAttribute('aria-pressed', String(b === button)));
+        if (button.dataset.state === 'done') { card.dataset.stage = String((stages[card.dataset.kind] || 3) - 1); renderStages(card); }
+      }));
+
+      $$('.attach-file').forEach(button => button.addEventListener('click', () => {
+        const count = $('.file-count .num', button.closest('.island'));
+        count.textContent = String(Number(count.textContent) + 1);
+        button.innerHTML = icon('CheckIcon');
+        setTimeout(() => button.innerHTML = icon('AddIcon'), 600);
+      }));
+      $$('.discuss').forEach(button => button.addEventListener('click', () => {
+        const composer = $('.visual-composer', button.closest('.island'));
+        composer.classList.toggle('open');
+        button.setAttribute('aria-pressed', String(composer.classList.contains('open')));
+      }));
+      $$('.show-note').forEach(button => button.addEventListener('click', () => {
+        const note = $('.note-visual', button.closest('.island'));
+        note.classList.toggle('open');
+        button.setAttribute('aria-pressed', String(note.classList.contains('open')));
+      }));
+
+      function wireComposer(composer) {
+        const chosen = $('.chosen', composer);
+        $$('.picto', composer).forEach(button => button.addEventListener('click', () => {
+          if (chosen.children.length >= 5) chosen.firstElementChild.remove();
+          const clone = button.querySelector('.material-symbols-rounded').cloneNode(true);
+          chosen.appendChild(clone);
+        }));
+        $('.send-picto', composer)?.addEventListener('click', () => {
+          if (!chosen.children.length) return;
+          if (composer.id === 'main-composer') {
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble user';
+            bubble.innerHTML = chosen.innerHTML;
+            $('#message-flow').appendChild(bubble);
+            bubble.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          } else {
+            const card = composer.closest('.island');
+            card.dataset.state = 'blank';
+            const count = $('.file-count .num', card);
+            count.textContent = String(Number(count.textContent) + 1);
+          }
+          chosen.innerHTML = '';
+          composer.classList.remove('open');
+        });
+      }
+      $$('.visual-composer, #main-composer').forEach(wireComposer);
+
+      function addIsland() {
+        const index = $$('.island').length + 1;
+        const card = document.createElement('article');
+        card.className = 'island selected';
+        card.id = `island-open-${index}`;
+        card.dataset.islandCard = `open-${index}`;
+        card.dataset.kind = 'open'; card.dataset.stage = '0'; card.dataset.state = 'blank';
+        card.innerHTML = `<div class="island-head"><div class="island-symbol">${icon('AddIcon')}${icon('DiagramIcon')}</div><div class="island-state"><span class="priority" data-level="2"><i></i><i></i><i></i></span><span class="position-dot"></span></div></div><div class="stage-track"></div><div class="visual-status"><button class="icon-button icon-btn state-btn" data-state="blank" aria-label="No status" aria-pressed="true">${icon('NormalIcon')}</button><button class="icon-button icon-btn state-btn" data-state="blocked" aria-label="Blocked" aria-pressed="false">${icon('WarningIcon')}</button><button class="icon-button icon-btn state-btn" data-state="done" aria-label="Done" aria-pressed="false">${icon('CompletedIcon')}</button></div><div class="island-foot"><span class="file-count">${icon('ClipIcon')}<span class="num">0</span></span><button class="icon-button icon-btn small attach-file" aria-label="Attach visual file">${icon('AddIcon')}</button><button class="icon-button icon-btn small discuss" aria-label="Discuss with pictograms">${icon('MessageIcon')}</button><button class="icon-button icon-btn small show-note" aria-label="Show visual note">${icon('DocumentIcon')}</button></div><div class="visual-composer"><div class="chosen"></div><button class="icon-button icon-btn small picto" aria-label="Add task">${icon('TodoIcon')}</button><button class="icon-button icon-btn small picto" aria-label="Add image">${icon('ImageIcon')}</button><button class="icon-button icon-btn small send-picto" aria-label="Send pictograms">${icon('Send_aIcon')}</button></div><div class="note-visual"><span class="skeleton"></span><span class="skeleton mid"></span><span class="skeleton short"></span></div>`;
+        $('#islands').appendChild(card);
+        $('#island-count').textContent = String($$('.island').length);
+        renderStages(card);
+        wireIsland(card);
+        card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+
+      function wireIsland(card) {
+        $('.stage-track', card).addEventListener('click', event => {
+          const dot = event.target.closest('.stage-dot'); if (!dot) return;
+          card.dataset.stage = dot.dataset.stage; renderStages(card);
+        });
+        $$('.state-btn', card).forEach(button => button.addEventListener('click', () => {
+          card.dataset.state = button.dataset.state;
+          $$('.state-btn', card).forEach(b => b.setAttribute('aria-pressed', String(b === button)));
+          if (button.dataset.state === 'done') { card.dataset.stage = String((stages[card.dataset.kind] || 3) - 1); renderStages(card); }
+        }));
+        $('.attach-file', card).addEventListener('click', event => {
+          const button = event.currentTarget;
+          const count = $('.file-count .num', card); count.textContent = String(Number(count.textContent) + 1);
+          button.innerHTML = icon('CheckIcon'); setTimeout(() => button.innerHTML = icon('AddIcon'), 600);
+        });
+        $('.discuss', card).addEventListener('click', () => $('.visual-composer', card).classList.toggle('open'));
+        $('.show-note', card).addEventListener('click', () => $('.note-visual', card).classList.toggle('open'));
+        wireComposer($('.visual-composer', card));
+      }
+
+      $('#add-island').addEventListener('click', addIsland);
+      $('#rail-add').addEventListener('click', () => { setView('desk'); addIsland(); });
+
+      $$('.log-rhythm').forEach(button => button.addEventListener('click', () => {
+        button.classList.add('positive'); button.innerHTML = icon('CompletedIcon');
+        const days = $('.week', button.closest('.rhythm'));
+        days.style.opacity = '.45';
+        setTimeout(() => { days.style.opacity = '1'; }, 500);
+      }));
+      $('#rhythm-history').addEventListener('click', () => setView('loop'));
+
+      $('#mail-toggle').addEventListener('click', () => {
+        const panel = $('.mail-panel');
+        const connected = panel.classList.toggle('connected');
+        $('#mail-toggle').setAttribute('aria-pressed', String(connected));
+        $('#mail-dot').classList.toggle('on', connected);
+        $('[data-watch="mail"]').setAttribute('aria-pressed', String(connected));
+      });
+      $$('.draft-mail').forEach(button => button.addEventListener('click', () => { addOutput('EditIcon'); button.innerHTML = icon('CheckIcon'); }));
+      $$('.handle-mail').forEach(button => button.addEventListener('click', () => { button.closest('.mail-item').style.opacity = '.3'; button.disabled = true; }));
+
+      function addOutput(kind = 'DocumentIcon') {
+        const file = document.createElement('button');
+        file.className = 'out-file'; file.setAttribute('aria-label', 'Open visual output'); file.innerHTML = icon(kind);
+        file.addEventListener('click', () => { $$('.out-file').forEach(f => f.classList.toggle('selected', f === file)); });
+        $('#out-files').appendChild(file);
+        $('#out-empty').style.display = 'none';
+      }
+      $('#add-output').addEventListener('click', () => addOutput());
+
+      $$('.watch-cell').forEach(button => button.addEventListener('click', () => {
+        if (button.dataset.watch === 'observations') {
+          const count = Number($('#observation-count').textContent) + 1;
+          $('#observation-count').textContent = String(count);
+          button.setAttribute('aria-pressed', String(count > 0));
+        } else button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+      }));
+      $$('.trust-toggle, .switch').forEach(button => button.addEventListener('click', () => {
+        const on = button.getAttribute('aria-pressed') !== 'true';
+        button.setAttribute('aria-pressed', String(on));
+        button.classList.toggle('positive', on);
+        if (button.classList.contains('trust-toggle')) button.innerHTML = icon(on ? 'CheckIcon' : 'SafeIcon');
+      }));
+
+      $('#interval-range').addEventListener('input', event => {
+        $('#interval-output').textContent = event.target.value;
+        $('#frequency-value').textContent = event.target.value;
+      });
+      $('#max-minus').addEventListener('click', () => { $('#max-open').textContent = String(Math.max(0, Number($('#max-open').textContent) - 1)); });
+      $('#max-plus').addEventListener('click', () => { $('#max-open').textContent = String(Math.min(9, Number($('#max-open').textContent) + 1)); });
+      $('#settings-observation').addEventListener('click', () => $('[data-watch="observations"]').click());
+      $('#file-observations').addEventListener('click', () => $('[data-watch="observations"]').click());
+      $('#file-profile').addEventListener('click', () => $('[data-watch="profile"]').click());
+
+      $('#memory-toggle').addEventListener('click', () => {
+        const button = $('#memory-toggle'); const on = button.getAttribute('aria-pressed') !== 'true';
+        button.setAttribute('aria-pressed', String(on)); button.classList.toggle('active', on);
+      });
+      $('#memory-add').addEventListener('click', () => { $('#memory-toggle .badge').textContent = String(Number($('#memory-toggle .badge').textContent) + 1); });
+      $('#imessage-toggle').addEventListener('click', event => {
+        const on = event.currentTarget.getAttribute('aria-pressed') !== 'true';
+        event.currentTarget.setAttribute('aria-pressed', String(on)); event.currentTarget.classList.toggle('positive', on);
+      });
+      $('#interview').addEventListener('click', () => { setView('settings'); $('#interval-range').focus(); });
+      $('#reset-thread').addEventListener('click', () => { $('#message-flow').innerHTML = ''; $('#main-composer .chosen').innerHTML = ''; });
+      $('#operation-filter').addEventListener('click', event => {
+        const on = event.currentTarget.getAttribute('aria-pressed') !== 'true';
+        event.currentTarget.setAttribute('aria-pressed', String(on));
+        $$('.op-node').forEach((node, i) => node.style.display = on || i % 2 === 0 ? '' : 'none');
+      });
+    })();
+  </script>
 </body>
+
 </html>
