@@ -34,15 +34,15 @@ export async function renderSettings() {
   const box = $('#view-settings');
   box.innerHTML = `
 <div class="cfg">
-  ${sec('autorenew', 'Loop', 'Every row on this page is a rule Omnii follows. Change one and Omnii follows it on its next look. Omnii never edits this page; only you do.',
-    line('Looks every', cells(slider('loop.every_min', L.every_min, 1, 120, 'min', 'wide')), 'How often Omnii looks at what is on your plate.')
+  ${sec('autorenew', 'Loop', 'Every row on this page is a rule Omnii follows. Change one and Omnii follows it on its next scan. Omnii never edits this page; only you do.',
+    line("Scans every", cells(slider('loop.every_min', L.every_min, 1, 120, 'min', 'wide')), 'How often Omnii scans your plate.')
     + line('Quiet hours', cells(quiet(L.quiet)), "Omnii doesn't text you in these hours, and nothing is nudged or filed until they end. Drag either end."),
     { right: pills('loop.paused', L.paused, [[false, 'Active'], [true, 'Paused']], L.paused ? 'warn' : '') + (st.paused ? '<span class="warn">Paused</span>' : st.last ? `<span>Last ${hm(st.last.at)} · next ${st.next ? hm(st.next) : '–'}</span>` : '<span>Not looked yet</span>') })}
 
   ${sec('notifications', 'Reach', 'Where questions reach you, and how many may be out at once. The rest wait their turn.',
     line('Questions go to', cells(pills('loop.via', L.via, VIA) + (!texting && L.via !== 'desk' ? fact('Texting is off, so everything goes to the desk.', 'dim') : '')), 'Where questions may reach you at all. Each priority below can narrow this, never widen it.')
-    + line('Out at once', cells(pills('loop.max_open', L.max_open, [1, 2, 3, 4, 5].map((n) => [n, String(n)]))), 'How many questions Omnii may have out to you at the same time.', waiting.length ? `${waiting.length} waiting` : 'none waiting')
-    + (waiting.length ? line('Waiting', cells(fact(waiting.map((c) => `${esc(c.title.replace(/[:.\s]+$/, '').slice(0, 40))} (asked ${hm(c.created)})`).join('; ')))) : ''))}
+    + line('Out at once', cells(pills('loop.max_open', L.max_open, [1, 2, 3, 4, 5].map((n) => [n, String(n)]))), 'How many questions Omnii may have out to you at the same time.', waiting.length ? `${waiting.length} open` : "none open")
+    + (waiting.length ? line("Open requests", cells(fact(waiting.map((c) => `${esc(c.title.replace(/[:.\s]+$/, '').slice(0, 40))} (asked ${hm(c.created)})`).join('; ')))) : ''))}
 
   ${sec('low_priority', 'Priorities', "What happens when you don't answer: a few quick nudges, then slower ones, then filed or kept going. Ignoring a question is allowed; filed ones stay in the desk history.",
     heads(['', 'Reaches you', 'Nudge every', 'Times', 'Then every', 'Times', 'After that', 'Say so']) + LEVELS.map(level).join(''), { cls: 'levels', table: true })}
@@ -142,14 +142,14 @@ const ampm = (t) => { const [h, m] = t.split(':').map(Number); return `${h % 12 
 function quiet(q) {
   const from = q?.from ?? '22:00', to = q?.to ?? '08:00', a = qIdx(from), b = Math.max(a + 1, qIdx(to) || QN), off = q ? '' : 'disabled';
   return pills('loop.quiet', q ? { from, to } : null, [[{ from, to }, 'On'], [null, 'Off']])
-    + `<span class="quiet${q ? '' : ' off'}" style="--a:${a};--b:${b}"><span class="q-end">5<br>PM</span><span class="q-track"><i></i><b class="q-at" data-q="from">${ampm(from)}</b><b class="q-at" data-q="to">${ampm(to)}</b><input type="range" min="0" max="${QN}" value="${a}" aria-label="Quiet hours start" ${off}><input type="range" min="0" max="${QN}" value="${b}" aria-label="Quiet hours end" ${off}></span><span class="q-end">5<br>PM</span></span>`;
+    + `<span class="qh${q ? "" : " off"}" style="--a:${a};--b:${b}"><span class="q-end">5<br>PM</span><span class="q-track"><i></i><b class="q-at" data-q="from">${ampm(from)}</b><b class="q-at" data-q="to">${ampm(to)}</b><input type="range" min="0" max="${QN}" value="${a}" aria-label="Quiet hours start" ${off}><input type="range" min="0" max="${QN}" value="${b}" aria-label="Quiet hours end" ${off}></span><span class="q-end">5<br>PM</span></span>`;
 }
 
 async function save(key, value) {
   try {
     const r = await api('/api/settings', { method: 'PUT', body: { key, value } });
     const label = S.labels[key] ?? key.split('.').slice(-1)[0];
-    toast(`Saved: ${label} is now ${show(r.to)}${S.status.next && !S.loop.paused ? '. Takes effect when Omnii next looks.' : '.'}`, r.from === undefined ? null : () => save(key, r.from));
+    toast(`Saved: ${label} is now ${show(r.to)}${S.status.next && !S.loop.paused ? '. Takes effect on the next scan.' : '.'}`, r.from === undefined ? null : () => save(key, r.from));
     deskSoon();
     await renderSettings();
   } catch (e) { toast(e.message); }
@@ -174,7 +174,7 @@ function wire(box) {
   wireSliders(box,
     (el, v) => el.dataset.picks ? durWord(JSON.parse(el.dataset.picks)[v]) : el.dataset.unit ? `${v} ${el.dataset.unit}` : progressWord(v),
     (el, v) => save(el.dataset.k, el.dataset.picks ? JSON.parse(el.dataset.picks)[v] : v));
-  box.querySelectorAll('.quiet').forEach((el) => {
+  box.querySelectorAll(".qh").forEach((el) => {
     const [fa, ta] = el.querySelectorAll('input'), [fl, tl] = el.querySelectorAll('.q-at');
     const show = () => { el.style.setProperty('--a', fa.value); el.style.setProperty('--b', ta.value); fl.textContent = ampm(qHm(+fa.value)); tl.textContent = ampm(qHm(+ta.value)); };
     fa.addEventListener('input', () => { if (+fa.value >= +ta.value) fa.value = +ta.value - 1; show(); });
@@ -198,7 +198,7 @@ function wire(box) {
       await api('/api/settings', { method: 'PUT', body: { key: 'mail.host', value: $('#mc-host').value } });
       await api('/api/settings', { method: 'PUT', body: { key: 'mail.user', value: $('#mc-user').value } });
       if ($('#mc-pass').value) await api('/api/settings', { method: 'PUT', body: { key: 'mail.pass', value: $('#mc-pass').value } });
-      toast('Saved. Omnii starts reading on its next look.'); await renderSettings(); deskSoon();
+      toast('Saved. Omnii starts reading on its next scan.'); await renderSettings(); deskSoon();
     } catch (e) { toast(e.message); }
   });
   box.querySelectorAll('[data-remove]').forEach((b) => b.addEventListener('click', async () => {

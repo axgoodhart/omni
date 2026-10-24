@@ -69,10 +69,10 @@ export function renderShell() {
   const l = d.desk?.loop;
   const loopNote = l?.paused ? 'paused' : l?.last ? `${Math.round((Date.now() - l.last.at) / 60000)}m ago` : 'not yet';
 
-  $('#nav-desk').innerHTML = navItem(ic('desktop_windows'), 'desk', `data-view="desk" data-tip="Everything Omnii looks at and asks about, in one place"`, act('desk'))
-    + navItem(needs ? `<b>${needs}</b>` : ic('check_circle'), needs ? 'needs you' : 'nothing waiting', `data-drawer="approvals" data-tip="${needs ? `${needs} thing${needs === 1 ? '' : 's'} waiting on your answer` : 'No questions or approvals are waiting on you'}"`, needs ? 'alert' : '')
+  $('#nav-desk').innerHTML = navItem(ic('desktop_windows'), 'desk', `data-view="desk" data-tip="Everything Omnii scans and asks about, in one place"`, act('desk'))
+    + navItem(needs ? `<b>${needs}</b>` : ic('check_circle'), needs ? "requests" : "no requests", `data-drawer="approvals" data-tip="${needs ? `${needs} open request${needs === 1 ? "" : "s"}` : 'No open requests'}"`, needs ? 'alert' : '')
     + navItem(ic('tune'), 'config', `data-view="settings" data-tip="Omnii's rules, one per line"`, act('settings'))
-    + navItem(ic('history'), 'history', `data-view="loop" data-tip="Every look: what Omnii saw, decided, and left alone"`, act('loop'), `<span class="count">${loopNote}</span>`);
+    + navItem(ic('history'), 'history', `data-view="loop" data-tip="Every scan: what Omnii saw, decided, and left alone"`, act('loop'), `<span class="count">${loopNote}</span>`);
   $('#nav-islands').innerHTML = (d.desk?.islands ?? []).map((i) => navItem(kindIcon(i.kind), esc(i.name), `data-island="${esc(i.slug)}" data-tip="${esc(i.kind)} · ${esc(i.position)}${i.progress > 0 && i.progress < 100 ? ` · ${i.progress}%` : ''}"`)).join('')
     + (d.desk?.islands?.length ? '' : navItem(ic('add'), 'run the interview', `data-interview="1" data-tip="A short set of questions that fills in the desk"`));
   $('#nav-modes').innerHTML = d.modes.map((m, i) => navItem(pad(i + 1), esc(m.name), `data-mode="${esc(m.name)}" data-tip="${esc(m.voice || m.model)}"`, m.name === state.mode && state.view === 'thread' ? 'active' : '', m.busy ? '<span class="live" data-tip="working"></span>' : '')).join('');
@@ -100,13 +100,13 @@ export function renderShell() {
   $('#thread-pane').hidden = state.view === 'loop';
   $('#view-thread').classList.toggle('single', state.view === 'loop');
   $('#op-title').textContent = state.view === 'loop' ? 'Everything' : 'What it did';
-  $('#op-head').dataset.tip = state.view === 'loop' ? 'Everything Omnii did, one card per conversation, look, answer or change, newest last. Open a card for its steps; open a step for the raw record.' : 'What this mode did, one card per conversation. Open a card for its steps; open a step for the raw record.';
+  $('#op-head').dataset.tip = state.view === 'loop' ? 'Everything Omnii did, one line per conversation, scan, answer or change, newest last. Open a line for its steps; open a step for the raw record.' : 'What this mode did, one card per conversation. Open a card for its steps; open a step for the raw record.';
 
   const title = (num, text, tip) => { $('#mode-num').innerHTML = num; $('#mode-title').textContent = text; $('#mode-title').dataset.tip = tip; };
   if (state.view === 'desk') {
     const p = state.desk?.profile;
     title(ic('desktop_windows'), p?.name ? `${p.name}'s desk` : 'Desk', 'Your desk. Omnii arranges it; you change it. Hover any heading for what it is.');
-    $('#mode-tags').innerHTML = [`<span class="plate-tag clay" data-tip="Questions waiting on your answer">${ic('notifications')}<b>${open}</b></span>`, `<span class="plate-tag" data-tip="Things on your plate">${ic('account_tree')}<b>${d.desk?.islands?.length ?? 0}</b></span>`, `<span class="plate-tag focus" data-tip="${Object.values(state.desk?.trust ?? {}).some((v) => v === 'live') ? 'Some things may leave in your name' : 'Sandboxed: nothing leaves in your name; it is written to out/ instead'}">${ic('shield')}</span>`].join('');
+    $('#mode-tags').innerHTML = [`<span class="plate-tag clay" data-tip="Open requests">${ic('notifications')}<b>${open}</b></span>`, `<span class="plate-tag" data-tip="Things on your plate">${ic('account_tree')}<b>${d.desk?.islands?.length ?? 0}</b></span>`, `<span class="plate-tag focus" data-tip="${Object.values(state.desk?.trust ?? {}).some((v) => v === 'live') ? 'Some things may leave in your name' : 'Sandboxed: nothing leaves in your name; it is written to out/ instead'}">${ic('shield')}</span>`].join('');
     return;
   }
   if (state.view === 'settings') {
@@ -115,8 +115,8 @@ export function renderShell() {
     return;
   }
   if (state.view === 'loop') {
-    title(ic('history'), 'History', `A look every ${l?.everyMin ?? '?'} minutes. Omnii reads its own log, checks the agents, looks at what it watches, and may do a handful of bounded things. It writes down what it decided, including nothing.`);
-    $('#mode-tags').innerHTML = `<span class="plate-tag clay" data-tip="When Omnii next looks">${ic('schedule')}<b>${l?.next ? hm(l.next) : '–'}</b></span><button type="button" class="icon-btn small" id="tick-now" data-tip="Look now" aria-label="Look now">${ic('refresh')}</button>`;
+    title(ic('history'), 'History', `A scan every ${l?.everyMin ?? "?"} minutes. Omnii reads its own log, checks the agents, checks what it watches, and may do a handful of bounded things. It writes down what it decided, including nothing.`);
+    $('#mode-tags').innerHTML = `<span class="plate-tag clay" data-tip="Next scan">${ic('schedule')}<b>${l?.next ? hm(l.next) : '–'}</b></span><button type="button" class="icon-btn small" id="tick-now" data-tip="Scan now" aria-label="Scan now">${ic('refresh')}</button>`;
     $('#tick-now')?.addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); refreshSoon(); });
     return;
   }

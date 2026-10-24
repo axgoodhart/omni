@@ -1,14 +1,14 @@
 import { $, esc, fmt } from '../lib.js';
 import { state } from '../app.js';
-import { describeCall, describeResult, askSentence } from '../describe.js';
+import { describeCall, describeResult, askSentence, place } from '../describe.js';
 
-/** History: every recorded event, grouped into one card per activity (a conversation, a look, an answer, a change). A card opens to its steps in plain words; a step opens to its raw record. Nothing is left out: "every record" lists them all. */
+/** History: every recorded event, grouped into one line per activity (a conversation, a scan, an answer, a change). The top level is a digest: a day's quiet scans are one line, a run of setting changes is one line. A line opens to its steps in plain words; a step opens to its raw record. Nothing is left out: "every record" lists them all. */
 
 // ==== FACETS ====
 const FACETS = [
   ['all', 'All', 'Everything except system housekeeping'],
   ['talk', 'Conversations', 'What you asked a mode, and what it did about it'],
-  ['looks', 'Looks', 'Each time Omnii looked at your plate and decided something'],
+  ['looks', 'Scans', 'Each scan of your plate, and what Omnii decided'],
   ['checkins', 'Check-ins', 'Questions Omnii asked, and how you answered'],
   ['access', 'Permissions', 'What Omnii asked to do, and what you said'],
   ['changes', 'Changes', 'Settings and desk files that changed'],
@@ -40,25 +40,59 @@ function group(events) {
     const t = e.thread === 'loop' && e.type !== 'loop.tick' && !e.type.startsWith('settings') && ticks.find((x) => x.id > e.id && e.ts >= (x.data?.at ?? x.ts));
     add(t ? `tick:${t.id}` : e.type === 'loop.tick' ? `tick:${e.id}` : `ev:${e.id}`, e);
   }
-  return fold([...by.entries()].map(([key, evs]) => card(key, evs)).filter(Boolean).sort((a, b) => a.ts - b.ts));
+  return [...by.entries()].map(([key, evs]) => card(key, evs)).filter(Boolean).sort((a, b) => a.ts - b.ts);
 }
 const HARD = PROBLEM.filter((t) => t !== 'tool.error'); // a tool failing mid-run is a step, not a problem, unless the run never recovered
+const n = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`;
 
-// consecutive looks with nothing done fold into one line, so a quiet afternoon is one row, not twelve
-function fold(cards) {
-  const out = [];
-  for (const c of cards) {
-    const prev = out.at(-1);
-    if (c.quiet && prev?.quiet && day(prev.ts) === day(c.ts)) { prev.looks.push(c); continue; }
-    out.push(c.quiet ? { ...c, looks: [c] } : c);
-  }
-  return out.map((c) => (c.looks?.length > 1 ? folded(c) : c));
+// ---- digest: what the top level shows. A day's scans that found nothing are one line; a run of setting changes within 45 minutes is one line;
+// small follow-on records (a text sent, a snooze, a log entry) become steps of the line they belong to.
+const GAP = 45 * 60_000, NEAR = 15_000;
+const TRAIL = ['checkin.sent', 'checkin.notified', 'logbook', 'checkin.snoozed', 'checkin.archived'];
+const single = (c) => (c.evs.length === 1 ? c.evs[0] : null);
+const trailOnly = (c) => c.evs.every((e) => TRAIL.includes(e.type));
+const systemOnly = (c) => c.facets.size === 1 && c.facets.has('system');
+const canHost = (h) => !!h && !trailOnly(h) && !systemOnly(h);
+function trails(c, host) {
+  if (!canHost(host)) return false;
+  if (trailOnly(c)) return true;
+  const e = single(c);
+  if (e?.type === 'settings.changed' && e.data?.key === 'watches.export.path') return host.kind === 'watch.export_set';
+  return e?.type === 'checkin.answered' && e.data?.action === 'discuss' && !!host.title?.startsWith('You chose'); // the answer and the conversation it opened are one act
 }
-function folded(c) {
-  const L = c.looks, last = L.at(-1), boots = L.filter((x) => x.why === 'boot').length;
-  return { ...last, key: `fold:${c.key}`, ts: c.ts, evs: L.flatMap((x) => x.evs), meta: boots ? `restarted ${boots}×` : '',
-    title: `Looked ${L.length} times, ${hm(c.ts)}–${hm(last.ts)}: nothing to do${last.waiting ? `, ${last.waiting} waiting on you` : ''}`,
-    steps: [...last.steps.filter((s) => s.cls === 'ask'), ...L.map((x) => line(`${hm(x.ts)}${x.why === 'boot' ? ' (after a restart)' : x.why && x.why !== 'cron' ? ` (${x.why})` : ''}`, x.evs, 'quiet'))] };
+function absorb(cards) {
+  const out = [];
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i];
+    const prev = [...out].reverse().find((x) => c.ts - x.ts <= NEAR && canHost(x)), next = cards.slice(i + 1).find((x) => x.ts - c.ts <= NEAR && canHost(x));
+    const host = prev && trails(c, prev) ? prev : next && trails(c, next) ? next : null;
+    if (!host) { out.push(c); continue; }
+    host.steps = [...(host.steps ?? []), ...c.evs.map((e) => line(summary(e), [e]))]; host.evs = [...host.evs, ...c.evs];
+    for (const f of c.facets) if (f !== 'system') host.facets.add(f);
+  }
+  return out;
+}
+function digest(cards) {
+  const out = [], quietDay = new Map();
+  for (const c of cards) {
+    if (c.quiet) { const q = quietDay.get(day(c.ts)); if (q) { q.items.push(c); continue; } const d = { ...c, items: [c] }; quietDay.set(day(c.ts), d); out.push(d); continue; }
+    const prev = out.at(-1);
+    if (c.change && prev?.change && c.ts - prev.last <= GAP && day(prev.ts) === day(c.ts)) { prev.items.push(c); prev.last = c.ts; continue; }
+    out.push(c.change ? { ...c, items: [c], last: c.ts } : c);
+  }
+  return out.map((c) => (c.items?.length > 1 ? (c.quiet ? quietScans(c) : changes(c)) : c));
+}
+function quietScans(c) {
+  const L = c.items, last = L.at(-1), boots = L.filter((x) => x.why === 'boot').length;
+  return { ...last, key: `quiet:${c.key}`, ts: c.ts, evs: L.flatMap((x) => x.evs), problem: false,
+    title: `${L.length} scans found nothing to do`, meta: [`${hm(c.ts)}–${hm(last.ts)}`, boots ? n(boots, 'restart') : ''].filter(Boolean).join(' · '),
+    outcome: last.waiting ? `${n(last.waiting, 'request')} open` : '',
+    steps: [...last.steps.filter((s) => s.cls === 'ask'), ...L.map((x) => line(`${hm(x.ts)}${x.why === 'boot' ? ' · after a restart' : ''}`, x.evs, 'quiet'))] };
+}
+function changes(c) {
+  const L = c.items, last = L.at(-1), kinds = new Set(L.map((x) => x.kind));
+  const title = kinds.size > 1 ? n(L.length, 'change') : kinds.has('interview.answered') ? `Interview: ${n(L.length, 'answer')}` : `You changed ${n(L.length, 'setting')}`;
+  return { ...c, key: `changes:${c.key}`, evs: L.flatMap((x) => x.evs), title, meta: `${hm(c.ts)}–${hm(last.ts)}`, outcome: '', steps: L.map((x) => line(x.title, x.evs)) };
 }
 
 function card(key, evs) {
@@ -73,7 +107,7 @@ function card(key, evs) {
   } else if (tick) {
     if (tick.data?.paused) return null;
     facets.add('looks'); if (evs.some((e) => e.type.startsWith('checkin.'))) facets.add('checkins');
-    c = look(tick);
+    c = scan(tick);
   } else if (answered) {
     facets.add('checkins');
     const d = answered.data;
@@ -81,7 +115,7 @@ function card(key, evs) {
   } else {
     const e = evs[0];
     facets.add(SYSTEM.includes(e.type) ? 'system' : e.type.startsWith('checkin.') ? 'checkins' : e.type.startsWith('approval.') || e.type.startsWith('allowed.') || e.type === 'policy.decision' ? 'access' : e.type.startsWith('settings') || e.type.startsWith('watch.') || e.type === 'logbook' || e.type === 'observation' || e.type.startsWith('interview') ? 'changes' : problem ? 'problems' : 'system');
-    c = { title: short(summary(e), 140), steps: evs.length > 1 ? evs.slice(1).map((x) => line(summary(x), [x])) : [] };
+    c = { title: short(summary(e), 140), change: evs.length === 1 && ['settings.changed', 'interview.answered'].includes(e.type), kind: e.type, steps: evs.length > 1 ? evs.slice(1).map((x) => line(summary(x), [x])) : [] };
   }
   if (problem) facets.add('problems');
   return { key, evs, facets, problem, ts: evs[0].ts, ...c };
@@ -114,15 +148,15 @@ function talk(evs, inbound) {
   return { title, failed, outcome: out ? `Replied: “${short(out.data.text, 160)}”` : failed ? 'Stopped on a problem' : 'Still working…', meta: [n ? `${n} step${n === 1 ? '' : 's'}` : '', asked ? `asked you ${asked === 1 ? 'once' : `${asked} times`}` : ''].filter(Boolean).join(' · '), steps };
 }
 
-function look(tick) {
+function scan(tick) {
   const d = tick.data, dec = d.decisions ?? [], w = d.waiting ?? [], left = d.inaction ?? [];
-  const title = `Looked: ${dec.length ? `${dec.length} thing${dec.length === 1 ? '' : 's'} done` : 'nothing to do'}${w.length ? `, ${w.length} waiting on you` : ''}`;
+  const title = `Scan: ${dec.length ? `${n(dec.length, 'thing')} done` : 'nothing to do'}${w.length ? ` · ${n(w.length, 'request')} open` : ''}`;
   return {
     title, quiet: !dec.length, why: d.why, waiting: w.length, meta: d.why === 'boot' ? 'after a restart' : d.why && d.why !== 'cron' ? d.why : '',
     outcome: dec.length ? short(dec.join(' · '), 160) : '',
     steps: [
       ...dec.map((x) => line(x, [tick])),
-      ...w.map((x) => line(`Waiting on you: ${clean(x.what)} (asked ${hm(x.since)}). Next: ${x.next}`, [tick], 'ask')),
+      ...w.map((x) => line(`Request open: ${clean(x.what)} (asked ${hm(x.since)}). Next: ${x.next}`, [tick], 'ask')),
       ...left.map((x) => line(`Left alone: ${x.what}, because ${x.why}`, [tick], 'quiet')),
       ...Object.entries(d.status ?? {}).filter(([, v]) => v).map(([k, v]) => line(`${STATUS[k] ?? k}: ${v}`, [tick], 'quiet')),
     ],
@@ -131,8 +165,8 @@ function look(tick) {
 
 // ---- rendering
 export function renderEvents() {
-  const cards = group(state.events), shown = cards.filter((c) => (facet === 'all' ? !(c.facets.size === 1 && c.facets.has('system')) : c.facets.has(facet)));
-  const count = (f) => (f === 'all' ? cards.filter((c) => !(c.facets.size === 1 && c.facets.has('system'))).length : cards.filter((c) => c.facets.has(f)).length);
+  const cards = absorb(group(state.events)), pick = (f) => cards.filter((c) => (f === 'all' ? !(c.facets.size === 1 && c.facets.has('system')) : c.facets.has(f)));
+  const shown = digest(pick(facet)), count = (f) => pick(f).length;
   $('#filters').innerHTML = FACETS.map(([f, label, tip]) => `<button type="button" class="facet${f === facet ? ' on' : ''}${f === 'problems' && count(f) ? ' alert' : ''}" data-f="${f}" data-tip="${esc(tip)}">${label} <span class="n">${count(f)}</span></button>`).join('');
   $('#filters').querySelectorAll('.facet').forEach((b) => b.addEventListener('click', () => { facet = b.dataset.f; localStorage.setItem('omni.facet', facet); renderEvents(); }));
   $('#counter').textContent = `${shown.length} of ${cards.length}`;
@@ -173,6 +207,10 @@ export function pushLive(e) {
 }
 
 const j = (v, n = 160) => { const s = typeof v === 'string' ? v : JSON.stringify(v) ?? ''; return s.length > n ? `${s.slice(0, n)}…` : s; };
+const val = (v) => v === undefined ? 'unset' : v === null ? 'off' : typeof v === 'boolean' ? (v ? 'yes' : 'no') : Array.isArray(v) ? (v.join(', ') || 'none') : typeof v === 'object' ? `${v.from} to ${v.to}` : /^[~/]/.test(String(v)) ? place(v) : `“${v}”`;
+const KEY = { 'watches.export.path': 'the finished-work folder', 'loop.paused': 'paused', 'loop.every_min': 'how often Omnii scans', 'loop.quiet': 'quiet hours', 'loop.max_open': 'how many requests may be open at once', 'loop.via': 'where requests reach you' };
+const humanKey = (k) => KEY[k] ?? k.split('.').slice(-1)[0].replace(/_/g, ' ');
+const ASKED = { 'profile.name': 'your name', 'profile.timezone': 'your timezone', 'profile.writing': 'where your writing lives', 'profile.site': 'where your site lives', 'reach.handle': 'where texts go', 'island.name': 'something for the plate', 'island.kind': 'its type', 'island.priority': 'its priority', 'island.position': 'where it stands', 'rhythm.medicine_time': 'medicine time', 'rhythm.chores_days': 'apartment days', 'watch.export': 'the finished-work folder', 'watch.mail_host': 'the mail server', 'watch.mail_user': 'the mail address', 'watch.mail_pass': 'the mail password' };
 
 function summary(e) {
   const d = e.data || {};
@@ -190,7 +228,7 @@ function summary(e) {
       : d.decision === 'approved' ? `${d.tool}: allowed${d.reason ? `, because ${d.reason}` : ` (${d.level})`}`
       : d.decision === 'denied' ? `${d.tool}: blocked — ${d.reason}`
       : `${d.tool}: paused to ask you — ${d.reason}`;
-    case 'approval.requested': return `Waiting for you: ${d.toolName}${d.reason ? ` — ${d.reason}` : ''}`;
+    case 'approval.requested': return `Request: may it ${lc(describeCall(d.toolName, d.input ?? {}))}?${d.reason ? ` (${d.reason})` : ''}`;
     case 'approval.resolved': return `You ${d.approved ? 'allowed' : 'denied'} ${d.toolName}${d.reason ? ` (${d.reason})` : ''}`;
     case 'memory.write': return `${d.op === 'write' ? 'Wrote' : d.op === 'edit' ? 'Edited' : 'Deleted'} memory note ${d.path}`;
     case 'cartridges.changed': return `Memory cartridges now: ${(d.cartridges || []).join(', ') || 'none'}`;
@@ -200,10 +238,10 @@ function summary(e) {
     case 'budget.refused': return `Stopped: needs about ${fmt(d.estimate)} tokens, only ${fmt(d.remaining)} left today`;
     case 'schedule.tick': return `Scheduled run (${d.cron}): ${d.prompt}`;
     case 'loop.tick': return `Saw ${Object.entries(d.saw || {}).map(([k, v]) => `${k} ${Array.isArray(v) ? (v.length || 'none') : v}`).join(', ')}. ${d.did?.length ? `Did: ${d.did.join('; ')}.` : 'Did nothing.'} ${d.left?.length ? `Left alone: ${d.left.join('; ')}.` : ''}`;
-    case 'loop.started': return `Omnii now looks every ${d.everyMin} minutes`;
-    case 'settings.changed': return `You changed ${d.key} from ${d.from === undefined ? '(unset)' : JSON.stringify(d.from)} to ${JSON.stringify(d.to)}`;
-    case 'checkin.opened': return `${d.title} ${(d.options || []).join(' ')}`;
-    case 'checkin.sent': return `Texted it (${d.why})`;
+    case 'loop.started': return `Omnii now scans every ${d.everyMin} minutes`;
+    case 'settings.changed': return d.to === null && !d.key.includes('.', d.key.indexOf('.') + 1) && d.key.startsWith('islands.') ? `You removed “${d.from}” from the plate` : `You changed ${d.label ?? humanKey(d.key)} from ${val(d.from)} to ${val(d.to)}`;
+    case 'checkin.opened': return `Asked you: ${clean(d.title)}`;
+    case 'checkin.sent': return 'Texted you';
     case 'checkin.reminded': return `Came back about: ${d.title} (${d.why}, ${d.reminders}×)`;
     case 'checkin.snoozed': return `Snoozed until ${new Date(d.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}: ${d.title}`;
     case 'checkin.answered': return `You chose ${d.answer}) ${d.label} via ${d.via}: ${d.title}`;
@@ -214,12 +252,12 @@ function summary(e) {
     case 'out.written': return `Wrote out/${d.domain}/${d.name} (${d.by})`;
     case 'desk.reloaded': return `desk/${d.file} changed on disk, reloaded`;
     case 'watch.export': return `New in the export folder: ${(d.fresh || []).join(', ')}`;
-    case 'watch.export_set': return `Now watching ${d.path || 'no folder'}. The ${d.known} file${d.known === 1 ? '' : 's'} already there count as known${d.filed ? `, and ${d.filed} question${d.filed === 1 ? '' : 's'} about them ${d.filed === 1 ? 'was' : 'were'} filed` : ''}. Only files added from now on are asked about.`;
+    case 'watch.export_set': return d.path ? `Now watching ${place(d.path)} for finished work. ${n(d.known, 'file')} already there count as known${d.filed ? `; ${n(d.filed, 'question')} about them filed` : ''}.` : 'Stopped watching a folder for finished work.';
     case 'watch.mail': return `Read ${d.fresh} new message${d.fresh === 1 ? '' : 's'}`;
     case 'mail.sorted': return `Triage sorted ${d.sorted} of ${d.of}`;
     case 'logbook': return d.kind === 'medicine' ? 'Your medicine has been logged.' : d.kind === 'chores' ? 'Your apartment chores have been logged.' : `Recorded an entry in ${d.kind}.`;
     case 'observation': return `Noted: ${d.text}`;
-    case 'interview.answered': return `Interview: answered ${d.id}${d.done ? ' — done' : ''}`;
+    case 'interview.answered': return `Interview: answered ${ASKED[d.id] ?? d.id}${d.done ? ' — done' : ''}`;
     case 'schedule.loaded': return `${(d.jobs || []).length} scheduled runs loaded`;
     case 'mode.reloaded': return `Mode files reloaded: ${(d.names || []).join(', ')}`;
     case 'daemon.started': return `Agent started: ${(d.modes || []).length} modes, ${d.skills} skills, iMessage ${d.imessage ? 'on' : 'off'}`;

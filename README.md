@@ -21,7 +21,7 @@ omni is an extension, not an assistant: a heartbeat **loop** (`src/loop/index.ts
 - **Real in, sandboxed out.** The loop reads your actual inbox (IMAP, envelopes only) and your actual export folder. Everything it would send or publish as you is written to `out/mail`, `out/site`, `out/submissions` by the `deliver` tool. Nothing leaves. The `triage`, `carrier` and `drafter` modes are the fixed-task agents; they only have `desk_view` and `deliver`.
 - **The interview** (`src/interview/index.ts`) is derived: each surface declares what it needs to know, and the interview asks those, one per screen. Answers go straight into `desk/` (secrets into `.env`). It runs on first open and from Setup any time; `desk/interview.md` keeps the answers.
 - **Logbook**: `data/logbook/medicine.log`, `chores.log`, one line per entry.
-- **Config** (sidebar) is the loop's rulebook, one setting per line with every choice visible: how often it looks, quiet hours, pause, how many questions may be out at once, what happens per priority when you don't answer, rhythms, what it watches, what it may do in your name, the plate, observations, who you are. Backed by `desk/loop.md` and the other desk files; every change is logged as `settings.changed` with before and after, with undo.
+- **Config** (sidebar) is the loop's rulebook, one setting per line with every choice visible: how often it scans, quiet hours, pause, how many questions may be out at once, what happens per priority when you don't answer, rhythms, what it watches, what it may do in your name, the plate, observations, who you are. Backed by `desk/loop.md` and the other desk files; every change is logged as `settings.changed` with before and after, with undo.
 
 ## The web app
 
@@ -58,7 +58,7 @@ Default tools: `memory_view`, `memory_search`, `memory_write`, `memory_edit`, `m
 
 ## Approvals
 
-Every tool call passes the policy engine before it runs. Read-only tools never ask. `ask-destructive` asks for shell commands that look destructive (same classifier as briizOS), file writes, memory deletes and iMessages to anyone but you. `ask-always` asks for every write. Blacklisted paths and file types are denied outright. Answer in the Side pane or by texting `yes` / `no`. Unanswered approvals are denied after `APPROVAL_TIMEOUT_MS`.
+Every tool call passes the policy engine before it runs. Read-only tools never ask. `ask-destructive` asks for shell commands that seem destructive (same classifier as briizOS), file writes, memory deletes and iMessages to anyone but you. `ask-always` asks for every write. Blacklisted paths and file types are denied outright. Answer in the Side pane or by texting `yes` / `no`. Unanswered approvals are denied after `APPROVAL_TIMEOUT_MS`.
 
 ## iMessage
 
@@ -98,7 +98,7 @@ For a VPS without iMessage: `docker compose -f deploy/compose.yaml up -d`.
 
 1. `npm run dev`, open the app. With no `desk/profile.md` the interview opens: one question per screen. Answer through; each answer becomes a file under `desk/` (mail password into `.env`). "later" dismisses it for the session; Setup → interview again resumes.
 2. The Desk shows your islands, the medicine and apartment rhythms, mail and export status, trust all `sandbox`, and the loop strip at the top.
-3. Set `medicine.time` in `desk/priorities.md` two minutes ahead and `LOOP_INTERVAL_MIN=1` in `.env` (restart). At that time a check-in appears under Needs you and, with iMessage on, as a text with a–d. Reply `b` → snoozed; `a` → a line in `data/logbook/medicine.log`; `d` → the assistant thread picks it up.
+3. Set `medicine.time` in `desk/priorities.md` two minutes ahead and `LOOP_INTERVAL_MIN=1` in `.env` (restart). At that time a check-in appears under Requests and, with iMessage on, as a text with a–d. Reply `b` → snoozed; `a` → a line in `data/logbook/medicine.log`; `d` → the assistant thread picks it up.
 4. Drop a file into the export folder → next tick, "New finished piece" with a–d. `b` → the drafter writes `out/submissions/<name>-submission.md`; it shows under Out, click to read.
 5. With IMAP set, the mail block fills; senders with 3+ messages this week and a List-Unsubscribe header become a check-in. `a` → `out/mail/unsubscribe-<sender>.md`. Nothing is sent.
 6. Loop (sidebar) shows every tick as a sentence: what it saw, did, and left alone.

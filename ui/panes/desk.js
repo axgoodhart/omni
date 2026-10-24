@@ -20,17 +20,17 @@ function renderStrip(d) {
   const l = d.loop, last = l.last, on = !l.paused;
   const node = (icon, n, tip, done) => `<span class="loop-node ${done ? 'done' : ''}" tabindex="0" data-tip="${esc(tip)}">${ic(icon)}${n === null ? '' : `<span class="num">${n}</span>`}</span>`;
   $('#loopstrip').innerHTML = `
-    ${ibtn(on ? 'pause' : 'play_arrow', on ? 'Running. Click to pause everything: nothing looks, nothing asks, until you turn Omnii back on.' : 'Paused. Nothing looks, nothing asks. Click to turn Omnii back on.', `id="strip-pause" aria-pressed="${on}"`)}
+    ${ibtn(on ? 'pause' : 'play_arrow', on ? 'Running. Click to pause everything: nothing scans, nothing asks, until you turn Omnii back on.' : 'Paused. Nothing looks, nothing asks. Click to turn Omnii back on.', `id="strip-pause" aria-pressed="${on}"`)}
     <span class="live-dot ${on ? 'on' : ''}" data-tip="${on ? 'Running' : 'Paused'}"></span>
     <div class="loop-track">
-      ${node('visibility', last ? hm(last.at) : '–', last ? `Last looked at ${hm(last.at)}` : 'Omnii has not looked yet', !!last)}
-      ${node('task', last ? last.decisions : '–', last ? `${last.decisions} decision${last.decisions === 1 ? '' : 's'} on Omnii's last look` : 'No decisions yet', !!last && last.decisions > 0)}
-      ${node('notifications', last ? last.waiting : '–', last ? `${last.waiting} waiting on you` : 'Nothing waiting', !!last && last.waiting > 0)}
+      ${node('visibility', last ? hm(last.at) : '–', last ? `Last scan at ${hm(last.at)}` : "No scan yet", !!last)}
+      ${node('task', last ? last.decisions : '–', last ? `${last.decisions} decision${last.decisions === 1 ? '' : 's'} on the last scan` : 'No decisions yet', !!last && last.decisions > 0)}
+      ${node('notifications', last ? last.waiting : '–', last ? `${last.waiting} request${last.waiting === 1 ? "" : "s"} open` : "No requests open", !!last && last.waiting > 0)}
       ${node('shield', null, 'Sandboxed: nothing leaves in your name', true)}
     </div>
     ${l.busy?.length ? `<span class="busy" data-tip="Working right now: ${esc(l.busy.join(', '))}">${ic('sync', 'spin')}</span>` : ''}
-    <button type="button" class="frequency" id="strip-settings" data-tip="Omnii looks every ${l.everyMin} minutes${on && l.next ? ` · next ${hm(l.next)}` : ''}. Click to change.">${ic('schedule')}<span class="num">${l.everyMin}</span></button>
-    ${ibtn('refresh', 'Look now', 'id="strip-tick"', 'small')}
+    <button type="button" class="frequency" id="strip-settings" data-tip="Omnii scans every ${l.everyMin} minutes${on && l.next ? ` · next ${hm(l.next)}` : ''}. Click to change.">${ic('schedule')}<span class="num">${l.everyMin}</span></button>
+    ${ibtn("refresh", "Scan now", 'id="strip-tick"', 'small')}
     ${ibtn('history', 'What Omnii did', 'id="strip-loop"', 'small')}`;
   $('#strip-pause').addEventListener('click', async () => { await api('/api/settings', { method: 'PUT', body: { key: 'loop.paused', value: on } }); deskSoon(); });
   $('#strip-settings').addEventListener('click', () => showView('settings'));
@@ -59,8 +59,8 @@ function renderNeeds(d) {
   const general = d.checkins.live.filter((c) => !c.island && c.onDesk !== false);
   const pending = state.data?.pending ?? [];
   const box = $('#desk-needs');
-  box.innerHTML = (general.map(checkinHTML).join('') + (pending.length ? `<div class="checkin p-top"><div class="ci-title">${pending.length} tool approval${pending.length === 1 ? '' : 's'} waiting.</div><div class="ci-opts"><button data-drawer="approvals">open</button></div></div>` : ''))
-    || empty('check_circle', null, 'Nothing needs your attention right now.');
+  box.innerHTML = (general.map(checkinHTML).join('') + (pending.length ? `<div class="checkin p-top"><div class="ci-title">${pending.length} approval request${pending.length === 1 ? "" : "s"}.</div><div class="ci-opts"><button data-drawer="approvals">open</button></div></div>` : ''))
+    || empty('check_circle', null, 'No requests right now.');
   wireCheckins(box);
   box.querySelector('[data-drawer]')?.addEventListener('click', () => openDrawer('approvals'));
   const archived = d.checkins.recent.filter((c) => c.state === 'archived' || c.state === 'answered').slice(0, 6);
@@ -136,7 +136,7 @@ function renderMail(d) {
   }
   const ny = d.mail.needsYou;
   box.innerHTML = `<div class="mailhead"><span class="live-dot ${w.lastError ? '' : 'on'}" data-tip="${w.lastCheck ? `Checked ${ago(w.lastCheck)}` : 'Not checked yet'}${w.lastError ? ` · problem: ${esc(w.lastError)}` : ''} · ${d.mail.recent.length} recent"></span></div>`
-    + (ny.length ? ny.map((m) => `<div class="mailrow" data-uid="${m.uid}"><span class="avatar">${ic('person')}</span><div><b>${esc(m.senderName || m.sender)}</b> <span class="muted">${hm(m.ts)}</span><div class="sub" data-tip="${esc(m.reason ?? '')}">${esc(m.subject)}</div></div>${ibtn('edit', 'Draft a reply into out/mail', 'data-draft', 'small')}${ibtn('check', 'Handled', 'data-handled', 'small')}</div>`).join('') : empty('mail', null, 'Nothing in your mail needs you.'));
+    + (ny.length ? ny.map((m) => `<div class="mailrow" data-uid="${m.uid}"><span class="avatar">${ic('person')}</span><div><b>${esc(m.senderName || m.sender)}</b> <span class="muted">${hm(m.ts)}</span><div class="sub" data-tip="${esc(m.reason ?? '')}">${esc(m.subject)}</div></div>${ibtn('edit', 'Draft a reply into out/mail', 'data-draft', 'small')}${ibtn('check', 'Handled', 'data-handled', 'small')}</div>`).join('') : empty('mail', null, 'Nothing in your mail asks for you.'));
   box.querySelectorAll('[data-draft]').forEach((b) => b.addEventListener('click', async () => { await api(`/api/mail/${b.closest('.mailrow').dataset.uid}/draft`, { method: 'POST' }); b.innerHTML = ic('hourglass_top'); b.dataset.tip = 'Drafting into out/mail'; }));
   box.querySelectorAll('[data-handled]').forEach((b) => b.addEventListener('click', async () => { await api(`/api/mail/${b.closest('.mailrow').dataset.uid}/handled`, { method: 'POST' }); deskSoon(); }));
 }

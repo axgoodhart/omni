@@ -59,11 +59,11 @@ async function handle(m: any) {
   if (/^[a-d]$/.test(lower) || /^[1-4]$/.test(lower)) { // check-in letters; yes/no stay for approvals
     const k = /^\d$/.test(lower) ? 'abcd'[Number(lower) - 1] : lower;
     const c = checkins.latestOpen();
-    if (!c) return send(from, 'No check-in is waiting.');
+    if (!c) return send(from, 'No request is open.');
     try { return send(from, await checkins.answer(c.id, k, 'imessage')); } catch (e) { return send(from, (e as Error).message); }
   }
-  if (/^(yes|y|approve|ok|allow)$/.test(lower)) { if (!runner.answerLatest(mode, true, 'approved via iMessage')) await send(from, 'Nothing is waiting for approval.'); return; }
-  if (/^(no|n|deny|stop)$/.test(lower)) { if (!runner.answerLatest(mode, false, 'denied via iMessage')) await send(from, 'Nothing is waiting for approval.'); return; }
+  if (/^(yes|y|approve|ok|allow)$/.test(lower)) { if (!runner.answerLatest(mode, true, 'approved via iMessage')) await send(from, 'No approval request is open.'); return; }
+  if (/^(no|n|deny|stop)$/.test(lower)) { if (!runner.answerLatest(mode, false, 'denied via iMessage')) await send(from, 'No approval request is open.'); return; }
   if (lower.startsWith('/mode')) {
     const name = text.split(/\s+/)[1];
     if (!name) return send(from, `Mode: ${mode}. Available: ${modes.names().join(', ')}`);

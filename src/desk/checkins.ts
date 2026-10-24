@@ -138,7 +138,7 @@ async function answerNow(id: string, k: string, via: string): Promise<string> {
         const ctx = about(c);
         const done = runner.run({ mode: 'assistant', channel: 'checkin', text: `About this check-in: "${c.title.replace(/[:.\s]+$/, '')}". The user chose "${o.label}".${ctx ? `\n${ctx}` : ''}\n\nYou already have what this is about, so never ask the user to find, upload or paste it. In one or two short sentences, say what it is and ask what they'd like, offering two or three likely choices.` });
         void done.then((t) => (via === 'imessage' && t ? outbound.send('imessage', null, t) : undefined)).catch((e) => emit('checkin.handoff_error', 'loop', { id: c.id, error: e.message }));
-        reply = via === 'imessage' ? 'Looking at it now.' : 'Opening it in the assistant conversation.';
+        reply = via === 'imessage' ? 'Reading it now.' : 'Opening it in the assistant conversation.';
       }
     }
   }

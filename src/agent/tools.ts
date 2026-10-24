@@ -34,7 +34,7 @@ export const TOOL_INFO: Record<string, string> = {
   memory_delete: 'Delete a memory note (asks you first)',
   read_file: 'Read a file in workspace/',
   write_file: 'Write a file in workspace/ (asks you first)',
-  shell: 'Run a terminal command in workspace/ (asks when it looks destructive)',
+  shell: 'Run a terminal command in workspace/ (asks when it seems destructive)',
   fetch_url: 'Read a web page',
   skill_read: "Read a skill's instructions",
   notify: 'Push a message to you (iMessage or here)',

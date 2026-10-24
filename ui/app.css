@@ -2427,15 +2427,15 @@ pre.tall {
     background: var(--brass-soft);
 }
 
-/* quiet hours: a day from 5 PM to 5 PM, the quiet stretch filled, each end labelled */
-.quiet {
+/* quiet hours (qh): a day from 5 PM to 5 PM, the quiet stretch filled, each end labelled */
+.qh {
     display: inline-flex;
     align-items: center;
     gap: 0.8rem;
     padding-top: 1rem;
 }
 
-.quiet.off {
+.qh.off {
     opacity: 0.45;
 }
 

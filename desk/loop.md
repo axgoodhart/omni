@@ -33,9 +33,9 @@ levels:
     stop_text: false
 ---
 
-How Omnii behaves. Change a value here or on the Config page and Omnii follows it on its next look. Omnii never edits this file.
+How Omnii behaves. Change a value here or on the Config page and Omnii follows it on its next scan. Omnii never edits this file.
 
-every_min: how often Omnii looks.
+every_min: how often Omnii scans.
 quiet: Omnii doesn't text between these hours. Nothing is nudged or filed until they end.
 via: where questions may reach you at all: desk, phone or both.
 max_open: how many questions may be out to you at once.

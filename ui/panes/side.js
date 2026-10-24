@@ -3,7 +3,7 @@ import { state, refresh, currentMode, deskSoon, switchMode } from '../app.js';
 import { checkinHTML } from './desk.js';
 import { askCard, wireAsks } from '../describe.js';
 
-const TITLES = { approvals: 'Needs you', mode: 'This mode', memory: 'Memory', more: 'Skills, schedules, channels', desk: 'Desk files', out: 'Out' };
+const TITLES = { approvals: 'Requests', mode: 'This mode', memory: 'Memory', more: 'Skills, schedules, channels', desk: 'Desk files', out: 'Out' };
 const ICONS = { approvals: 'notifications', mode: 'edit', memory: 'memory', more: 'more_horiz', desk: 'description', out: 'upload' };
 const HELP = {
   approvals: 'Two kinds of thing wait here. Check-ins from the loop: one sentence, fixed options, answerable with a letter here or over iMessage. Approvals when an agent is about to do something risky: allow or deny. Ignoring either is allowed; priorities decide what happens next.',
@@ -64,7 +64,7 @@ function renderApprovals(pending) {
   const live = state.desk?.checkins?.live ?? [];
   $('#tab-approvals').innerHTML = (live.map(checkinHTML).join('') || '<div class="muted">No check-ins open.</div>') +
     `<h3 data-tip="An agent is about to do something risky and wants your yes or no first.">Approvals</h3>` +
-    (pending.length ? pending.map((p) => askCard(p, `In the ${p.thread} conversation.`)).join('') : '<div class="muted">Nothing is waiting.</div>');
+    (pending.length ? pending.map((p) => askCard(p, `In the ${p.thread} conversation.`)).join('') : '<div class="muted">No requests.</div>');
   wireAsks($('#tab-approvals'));
   $('#tab-approvals').querySelectorAll('.checkin button').forEach((b) => b.addEventListener('click', async () => {
     const box = b.closest('.checkin');

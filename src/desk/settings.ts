@@ -121,7 +121,7 @@ export function set(key: string, value: unknown, by = 'web') {
     case 'trust': throw new Error('Sending for real is not available yet. Everything stays written to the out/ folder.');
     default: throw new Error(`unknown setting ${key}`);
   }
-  emit('settings.changed', 'loop', { key, from, to, by });
+  emit('settings.changed', 'loop', { key, label: LABELS[key] ?? key.split('.').slice(-1)[0], from, to, by });
   return { key, from, to };
 }
 
@@ -139,7 +139,7 @@ const LEVEL_LABELS = Object.fromEntries(priorities.LEVELS.flatMap((l) => [
 ]));
 /** Plain-English labels for the change log. */
 export const LABELS: Record<string, string> = {
-  'loop.every_min': 'how often Omnii looks (minutes)', 'loop.paused': 'paused', 'loop.max_open': 'how many questions Omnii may have out at once', 'loop.quiet': 'quiet hours', 'loop.quiet.from': 'quiet hours start', 'loop.quiet.to': 'quiet hours end', 'loop.via': 'where questions reach you',
+  'loop.every_min': 'how often Omnii scans (minutes)', 'loop.paused': 'paused', 'loop.max_open': 'how many questions Omnii may have out at once', 'loop.quiet': 'quiet hours', 'loop.quiet.from': 'quiet hours start', 'loop.quiet.to': 'quiet hours end', 'loop.via': 'where questions reach you',
   ...LEVEL_LABELS,
   'priorities.medicine.time': 'medicine time', 'priorities.medicine.priority': 'medicine priority', 'priorities.medicine.enabled': 'medicine rhythm on', 'priorities.chores.days': 'apartment days', 'priorities.chores.time': 'apartment time', 'priorities.chores.priority': 'apartment priority', 'priorities.chores.enabled': 'apartment rhythm on',
   'allowed.remove': 'an always-allowed action', 'watches.export.path': 'finished-work folder', 'watches.mail.unsub_threshold': 'messages per week before Omnii asks about unsubscribing', 'profile.name': 'your name', 'profile.timezone': 'your timezone', 'profile.writing': 'where your writing lives', 'profile.site': 'where your site lives', 'reach.handle': 'the number Omnii texts', 'mail.host': 'mail server', 'mail.user': 'mail address', 'mail.pass': 'mail app password',

@@ -6,7 +6,7 @@ import type { Surface } from '../interview/types.ts';
 
 export type Watches = { export: { path: string; seen: string[] }; mail: { since: number; lastCheck: number; ignore: string[]; lastError: string; unsub_threshold: number } };
 const FILE = 'watches.md';
-export function ensure() { if (!exists(FILE)) writeFm(FILE, { export: { path: '', seen: [] }, mail: { since: 0, lastCheck: 0, ignore: [] } }, 'What the loop watches, and how far it has read. Clear `seen` or `since` to make it look again.'); }
+export function ensure() { if (!exists(FILE)) writeFm(FILE, { export: { path: '', seen: [] }, mail: { since: 0, lastCheck: 0, ignore: [] } }, 'What the loop watches, and how far it has read. Clear `seen` or `since` to make it read again.'); }
 export function get(): Watches {
   const d = readFm(FILE).data;
   return { export: { path: d.export?.path ?? '', seen: Array.isArray(d.export?.seen) ? d.export.seen : [] }, mail: { since: Number(d.mail?.since ?? 0), lastCheck: Number(d.mail?.lastCheck ?? 0), ignore: Array.isArray(d.mail?.ignore) ? d.mail.ignore : [], lastError: d.mail?.lastError ?? '', unsub_threshold: Math.max(1, Number(d.mail?.unsub_threshold ?? 3) || 3) } };

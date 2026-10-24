@@ -51,7 +51,7 @@ function renderMessage(m) {
 /** One line per step: what it did, how it went, and whether it asked you. */
 function step(c) {
   const r = seen.result.get(c.toolCallId), id = seen.asked.get(c.toolCallId), a = id ? seen.answer.get(id) : null;
-  const asked = id ? (a ? (a.approved ? 'you allowed it' : 'you said no') : 'waiting for you') : '';
+  const asked = id ? (a ? (a.approved ? 'you allowed it' : 'you said no') : 'request open') : '';
   const out = r && !(a && !a.approved) ? describeResult(c.toolName, c.input, r.output) : '';
   return `<div class="step"><button type="button" class="step-line">${esc(describeCall(c.toolName, c.input))}${out ? ` — ${esc(out)}` : ''}${asked ? `<span class="asked">${asked}</span>` : ''}</button><pre hidden>${esc(JSON.stringify({ asked: c.input, got: r?.output ?? null }, null, 2))}</pre></div>`;
 }

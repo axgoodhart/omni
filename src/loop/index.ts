@@ -22,7 +22,7 @@ import type { Level } from '../desk/priorities.ts';
 /**
  * The heartbeat. Each pass asks three questions — who is the user, what's on the plate, what's happening —
  * then does a few bounded things, within the rules in desk/loop.md (which it reads and never writes).
- * Every pass writes one report: status, decisions, what is waiting on the user, what it looked at and left.
+ * Every pass writes one report: status, decisions, which requests are open, what it scanned and left.
  */
 let job: Cron | null = null;
 let everyMin = 0;
@@ -65,8 +65,8 @@ function quietEnds(cfg: loopcfg.LoopCfg, tz: string): number | null {
   return Date.now() + (untilTo > 0 ? untilTo : untilTo + 1440) * 60_000;
 }
 
-/** One look, recorded as one activity. */
-export const tick = (why: string) => activity('look', 'loop', () => tickNow(why));
+/** One scan, recorded as one activity. */
+export const tick = (why: string) => activity("scan", "loop", () => tickNow(why));
 async function tickNow(why: string) {
   if (running || loopcfg.get().paused) return;
   running = true;
@@ -86,7 +86,7 @@ async function tickNow(why: string) {
 
     if (cfg.paused) {
       T.paused = true;
-      T.status.activity = 'paused by you; nothing looks, nothing asks';
+      T.status.activity = 'paused by you; nothing scans, nothing asks';
       T.inaction.push({ what: 'Everything', why: 'you paused Omnii on the Config page' });
       return;
     }
@@ -141,7 +141,7 @@ async function tickNow(why: string) {
     T.status.export = !ex.path ? 'NOT SET' : !ex.ok ? `${ex.path}: ${ex.error}` : `${ex.path}: ${ex.fresh.length} new, ${watches.get().export.seen.length} already asked about`;
     const asked: string[] = [];
     for (const f of ex.fresh) {
-      if (asked.length >= 3) { T.inaction.push({ what: `New file ${f}`, why: 'at most three questions about new files per look; next look' }); continue; }
+      if (asked.length >= 3) { T.inaction.push({ what: `New file ${f}`, why: 'at most three questions about new files per scan; next scan' }); continue; }
       if (!room()) { heldBack(`A question about the new file ${f}`); continue; }
       const isl = islands.forFile(f), level = isl ? priorities.ofIsland(isl.slug) : 'medium';
       checkins.ask({ priority: level, island: isl?.slug ?? null, dedupe: `export:${f}`, title: `New finished piece: ${f}.`, options: [
@@ -181,7 +181,7 @@ async function tickNow(why: string) {
           T.decisions.push(`Asked whether to unsubscribe you from ${who} (${cand.n} this week)`);
         }
       } else fetched = `checked at ${hm(w.lastCheck)}`;
-      T.status.mail = `${fetched}, ${mail.needsYou().length} need you${w.lastError ? `, last error: ${w.lastError}` : ''}`;
+      T.status.mail = `${fetched}, ${mail.needsYou().length} request${mail.needsYou().length === 1 ? "" : "s"}${w.lastError ? `, last error: ${w.lastError}` : ''}`;
     }
 
     // ---- 6. carry: finished work, asked about once
@@ -199,7 +199,7 @@ async function tickNow(why: string) {
         ] }, deliver(level));
         T.decisions.push(`Asked you about "${i.name}": finished`);
       }
-      if (carry.length > 1) T.inaction.push({ what: `${carry.length - 1} more finished islands`, why: 'one of these per look' });
+      if (carry.length > 1) T.inaction.push({ what: `${carry.length - 1} more finished islands`, why: 'one of these per scan' });
     }
     const byPos: Record<string, number> = {};
     for (const i of all) byPos[i.position] = (byPos[i.position] ?? 0) + 1;
@@ -235,7 +235,7 @@ async function tickNow(why: string) {
     T.status.checkins = `${openOnes.length} not answered${openOnes.length ? ` (oldest asked ${hm(Math.min(...openOnes.map((c) => c.created)))})` : ''} · ${answeredToday} answered today · ${liveNow.length - openOnes.length} paused · limit ${cfg.max_open} out at once`;
     T.status.activity = status().busy.length ? `${status().busy.join(', ')} running` : 'nothing running';
 
-    // ---- 8. what was looked at and left, with the reason
+    // ---- 8. what was scanned and left, with the reason
     for (const i of all) {
       if (liveNow.some((c) => c.island === i.slug)) continue;
       if (i.progress >= 100) continue;
