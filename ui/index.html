@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300,0..1,0" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
@@ -14,8 +15,7 @@
   <aside class="sidebar">
     <div class="brand">
       <span class="brand-mark">omnii</span>
-      <h1>omnii</h1>
-      <p id="status">connecting…</p>
+      <p id="status" data-tip="Whether this page is connected to the background service">connecting…</p>
     </div>
     <nav>
       <div class="nav-group" data-nav="desk"><h2>Desk</h2><ul id="nav-desk"></ul></div>
@@ -25,17 +25,16 @@
       <div class="nav-group" data-nav="setup"><h2>Setup</h2><ul id="nav-setup"></ul></div>
     </nav>
     <div class="sidebar-foot">
-      <div class="budget" title="Free OpenAI tokens used today. Past 85% the agent switches to the light model; at 100% it stops until midnight UTC."><div id="budget-fill"></div></div>
-      <div id="budget-text">–</div>
-      <div id="imessage-label"></div>
+      <div class="budget" data-tip="Free tokens used today. Past 85% the agent switches to the light model; at 100% it stops until midnight UTC."><div id="budget-fill"></div></div>
+      <div class="foot-row"><span id="budget-text">–</span><span id="imessage-label" class="ms" tabindex="0">chat_bubble</span></div>
       <span id="approval-count" hidden></span>
     </div>
   </aside>
 
   <main>
     <header class="plate-head">
-      <span class="plate-num" id="mode-num">01</span>
-      <div class="plate-meta"><h4 id="mode-title">…</h4><p id="mode-sub"></p></div>
+      <span class="plate-num" id="mode-num"></span>
+      <div class="plate-meta"><h4 id="mode-title" tabindex="0">…</h4></div>
       <div class="tags" id="mode-tags"></div>
     </header>
 
@@ -43,20 +42,32 @@
       <div class="loopstrip" id="loopstrip"></div>
       <div class="desk-grid">
         <div class="desk-col">
-          <h2 class="eyebrow"><span class="desk-help" tabindex="0" aria-describedby="help-needs-you">Needs you<span class="desk-tooltip" role="tooltip" id="help-needs-you">Questions and approvals that need your decision. You can also answer check-ins through iMessage.</span></span></h2>
-          <div id="desk-needs"></div>
-          <h2 class="eyebrow"><span class="desk-help" tabindex="0" aria-describedby="help-rhythms">Rhythms<span class="desk-tooltip" role="tooltip" id="help-rhythms">Your recurring routines. Change their timing and reminders in What I do.</span></span></h2>
-          <div id="desk-rhythms"></div>
-          <h2 class="eyebrow"><span class="desk-help" tabindex="0" aria-describedby="help-islands">Islands<span class="desk-tooltip" role="tooltip" id="help-islands">Your projects and ongoing commitments.</span></span><button class="ghost tiny" id="add-island">+ island</button></h2>
-          <div id="desk-islands"></div>
+          <section class="panel">
+            <h2 class="panel-head"><span class="ph" tabindex="0" data-tip="Questions and approvals that need a decision from you. Each is one sentence with fixed options. You can also answer by letter over iMessage."><span class="ms" aria-hidden="true">notifications</span><span>Needs you</span></span></h2>
+            <div id="desk-needs"></div>
+          </section>
+          <section class="panel">
+            <h2 class="panel-head"><span class="ph" tabindex="0" data-tip="Routines I keep for you. Log them here, or by text, and I stop asking for the day. Timing and priority are set under What I do."><span class="ms" aria-hidden="true">repeat</span><span>Rhythms</span></span></h2>
+            <div id="desk-rhythms"></div>
+          </section>
+          <section class="panel">
+            <h2 class="panel-head"><span class="ph" tabindex="0" data-tip="Your projects and ongoing commitments. Each is a plain file under desk/islands/. Click the dots to move a stage; the line underneath is yours to write what's true right now."><span class="ms" aria-hidden="true">account_tree</span><span>Islands</span></span><button type="button" class="icon-btn small" id="add-island" data-tip="Add something to the plate" aria-label="Add island"><span class="ms" aria-hidden="true">add</span></button></h2>
+            <div id="desk-islands"></div>
+          </section>
         </div>
         <div class="desk-col">
-          <h2 class="eyebrow"><span class="desk-help" tabindex="0" aria-describedby="help-mail">Mail<span class="desk-tooltip" role="tooltip" id="help-mail">Connected mail is reviewed by sender and subject. Replies are prepared as drafts for your review.</span></span></h2>
-          <div id="desk-mail"></div>
-          <h2 class="eyebrow"><span class="desk-help" tabindex="0" aria-describedby="help-out">Out<span class="desk-tooltip" role="tooltip" id="help-out">Draft replies, submissions, and website changes appear here for review. They have not been sent or published.</span></span></h2>
-          <div id="desk-out"></div>
-          <h2 class="eyebrow">Watches &amp; trust</h2>
-          <div id="desk-watches"></div>
+          <section class="panel">
+            <h2 class="panel-head"><span class="ph" tabindex="0" data-tip="I read sender and subject only, never the message. What needs you is listed here; replies are prepared as drafts in out/ for you to read."><span class="ms" aria-hidden="true">mail</span><span>Mail</span></span></h2>
+            <div id="desk-mail"></div>
+          </section>
+          <section class="panel">
+            <h2 class="panel-head"><span class="ph" tabindex="0" data-tip="Anything I would send or publish as you is written here instead, as a file. Nothing has left. Read it, then do with it what you like."><span class="ms" aria-hidden="true">upload</span><span>Out</span></span></h2>
+            <div id="desk-out"></div>
+          </section>
+          <section class="panel">
+            <h2 class="panel-head"><span class="ph" tabindex="0" data-tip="What I watch and what I may do in your name. Everything outward is sandboxed: written to out/, never sent. Click a cell to open its file."><span class="ms" aria-hidden="true">shield</span><span>Watches &amp; trust</span></span><button type="button" class="icon-btn small" id="watches-settings" data-tip="Change these under What I do" aria-label="Settings"><span class="ms" aria-hidden="true">tune</span></button></h2>
+            <div id="desk-watches"></div>
+          </section>
         </div>
       </div>
     </section>
@@ -65,13 +76,13 @@
 
     <div class="stages view" id="view-thread" hidden>
       <section class="stage" id="thread-pane" data-cat="conversation">
-        <h2 class="eyebrow">Conversation <span class="sub">one thread per mode, shared with iMessage</span><button id="reset" class="ghost tiny" title="Forget this mode's conversation. Memory cartridges are kept.">forget</button></h2>
+        <h2 class="panel-head"><span class="ph" tabindex="0" data-tip="One thread per mode. What you type here and what you text over iMessage land in the same place."><span class="ms" aria-hidden="true">chat_bubble</span><span>Conversation</span></span><button type="button" class="icon-btn small" id="reset" data-tip="Forget this mode's conversation. Memory cartridges are kept." aria-label="Forget conversation"><span class="ms" aria-hidden="true">delete_sweep</span></button></h2>
         <div id="banner"></div>
         <div id="messages" class="scroll"></div>
-        <form id="composer"><textarea id="input" rows="2" placeholder="Say something… (Enter sends, Shift+Enter for a new line)"></textarea><button id="send">Send</button></form>
+        <form id="composer"><textarea id="input" rows="2" placeholder="Say something… (Enter sends, Shift+Enter for a new line)"></textarea><button id="send" class="icon-btn" data-tip="Send" aria-label="Send"><span class="ms" aria-hidden="true">send</span></button></form>
       </section>
       <section class="stage" id="operation-pane" data-cat="operation">
-        <h2 class="eyebrow"><span id="op-title">Operation</span> <span class="sub" id="op-sub">every step, as it happens</span><span id="counter" class="muted"></span></h2>
+        <h2 class="panel-head"><span class="ph" id="op-head" tabindex="0" data-tip=""><span class="ms" aria-hidden="true">show_chart</span><span id="op-title">Operation</span></span><span id="counter" class="muted head-action"></span></h2>
         <div id="filters" class="filters"></div>
         <div id="live" class="live"></div>
         <div id="events" class="scroll"></div>
@@ -80,7 +91,7 @@
   </main>
 
   <aside class="drawer" id="drawer" hidden>
-    <header><h2 class="eyebrow" id="drawer-title"></h2><button id="drawer-close" class="ghost tiny">close</button></header>
+    <header><h2 class="panel-head" id="drawer-title"></h2><button type="button" id="drawer-close" class="icon-btn small" data-tip="Close" aria-label="Close"><span class="ms" aria-hidden="true">close</span></button></header>
     <div class="tab scroll" id="tab-approvals" hidden></div>
     <div class="tab scroll" id="tab-mode" hidden></div>
     <div class="tab scroll" id="tab-memory" hidden></div>
@@ -101,12 +112,7 @@
   </div>
 </div>
 
+<div class="tip" id="tip" role="tooltip" hidden></div>
 <script type="module" src="/app.js"></script>
-<script>
-const threadIntro = document.getElementById('threadIntro');
-if (threadIntro) {
-  
-}  
-</script>
 </body>
 </html>

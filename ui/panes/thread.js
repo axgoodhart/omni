@@ -1,4 +1,4 @@
-import { $, api, esc } from '../lib.js';
+import { $, api, esc, ic } from '../lib.js';
 import { state, loadThread } from '../app.js';
 
 let streaming = null, buffer = '';
@@ -16,16 +16,7 @@ export function renderThread() {
 function intro() {
   const m = state.data?.modes.find((x) => x.name === state.mode);
   const mem = m?.inserted?.length ? m.inserted.join(', ') : 'none inserted';
-  return `<button class="minimize" id="threadIntro" data-close="intro">•••</button>
-  <div class="intro">
-<b>This is the "${esc(state.mode)}" mode's conversation.</b> One ongoing thread: what you say here and what you text it over iMessage land in the same place.
-<ul>
-<li><b>Operation</b>, to the right, shows every step while it works: the prompt it was given, its reasoning, each tool it used, what was allowed or blocked, and what it cost.</li>
-<li><b>Modes</b>, in the sidebar, are its personalities. Setup → prompt &amp; settings opens the one you are in; save and it reloads instantly.</li>
-<li><b>Memory</b>, in the sidebar, is what it knows long-term, as cartridges you insert or eject. Right now: ${esc(mem)}.</li>
-</ul>
-Try: <i>"remember my coffee order is a flat white"</i>, then eject the cartridge and ask what your order is.
-</div>`;
+  return `<div class="empty-visual tall" tabindex="0" data-tip="Nothing said yet in the ${esc(state.mode)} mode. What you type here and what you text over iMessage land in the same thread. Memory right now: ${esc(mem)}.">${ic('chat_bubble', 'zero')}<span class="empty-line"></span>${ic('smart_toy')}</div>`;
 }
 
 function renderBanner() {
@@ -49,8 +40,8 @@ function renderMessage(m) {
 }
 
 function chip(p) {
-  if (p.type === 'tool-call') return `<span class="chip call" title="click for details">used ${esc(p.toolName)}</span><pre hidden>${esc(JSON.stringify(p.input, null, 2))}</pre>`;
-  if (p.type === 'tool-result') return `<span class="chip" title="click for details">${esc(p.toolName)} result</span><pre hidden>${esc(typeof p.output === 'string' ? p.output : JSON.stringify(p.output, null, 2))}</pre>`;
+  if (p.type === 'tool-call') return `<span class="chip call" data-tip="Click for details">used ${esc(p.toolName)}</span><pre hidden>${esc(JSON.stringify(p.input, null, 2))}</pre>`;
+  if (p.type === 'tool-result') return `<span class="chip" data-tip="Click for details">${esc(p.toolName)} result</span><pre hidden>${esc(typeof p.output === 'string' ? p.output : JSON.stringify(p.output, null, 2))}</pre>`;
   if (p.type === 'approval') return `<span class="chip approval">you ${p.approved ? 'allowed' : 'denied'} it${p.reason ? `: ${esc(p.reason)}` : ''}</span>`;
   return `<span class="chip">${esc(p.type)}</span>`;
 }

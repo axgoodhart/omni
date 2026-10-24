@@ -4,12 +4,13 @@ import { renderSide, openDrawer } from './panes/side.js';
 import { renderDesk } from './panes/desk.js';
 import { showInterview, maybeShowInterview } from './panes/interview.js';
 import { renderSettings } from './panes/settings.js';
-import { $, api, esc, fmt } from './lib.js';
+import { $, api, esc, fmt, ic } from './lib.js';
 
 export const state = { view: localStorage.getItem('omni.view') || 'desk', mode: null, data: null, desk: null, thread: null, events: [], busy: false };
 const pad = (n) => String(n).padStart(2, '0');
-const KIND_ICON = { make: '✎', research: '⌕', build: '⚒', story: '¶', grow: '❧', open: '○' };
-export const kindIcon = (k) => KIND_ICON[k] ?? '○';
+const KIND_ICON = { make: 'brush', research: 'search', build: 'construction', story: 'menu_book', grow: 'potted_plant', open: 'radio_button_unchecked' };
+export const kindIcon = (k) => ic(KIND_ICON[k] ?? 'radio_button_unchecked');
+const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export async function refresh() {
   state.data = await api('/api/state');
@@ -44,22 +45,28 @@ export async function showView(v) {
 /** Open the assistant thread with a line already typed. */
 export async function discuss(text) { await switchMode(state.data.modes.some((m) => m.name === 'assistant') ? 'assistant' : state.mode); $('#input').value = text; $('#input').focus(); }
 
+const navItem = (icon, label, attrs, cls = '', right = '') => `<li><button class="nav-item ${cls}" ${attrs}><span class="n">${icon}</span>${label}${right}</button></li>`;
+
 export function renderShell() {
   const d = state.data, cur = currentMode(), idx = d.modes.findIndex((m) => m.name === state.mode);
   const inserted = new Set(cur?.inserted ?? []), pending = d.pending ?? [], open = d.desk?.open ?? 0, needs = open + pending.length;
   const act = (v) => (state.view === v ? 'active' : '');
+  const l = d.desk?.loop;
+  const loopNote = l?.paused ? 'paused' : l?.last ? `${Math.round((Date.now() - l.last.at) / 60000)}m ago` : 'not yet';
 
-  $('#nav-desk').innerHTML = `<li><button class="nav-item ${act('desk')}" data-view="desk"><span class="n">◎</span>desk</button></li>
-    <li><button class="nav-item ${needs ? 'alert' : ''}" data-drawer="approvals"><span class="n">${needs || '–'}</span>${needs ? 'needs you' : 'nothing waiting'}</button></li>
-    <li><button class="nav-item ${act('settings')}" data-view="settings"><span class="n">≡</span>what I do</button></li>
-    <li><button class="nav-item ${act('loop')}" data-view="loop"><span class="n">↻</span>what I did<span class="count">${d.desk?.loop?.paused ? 'paused' : d.desk?.loop?.last ? `${Math.round((Date.now() - d.desk.loop.last.at) / 60000)}m ago` : 'not yet'}</span></button></li>`;
-  $('#nav-islands').innerHTML = (d.desk?.islands ?? []).map((i) => `<li><button class="nav-item" data-island="${esc(i.slug)}" title="${esc(i.position)}"><span class="n">${kindIcon(i.kind)}</span>${esc(i.name)}<span class="count">${esc(i.stages[i.stage] ?? '')}</span></button></li>`).join('')
-    + (d.desk?.islands?.length ? '' : '<li><button class="nav-item" data-interview="1"><span class="n">+</span>run the interview</button></li>');
-  $('#nav-modes').innerHTML = d.modes.map((m, i) => `<li><button class="nav-item ${m.name === state.mode && state.view === 'thread' ? 'active' : ''}" data-mode="${esc(m.name)}" title="${esc(m.voice || m.model)}"><span class="n">${pad(i + 1)}</span>${esc(m.name)}${m.busy ? '<span class="live" title="working"></span>' : ''}</button></li>`).join('');
-  $('#nav-memory').innerHTML = d.cartridges.map((c) => `<li><button class="nav-item ${inserted.has(c.name) ? 'active' : ''}" data-drawer="memory"><span class="n">${inserted.has(c.name) ? '▮' : '▯'}</span>${esc(c.name)}<span class="count">${c.files.length} note${c.files.length === 1 ? '' : 's'}</span></button></li>`).join('')
-    + `<li><button class="nav-item" data-drawer="memory"><span class="n">+</span>insert, eject, create</button></li>`;
-  $('#nav-setup').innerHTML = [['desk', 'priorities, trust, watches'], ['mode', 'prompt & settings'], ['more', 'skills, schedules, channels']].map(([k, label]) => `<li><button class="nav-item" data-drawer="${k}"><span class="n">→</span>${label}</button></li>`).join('')
-    + `<li><button class="nav-item" data-interview="1"><span class="n">?</span>interview again</button></li>`;
+  $('#nav-desk').innerHTML = navItem(ic('desktop_windows'), 'desk', `data-view="desk" data-tip="Everything I look at and ask about, in one place"`, act('desk'))
+    + navItem(needs ? `<b>${needs}</b>` : ic('check_circle'), needs ? 'needs you' : 'nothing waiting', `data-drawer="approvals" data-tip="${needs ? `${needs} thing${needs === 1 ? '' : 's'} waiting on your answer` : 'No questions or approvals are waiting on you'}"`, needs ? 'alert' : '')
+    + navItem(ic('tune'), 'what I do', `data-view="settings" data-tip="My rules, as sentences you can change"`, act('settings'))
+    + navItem(ic('history'), 'what I did', `data-view="loop" data-tip="Every look: what I saw, decided, and left alone"`, act('loop'), `<span class="count">${loopNote}</span>`);
+  $('#nav-islands').innerHTML = (d.desk?.islands ?? []).map((i) => navItem(kindIcon(i.kind), esc(i.name), `data-island="${esc(i.slug)}" data-tip="${esc(i.kind)} · ${esc(i.position)} · ${esc(i.stages[i.stage] ?? '')}"`)).join('')
+    + (d.desk?.islands?.length ? '' : navItem(ic('add'), 'run the interview', `data-interview="1" data-tip="A short set of questions that fills in the desk"`));
+  $('#nav-modes').innerHTML = d.modes.map((m, i) => navItem(pad(i + 1), esc(m.name), `data-mode="${esc(m.name)}" data-tip="${esc(m.voice || m.model)}"`, m.name === state.mode && state.view === 'thread' ? 'active' : '', m.busy ? '<span class="live" data-tip="working"></span>' : '')).join('');
+  $('#nav-memory').innerHTML = d.cartridges.map((c) => navItem(ic('memory', inserted.has(c.name) ? 'fill' : ''), esc(c.name), `data-drawer="memory" data-tip="${inserted.has(c.name) ? 'Inserted: the agent can read and write it now' : 'On the shelf: invisible to the agent until inserted'} · ${c.files.length} note${c.files.length === 1 ? '' : 's'}"`, inserted.has(c.name) ? 'active' : '')).join('')
+    + navItem(ic('add'), 'insert, eject, create', `data-drawer="memory" data-tip="Memory cartridges: folders of notes the agent keeps"`);
+  $('#nav-setup').innerHTML = navItem(ic('description'), 'desk files', `data-drawer="desk" data-tip="The plain files under desk/: profile, islands, priorities, trust, watches, observations"`)
+    + navItem(ic('edit'), 'this mode', `data-drawer="mode" data-tip="Prompt, model, permissions and tools of the mode you are in"`)
+    + navItem(ic('more_horiz'), 'skills, schedules, channels', `data-drawer="more" data-tip="How you reach it, timed runs, and instruction folders"`)
+    + navItem(ic('help'), 'interview again', `data-interview="1" data-tip="Answer the setup questions again"`);
   document.querySelectorAll('#nav-modes .nav-item').forEach((b) => b.addEventListener('click', () => switchMode(b.dataset.mode)));
   document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
   document.querySelectorAll('[data-drawer]').forEach((b) => b.addEventListener('click', () => openDrawer(b.dataset.drawer)));
@@ -68,8 +75,9 @@ export function renderShell() {
 
   const u = d.usage, pct = u.budget ? Math.min(100, Math.round((u.total / u.budget) * 100)) : 0;
   $('#budget-fill').style.width = `${pct}%`;
-  $('#budget-text').textContent = u.budget ? `free tokens today · ${fmt(u.total)} of ${fmt(u.budget)}` : `${fmt(u.total)} tokens today`;
-  $('#imessage-label').textContent = d.imessage ? 'imessage · on' : 'imessage · off';
+  $('#budget-text').textContent = u.budget ? `${fmt(u.total)} / ${fmt(u.budget)}` : `${fmt(u.total)} tokens`;
+  $('#imessage-label').classList.toggle('on', d.imessage);
+  $('#imessage-label').dataset.tip = d.imessage ? 'iMessage is on: text me from your phone' : 'iMessage is off: put your number in ALLOWED_HANDLES in .env and restart';
 
   $('#view-desk').hidden = state.view !== 'desk';
   $('#view-settings').hidden = state.view !== 'settings';
@@ -77,39 +85,33 @@ export function renderShell() {
   $('#thread-pane').hidden = state.view === 'loop';
   $('#view-thread').classList.toggle('single', state.view === 'loop');
   $('#op-title').textContent = state.view === 'loop' ? 'Loop' : 'Operation';
-  $('#op-sub').textContent = state.view === 'loop' ? 'every tick: what it saw, did, and left alone' : 'every step, as it happens';
+  $('#op-head').dataset.tip = state.view === 'loop' ? 'Every look, newest last: what I saw, what I decided, what is waiting on you, and what I left alone with the reason.' : 'Every step as it happens: the prompt it was given, its reasoning, each tool it used, what was allowed or blocked, and what it cost. Click a row for the raw data.';
 
+  const title = (num, text, tip) => { $('#mode-num').innerHTML = num; $('#mode-title').textContent = text; $('#mode-title').dataset.tip = tip; };
   if (state.view === 'desk') {
-    const l = d.desk?.loop, p = state.desk?.profile;
-    $('#mode-num').textContent = '◎';
-    $('#mode-title').textContent = p?.name ? `${p.name}'s desk` : 'Desk';
-    $('#mode-sub').textContent = '';
-    $('#mode-tags').innerHTML = [`<span class="plate-tag clay">${open} open check-in${open === 1 ? '' : 's'}</span>`, `<span class="plate-tag">${d.desk?.islands?.length ?? 0} islands</span>`, `<span class="plate-tag focus">trust · ${Object.values(state.desk?.trust ?? {}).some((v) => v === 'live') ? 'mixed' : 'sandbox'}</span>`].join('');
+    const p = state.desk?.profile;
+    title(ic('desktop_windows'), p?.name ? `${p.name}'s desk` : 'Desk', 'Your desk. I arrange it; you change it. Hover any heading for what it is.');
+    $('#mode-tags').innerHTML = [`<span class="plate-tag clay" data-tip="Questions waiting on your answer">${ic('notifications')}<b>${open}</b></span>`, `<span class="plate-tag" data-tip="Things on your plate">${ic('account_tree')}<b>${d.desk?.islands?.length ?? 0}</b></span>`, `<span class="plate-tag focus" data-tip="${Object.values(state.desk?.trust ?? {}).some((v) => v === 'live') ? 'Some things may leave in your name' : 'Sandboxed: nothing leaves in your name; it is written to out/ instead'}">${ic('shield')}</span>`].join('');
     return;
   }
   if (state.view === 'settings') {
-    $('#mode-num').textContent = '≡'; $('#mode-title').textContent = 'What I do';
-    $('#mode-sub').textContent = 'Every sentence on this page is a rule I follow. Change the numbers and I change. I never edit this page myself.';
+    title(ic('tune'), 'What I do', 'Every sentence on this page is a rule I follow. Change the numbers and I change. I never edit this page myself.');
     $('#mode-tags').innerHTML = '';
     return;
   }
   if (state.view === 'loop') {
-    const l = d.desk?.loop;
-    $('#mode-num').textContent = '↻'; $('#mode-title').textContent = 'Loop';
-    $('#mode-sub').textContent = `A heartbeat every ${l?.everyMin ?? '?'} minutes. It reads its own log, checks the agents, looks at what it watches, and may do a handful of bounded things. It writes down what it decided, including nothing.`;
-    $('#mode-tags').innerHTML = `<span class="plate-tag clay">next ${l?.next ? new Date(l.next).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '–'}</span><button class="ghost tiny" id="tick-now">tick now</button>`;
+    title(ic('history'), 'What I did', `A look every ${l?.everyMin ?? '?'} minutes. I read my own log, check the agents, look at what I watch, and may do a handful of bounded things. I write down what I decided, including nothing.`);
+    $('#mode-tags').innerHTML = `<span class="plate-tag clay" data-tip="When I next look">${ic('schedule')}<b>${l?.next ? hm(l.next) : '–'}</b></span><button type="button" class="icon-btn small" id="tick-now" data-tip="Look now" aria-label="Look now">${ic('refresh')}</button>`;
     $('#tick-now')?.addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); refreshSoon(); });
     return;
   }
   if (!cur) return;
-  $('#mode-num').textContent = pad(idx + 1);
-  $('#mode-title').textContent = cur.name;
-  $('#mode-sub').textContent = cur.voice || `Permissions: ${cur.permissions.mode}. Edit this mode under Setup.`;
+  title(pad(idx + 1), cur.name, cur.voice || `Permissions: ${cur.permissions.mode}. Edit this mode under Setup.`);
   $('#mode-tags').innerHTML = [
-    `<span class="plate-tag" title="the model this mode thinks with">${esc(cur.model)}</span>`,
-    `<span class="plate-tag focus" title="when it has to ask you first">${esc(cur.permissions.mode)}</span>`,
-    `<span class="plate-tag sage" title="memory cartridges it can use right now">memory · ${esc(cur.inserted?.length ? cur.inserted.join(', ') : 'none')}</span>`,
-    `<span class="plate-tag clay" title="tools it may use">${cur.tools ? cur.tools.length : d.tools.defaults.length} tools</span>`,
+    `<span class="plate-tag" data-tip="The model this mode thinks with">${esc(cur.model)}</span>`,
+    `<span class="plate-tag focus" data-tip="When it has to ask you first">${esc(cur.permissions.mode)}</span>`,
+    `<span class="plate-tag sage" data-tip="Memory cartridges it can use right now: ${esc(cur.inserted?.length ? cur.inserted.join(', ') : 'none')}">${ic('memory')}<b>${cur.inserted?.length ?? 0}</b></span>`,
+    `<span class="plate-tag clay" data-tip="Tools it may use">${ic('construction')}<b>${cur.tools ? cur.tools.length : d.tools.defaults.length}</b></span>`,
   ].join('');
 }
 
@@ -131,7 +133,7 @@ function connect() {
     if (e.type === 'approval.requested') openDrawer('approvals');
     if (['approval.requested', 'approval.resolved', 'cartridges.changed', 'mode.reloaded', 'usage', 'schedule.loaded', 'memory.write', 'inbound', 'outbound'].includes(e.type)) refreshSoon();
   });
-  es.onopen = () => { $('#status').textContent = 'extension · live'; $('#status').classList.add('on'); };
+  es.onopen = () => { $('#status').textContent = 'live'; $('#status').classList.add('on'); };
   es.onerror = () => { $('#status').textContent = 'reconnecting…'; $('#status').classList.remove('on'); };
 }
 let t = null, td = null;
@@ -144,5 +146,23 @@ export function deskSoon() { clearTimeout(td); td = setTimeout(() => { loadDesk(
 $('#reset').addEventListener('click', async () => {
   if (confirm(`Forget the "${state.mode}" conversation? Memory cartridges are kept.`)) { await api(`/api/threads/${state.mode}/reset`, { method: 'POST' }); await loadThread(); }
 });
+
+// ---- tooltips: one element, shown for anything with data-tip (hover or keyboard focus)
+const tip = $('#tip');
+let tipFor = null;
+function showTip(el) {
+  const text = el.dataset.tip; if (!text) return hideTip();
+  tipFor = el; tip.textContent = text; tip.hidden = false;
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  const x = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+  const y = r.bottom + h + 16 > window.innerHeight ? r.top - h - 8 : r.bottom + 8;
+  tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+}
+function hideTip() { tipFor = null; tip.hidden = true; }
+document.addEventListener('mouseover', (e) => { const el = e.target.closest?.('[data-tip]'); if (!el) { if (tipFor) hideTip(); } else if (el !== tipFor) showTip(el); });
+document.addEventListener('focusin', (e) => { const el = e.target.closest?.('[data-tip]'); if (el) showTip(el); });
+document.addEventListener('focusout', hideTip);
+document.addEventListener('mousedown', hideTip);
+document.addEventListener('scroll', hideTip, true);
 
 refresh().then(connect).catch((e) => { $('#mode-title').textContent = `Failed to load: ${e.message}`; });

@@ -1,4 +1,4 @@
-import { $, esc, fmt } from '../lib.js';
+import { $, esc, fmt, ic } from '../lib.js';
 import { state } from '../app.js';
 
 const GROUPS = {
@@ -16,13 +16,12 @@ const hidden = new Set(JSON.parse(localStorage.getItem('omni.hidden') || '[]'));
 let tokens = 0;
 
 function filters() {
-  $('#filters').innerHTML = Object.entries(GROUPS).map(([g, v]) => `<label title="${esc(v.help)}"><input type="checkbox" data-g="${g}" ${hidden.has(g) ? '' : 'checked'}><i class="c-${g}"></i>${v.label}</label>`).join('');
+  $('#filters').innerHTML = Object.entries(GROUPS).map(([g, v]) => `<label data-tip="${esc(v.help)}"><input type="checkbox" data-g="${g}" ${hidden.has(g) ? '' : 'checked'}><i class="c-${g}"></i>${v.label}</label>`).join('');
   $('#filters').querySelectorAll('input').forEach((i) => i.addEventListener('change', () => { i.checked ? hidden.delete(i.dataset.g) : hidden.add(i.dataset.g); localStorage.setItem('omni.hidden', JSON.stringify([...hidden])); renderEvents(); }));
 }
 filters();
 
-const EMPTY = `<div class="intro">Nothing has happened in this mode yet. After your first message you will see, in order:
-<ul><li><b>prompt</b> — the exact instructions and memory it was given</li><li><b>request</b> and <b>thinking</b> — the model call and its reasoning summary</li><li><b>permission</b>, <b>tool</b>, <b>result</b> — each thing it did, and whether it had to ask you</li><li><b>memory</b> — notes it saved</li><li><b>tokens</b> and <b>out</b> — what it cost and what it replied</li></ul>Click any row for the raw data. Untick a group above to hide it.</div>`;
+const EMPTY = `<div class="empty-visual tall" tabindex="0" data-tip="Nothing has happened here yet. Each step will appear as a row: the prompt, the model call, each tool and whether it had to ask you, notes saved, tokens used. Click a row for the raw data; untick a group above to hide it.">${ic('show_chart', 'zero')}<span class="empty-line"></span><span class="num">0</span></div>`;
 
 export function renderEvents() {
   const box = $('#events');
@@ -88,11 +87,11 @@ function row(e) {
   if (e.type === 'checkin.answered' && e.data?.action === 'log') return '';
   if (e.type === 'loop.tick' && e.data?.status) {
     const t = new Date(e.ts).toLocaleTimeString([], { hour12: false });
-    return `<div class="ev g-loop tick"><div class="head" title="click for the raw data"><span class="t">${t}</span><span class="sum"><span class="type">tick</span><pre class="tickblock">${esc(tickBlock(e.data))}</pre></span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
+    return `<div class="ev g-loop tick"><div class="head" data-tip="Click for the raw data"><span class="t">${t}</span><span class="sum"><span class="type">look</span><pre class="tickblock">${esc(tickBlock(e.data))}</pre></span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
   }
   if (e.type === 'usage') tokens += e.data.usage?.totalTokens ?? 0;
   const t = new Date(e.ts).toLocaleTimeString([], { hour12: false });
-  return `<div class="ev g-${g} ${e.type === 'error' ? 'error' : ''}"><div class="head" title="click for the raw data"><span class="t">${t}</span><span class="sum">${esc(summary(e))}</span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
+  return `<div class="ev g-${g} ${e.type === 'error' ? 'error' : ''}"><div class="head" data-tip="Click for the raw data"><span class="t">${t}</span><span class="sum">${esc(summary(e))}</span></div><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`;
 }
 
 const j = (v, n = 160) => { const s = typeof v === 'string' ? v : JSON.stringify(v) ?? ''; return s.length > n ? `${s.slice(0, n)}…` : s; };

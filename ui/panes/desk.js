@@ -1,9 +1,16 @@
-import { $, api, esc } from '../lib.js';
+import { $, api, esc, ic, ibtn } from '../lib.js';
 import { state, deskSoon, discuss, kindIcon, showView } from '../app.js';
 import { openDrawer, showOut, showDeskFile } from './side.js';
 
 const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const ago = (ts) => { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
+const LEVEL = { top: 3, normal: 2, low: 1 };
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const POS_ICON = { 'not started': 'radio_button_unchecked', 'in progress': 'pending', 'finished, not shared': 'outbox', ongoing: 'all_inclusive', done: 'check_circle' };
+const OUT_ICON = { mail: 'mail', site: 'public', submissions: 'upload' };
+export const priority = (p, what = 'Priority') => `<span class="priority" data-level="${LEVEL[p] ?? 2}" data-tip="${esc(what)}: ${esc(p)}"><i></i><i></i><i></i></span>`;
+const week = (on, tip) => `<span class="week" data-tip="${esc(tip)}">${DAYS.map((d) => `<i class="day ${on.includes(d) ? 'on' : ''}"></i>`).join('')}</span>`;
+const empty = (a, b, tip, n = '0') => `<div class="empty-visual" tabindex="0" data-tip="${esc(tip)}">${ic(a, 'zero')}<span class="empty-line"></span>${n === null ? ic(b) : `<span class="num">${n}</span>`}</div>`;
 
 export function renderDesk() {
   const d = state.desk; if (!d) return;
@@ -11,19 +18,31 @@ export function renderDesk() {
 }
 
 function renderStrip(d) {
-  const l = d.loop, last = l.last;
-  $('#loopstrip').innerHTML = l.paused
-    ? `<span class="k" title="Automatic check-ins are paused. You can still use the desk and log your routines.">Paused</span><span class="spacer"></span><button class="ghost tiny" id="strip-settings">Loop settings</button>`
-    : `<span class="k">I look every ${l.everyMin} min</span>${last ? `<span>last ${hm(last.at)}</span><span><b>${last.decisions}</b> decision${last.decisions === 1 ? '' : 's'}</span><span><b>${last.waiting}</b> waiting on you</span>` : '<span>not yet</span>'}<span>next ${l.next ? hm(l.next) : '–'}</span>${l.busy?.length ? `<span class="busy">working: ${esc(l.busy.join(', '))}</span>` : ''}<span class="spacer"></span><button class="ghost tiny" id="strip-settings">change</button><button class="ghost tiny" id="strip-tick">look now</button><button class="ghost tiny" id="strip-loop">what I did</button>`;
+  const l = d.loop, last = l.last, on = !l.paused;
+  const node = (icon, n, tip, done) => `<span class="loop-node ${done ? 'done' : ''}" tabindex="0" data-tip="${esc(tip)}">${ic(icon)}${n === null ? '' : `<span class="num">${n}</span>`}</span>`;
+  $('#loopstrip').innerHTML = `
+    ${ibtn(on ? 'pause' : 'play_arrow', on ? 'Running. Click to pause everything: nothing looks, nothing asks, until you turn me back on.' : 'Paused. Nothing looks, nothing asks. Click to turn me back on.', `id="strip-pause" aria-pressed="${on}"`)}
+    <span class="live-dot ${on ? 'on' : ''}" data-tip="${on ? 'Running' : 'Paused'}"></span>
+    <div class="loop-track">
+      ${node('visibility', last ? hm(last.at) : '–', last ? `Last looked at ${hm(last.at)}` : 'I have not looked yet', !!last)}
+      ${node('task', last ? last.decisions : '–', last ? `${last.decisions} decision${last.decisions === 1 ? '' : 's'} on my last look` : 'No decisions yet', !!last && last.decisions > 0)}
+      ${node('notifications', last ? last.waiting : '–', last ? `${last.waiting} waiting on you` : 'Nothing waiting', !!last && last.waiting > 0)}
+      ${node('shield', null, 'Sandboxed: nothing leaves in your name', true)}
+    </div>
+    ${l.busy?.length ? `<span class="busy" data-tip="Working right now: ${esc(l.busy.join(', '))}">${ic('sync', 'spin')}</span>` : ''}
+    <button type="button" class="frequency" id="strip-settings" data-tip="I look every ${l.everyMin} minutes${on && l.next ? ` · next ${hm(l.next)}` : ''}. Click to change.">${ic('schedule')}<span class="num">${l.everyMin}</span></button>
+    ${ibtn('refresh', 'Look now', 'id="strip-tick"', 'small')}
+    ${ibtn('history', 'What I did', 'id="strip-loop"', 'small')}`;
+  $('#strip-pause').addEventListener('click', async () => { await api('/api/settings', { method: 'PUT', body: { key: 'loop.paused', value: on } }); deskSoon(); });
   $('#strip-settings').addEventListener('click', () => showView('settings'));
-  $('#strip-tick')?.addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); deskSoon(); });
-  $('#strip-loop')?.addEventListener('click', () => showView('loop'));
+  $('#strip-tick').addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); deskSoon(); });
+  $('#strip-loop').addEventListener('click', () => showView('loop'));
 }
 
 export function checkinHTML(c) {
   const snoozed = c.state === 'snoozed';
   return `<div class="checkin p-${esc(c.priority)} ${snoozed ? 'snoozed' : ''}" data-id="${esc(c.id)}">
-    <div class="ci-head"><span class="ci-pri">${esc(c.priority)}</span><span class="ci-when">${snoozed ? `snoozed until ${hm(c.snoozedUntil)}` : `${ago(c.created)}${c.reminders ? ` · reminded ${c.reminders}×` : ''}`}</span></div>
+    <div class="ci-head">${priority(c.priority)}<span class="ci-when">${snoozed ? `snoozed until ${hm(c.snoozedUntil)}` : `${ago(c.created)}${c.reminders ? ` · reminded ${c.reminders}×` : ''}`}</span></div>
     <div class="ci-title">${esc(c.title)}</div>
     ${c.options.length ? `<div class="ci-opts">${c.options.map((o) => `<button class="${o.k === 'd' ? 'ghost' : ''}" data-k="${esc(o.k)}"><span class="k">${esc(o.k)}</span>${esc(o.label)}</button>`).join('')}</div>` : `<div class="ci-opts"><button data-k="ok">ok</button></div>`}
   </div>`;
@@ -42,13 +61,13 @@ function renderNeeds(d) {
   const pending = state.data?.pending ?? [];
   const box = $('#desk-needs');
   box.innerHTML = (general.map(checkinHTML).join('') + (pending.length ? `<div class="checkin p-top"><div class="ci-title">${pending.length} tool approval${pending.length === 1 ? '' : 's'} waiting.</div><div class="ci-opts"><button data-drawer="approvals">open</button></div></div>` : ''))
-    || `<div class="intro small">Nothing needs your attention right now.</div>`;
+    || empty('check_circle', null, 'Nothing needs your attention right now.');
   wireCheckins(box);
   box.querySelector('[data-drawer]')?.addEventListener('click', () => openDrawer('approvals'));
   const archived = d.checkins.recent.filter((c) => c.state === 'archived' || c.state === 'answered').slice(0, 6);
   if (archived.length) {
     const h = document.createElement('details'); h.className = 'history';
-    h.innerHTML = `<summary>history · ${archived.length} recent</summary>${archived.map((c) => `<div class="hist ${c.state}"><span class="t">${hm(c.answered ?? c.created)}</span><span>${esc(c.title)}</span><span class="r">${c.state === 'answered' ? `${esc(c.answer)}) ${esc(c.options.find((o) => o.k === c.answer)?.label ?? 'ok')} · ${esc(c.via ?? '')}` : `archived · ${esc(c.archivedReason ?? '')}`}</span></div>`).join('')}`;
+    h.innerHTML = `<summary data-tip="Answered and filed questions. I never delete them.">${ic('history')}<span class="num">${archived.length}</span></summary>${archived.map((c) => `<div class="hist ${c.state}"><span class="t">${hm(c.answered ?? c.created)}</span><span>${esc(c.title)}</span><span class="r">${c.state === 'answered' ? `${esc(c.answer)}) ${esc(c.options.find((o) => o.k === c.answer)?.label ?? 'ok')} · ${esc(c.via ?? '')}` : `filed · ${esc(c.archivedReason ?? '')}`}</span></div>`).join('')}`;
     box.appendChild(h);
   }
 }
@@ -58,13 +77,21 @@ function renderRhythms(d) {
   const historyOpen = $('#medicine-history')?.open ?? false;
   const dateTime = (ts) => new Date(ts).toLocaleString([], { timeZone: d.profile.timezone, month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   const history = d.medicineHistory;
-  $('#desk-rhythms').innerHTML = `
-    <div class="rhythm"><span class="ic">✚</span><div><b>Medicine</b> <span class="muted">${esc(p.medicine.time)} · ${esc(p.medicine.priority)}</span><div class="sub">${med ? `Last logged on ${esc(dateTime(med.ts))}.` : 'You have not logged your medicine yet.'}</div></div><button class="ghost tiny" data-log="medicine">Log now</button></div>
-    <details class="medicine-history" id="medicine-history" ${historyOpen ? 'open' : ''}>
-      <summary>View medicine history</summary>
-      ${history ? history.length ? `<ol>${history.map((entry) => `<li><time datetime="${esc(new Date(entry.ts).toISOString())}">${esc(dateTime(entry.ts))}</time><span>${entry.via === 'web' ? 'Logged in the app' : entry.via === 'imessage' ? 'Logged through iMessage' : 'Medicine logged'}</span></li>`).join('')}</ol>` : '<p>You have not logged your medicine yet. Your entries will appear here.</p>' : '<p>Medicine history is unavailable. Restart the app’s background service, then reload this page.</p>'}
-    </details>
-    <div class="rhythm"><span class="ic">⌂</span><div><b>apartment</b> <span class="muted">${p.chores.days.length ? esc(p.chores.days.join(' ')) : 'no days set'} · ${esc(p.chores.priority)}</span><div class="sub">${ch ? `last done ${ago(ch.ts)}` : 'not logged yet'}</div></div><button class="ghost tiny" data-log="chores">done</button></div>`;
+  const row = (key, icon, name, time, days, daysTip, pri, lastTip, logTip) => `
+    <div class="rhythm ${p[key].enabled ? '' : 'off'}">
+      <span class="ic" data-tip="${esc(lastTip)}">${ic(icon, key === 'medicine' ? 'accent' : '')}</span>
+      <b data-tip="${esc(lastTip)}">${name}</b>
+      <span class="time num" data-tip="When I ask, if it has not been logged">${esc(time)}</span>
+      ${week(days, daysTip)}
+      ${priority(pri)}
+      ${ibtn('check', logTip, `data-log="${key}"`, 'small')}
+    </div>`;
+  $('#desk-rhythms').innerHTML = row('medicine', 'medication', 'Medicine', p.medicine.time, DAYS, 'Every day', p.medicine.priority, med ? `Last logged ${dateTime(med.ts)}` : 'Not logged yet', 'Log medicine now')
+    + `<details class="medicine-history" id="medicine-history" ${historyOpen ? 'open' : ''}>
+      <summary data-tip="Every time medicine was logged">${ic('history')}<span class="num">${history?.length ?? 0}</span></summary>
+      ${history ? history.length ? `<ol>${history.map((entry) => `<li><time datetime="${esc(new Date(entry.ts).toISOString())}">${esc(dateTime(entry.ts))}</time><span>${entry.via === 'web' ? 'in the app' : entry.via === 'imessage' ? 'by text' : ''}</span></li>`).join('')}</ol>` : '<p class="muted-text">Nothing logged yet.</p>' : '<p class="muted-text">History unavailable. Restart the background service and reload.</p>'}
+    </details>`
+    + row('chores', 'home', 'Apartment', p.chores.time, p.chores.days, p.chores.days.length ? `On ${p.chores.days.join(', ')}` : 'No days set', p.chores.priority, ch ? `Last done ${ago(ch.ts)}` : 'Not logged yet', 'Mark the apartment done');
   $('#desk-rhythms').querySelectorAll('[data-log]').forEach((b) => b.addEventListener('click', async () => {
     const open = d.checkins.live.find((c) => c.state !== 'answered' && (c.title.startsWith('Medicine') && b.dataset.log === 'medicine' || c.title.startsWith('Apartment') && b.dataset.log === 'chores'));
     if (open) await api(`/api/checkins/${open.id}/answer`, { method: 'POST', body: { option: 'a' } });
@@ -76,13 +103,14 @@ function renderRhythms(d) {
 function renderIslands(d) {
   const box = $('#desk-islands');
   const byIsland = (slug) => d.checkins.live.filter((c) => c.island === slug);
-  box.innerHTML = d.islands.map((i) => `<article class="island" data-slug="${esc(i.slug)}">
-    <header><span class="ic">${kindIcon(i.kind)}</span><h3>${esc(i.name)}</h3><span class="plate-tag ${i.position === 'finished, not shared' ? 'clay' : i.position === 'done' ? '' : 'slate'}">${esc(i.position)}</span><span class="plate-tag focus">${esc(d.priorities.islands[i.slug] ?? 'normal')}</span></header>
-    <div class="track">${i.stages.map((s, n) => `<button class="dot ${n <= i.stage ? 'on' : ''} ${n === i.stage ? 'cur' : ''}" data-stage="${n}" title="${esc(s)}"></button>`).join('')}<span class="stage-name">${esc(i.stages[i.stage])}</span></div>
-    <input class="status" value="${esc(i.status)}" placeholder="status line — what's true about it right now">
+  box.innerHTML = d.islands.map((i) => `<article class="island" data-slug="${esc(i.slug)}" data-position="${esc(i.position)}">
+    <header><span class="ic" data-tip="${esc(i.kind)}">${kindIcon(i.kind)}</span><h3>${esc(i.name)}</h3>
+      <span class="island-state">${priority(d.priorities.islands[i.slug] ?? 'normal')}<span class="position-dot" tabindex="0" data-tip="Where it stands: ${esc(i.position)}">${ic(POS_ICON[i.position] ?? 'radio_button_unchecked')}</span></span></header>
+    <div class="track">${i.stages.map((s, n) => `<span class="step"><button type="button" class="dot ${n <= i.stage ? 'on' : ''} ${n === i.stage ? 'cur' : ''}" data-stage="${n}" data-tip="${esc(s)}${n === i.stage ? ' (now)' : ''}" aria-label="${esc(s)}"></button></span>`).join('')}</div>
+    <input class="status" value="${esc(i.status)}" placeholder="what's true about it right now">
     ${byIsland(i.slug).map(checkinHTML).join('')}
-    <footer><span class="muted">${i.files.length ? `${i.files.length} file${i.files.length === 1 ? '' : 's'}` : 'no files'} · ${esc(i.kind)}</span><span class="spacer"></span><button class="ghost tiny" data-discuss>discuss</button><button class="ghost tiny" data-edit>edit file</button></footer>
-  </article>`).join('') || `<div class="intro small">You have no projects here yet. Add an island to get started.</div>`;
+    <footer><span class="file-count" data-tip="${i.files.length ? `${i.files.length} file${i.files.length === 1 ? '' : 's'} in its folder` : 'No files yet'}">${ic('attachment')}<span class="num">${i.files.length}</span></span><span class="spacer"></span>${ibtn('chat_bubble', 'Talk about this with the assistant', 'data-discuss', 'small')}${ibtn('description', 'Open its file', 'data-edit', 'small')}</footer>
+  </article>`).join('') || empty('account_tree', null, 'Nothing on the plate yet. Use + to add something, or run the interview.');
   wireCheckins(box);
   box.querySelectorAll('.island').forEach((el) => {
     const slug = el.dataset.slug;
@@ -100,35 +128,42 @@ function renderIslands(d) {
 function renderMail(d) {
   const w = d.watches.mail, box = $('#desk-mail');
   if (!w.configured) {
-    box.innerHTML = `<div class="row"><span class="muted-text">Mail is not connected.</span><button class="ghost" id="connect-mail">Connect mail</button></div>`;
+    box.innerHTML = `<div class="disconnected"><span class="dis" tabindex="0" data-tip="Mail is not connected.">${ic('mail')}<span class="break"></span>${ic('link_off')}</span>${ibtn('link', 'Connect mail', 'id="connect-mail"', 'small')}</div>`;
     $('#connect-mail').addEventListener('click', async () => {
       await showView('settings');
-      const connect = document.querySelector('[data-k="mail.connect"]');
-      connect?.click();
+      document.querySelector('[data-k="mail.connect"]')?.click();
       $('#mail-connect')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
     return;
   }
   const ny = d.mail.needsYou;
-  box.innerHTML = `<div class="mailhead muted">${w.lastCheck ? `checked ${ago(w.lastCheck)}` : 'not checked yet'}${w.lastError ? ` · <span class="err">${esc(w.lastError)}</span>` : ''} · ${d.mail.recent.length ? `${d.mail.recent.length} recent` : 'nothing read yet'}</div>`
-    + (ny.length ? ny.map((m) => `<div class="mailrow" data-uid="${m.uid}"><div><b>${esc(m.senderName || m.sender)}</b> <span class="muted">${hm(m.ts)}</span><div class="sub">${esc(m.subject)}${m.reason ? ` <span class="muted">· ${esc(m.reason)}</span>` : ''}</div></div><button class="ghost tiny" data-draft>draft reply</button><button class="ghost tiny" data-handled>handled</button></div>`).join('') : '<div class="muted-text">Nothing needs you.</div>');
-  box.querySelectorAll('[data-draft]').forEach((b) => b.addEventListener('click', async () => { await api(`/api/mail/${b.closest('.mailrow').dataset.uid}/draft`, { method: 'POST' }); b.textContent = 'drafting → out/mail'; }));
+  box.innerHTML = `<div class="mailhead"><span class="live-dot ${w.lastError ? '' : 'on'}" data-tip="${w.lastCheck ? `Checked ${ago(w.lastCheck)}` : 'Not checked yet'}${w.lastError ? ` · problem: ${esc(w.lastError)}` : ''} · ${d.mail.recent.length} recent"></span></div>`
+    + (ny.length ? ny.map((m) => `<div class="mailrow" data-uid="${m.uid}"><span class="avatar">${ic('person')}</span><div><b>${esc(m.senderName || m.sender)}</b> <span class="muted">${hm(m.ts)}</span><div class="sub" data-tip="${esc(m.reason ?? '')}">${esc(m.subject)}</div></div>${ibtn('edit', 'Draft a reply into out/mail', 'data-draft', 'small')}${ibtn('check', 'Handled', 'data-handled', 'small')}</div>`).join('') : empty('mail', null, 'Nothing in your mail needs you.'));
+  box.querySelectorAll('[data-draft]').forEach((b) => b.addEventListener('click', async () => { await api(`/api/mail/${b.closest('.mailrow').dataset.uid}/draft`, { method: 'POST' }); b.innerHTML = ic('hourglass_top'); b.dataset.tip = 'Drafting into out/mail'; }));
   box.querySelectorAll('[data-handled]').forEach((b) => b.addEventListener('click', async () => { await api(`/api/mail/${b.closest('.mailrow').dataset.uid}/handled`, { method: 'POST' }); deskSoon(); }));
 }
 
 function renderOut(d) {
   const box = $('#desk-out');
-  box.innerHTML = d.out.length ? d.out.map((f) => `<button class="outrow" data-domain="${esc(f.domain)}" data-name="${esc(f.name)}"><span class="plate-tag ${f.domain === 'mail' ? 'slate' : f.domain === 'site' ? '' : 'clay'}">${esc(f.domain)}</span><span class="nm">${esc(f.name)}</span><span class="muted">${ago(f.mtime)}</span></button>`).join('') : `<div class="intro small">There are no drafts to review.</div>`;
+  box.innerHTML = d.out.length ? d.out.map((f) => `<button type="button" class="outrow" data-domain="${esc(f.domain)}" data-name="${esc(f.name)}" data-tip="${esc(f.domain)} · written ${ago(f.mtime)} · not sent">${ic(OUT_ICON[f.domain] ?? 'description')}<span class="nm">${esc(f.name)}</span><span class="muted">${ago(f.mtime)}</span></button>`).join('')
+    : `<div class="out-visual" tabindex="0" data-tip="Nothing written yet. Anything I would send or publish as you lands here as a file.">${ic('shield')}<span class="out-arrow"></span>${ic('folder_open')}</div>`;
   box.querySelectorAll('.outrow').forEach((b) => b.addEventListener('click', () => showOut(b.dataset.domain, b.dataset.name)));
 }
 
 function renderWatches(d) {
-  const w = d.watches, t = d.trust;
+  const w = d.watches, t = d.trust, p = d.profile;
+  const cell = (icon, on, tip, file, n = null) => `<button type="button" class="watch-cell" aria-pressed="${on}" data-tip="${esc(tip)}" data-f="${file}">${ic(icon)}${n === null ? '<span class="signal"></span>' : `<span class="num">${n}</span>`}</button>`;
+  const TRUST_TIP = { mail: 'Email replies and unsubscribes', site: 'Changes to your website', submissions: 'Applications and submissions' };
+  const TRUST_ICON = { mail: 'mail', site: 'public', submissions: 'upload' };
   $('#desk-watches').innerHTML = `
-    <div class="kv"><span>export folder</span><b>${w.export.path ? `${esc(w.export.path)} <span class="muted">· ${w.export.seen} seen</span>` : 'not set'}</b></div>
-    <div class="kv"><span>mail</span><b>${w.mail.configured ? `reading${w.mail.since ? ` · uid ${w.mail.since}` : ''}` : 'not set'}</b></div>
-    <div class="kv"><span>trust</span><b>${Object.entries(t).map(([k, v]) => `${esc(k)} · ${esc(v)}`).join(' &nbsp; ')}</b></div>
-    <div class="kv"><span>observations</span><b>${d.observations.length} line${d.observations.length === 1 ? '' : 's'}</b></div>
-    <div class="row"><button class="ghost tiny" data-f="priorities.md">priorities</button><button class="ghost tiny" data-f="trust.md">trust</button><button class="ghost tiny" data-f="watches.md">watches</button><button class="ghost tiny" data-f="observations.md">observations</button><button class="ghost tiny" data-f="profile.md">profile</button></div>`;
+    <div class="watch-grid">
+      ${cell('folder', !!w.export.path, w.export.path ? `Export folder: ${w.export.path} · ${w.export.seen} file${w.export.seen === 1 ? '' : 's'} asked about` : 'Export folder not set. Set it under What I do.', 'watches.md')}
+      ${cell('mail', w.mail.configured, w.mail.configured ? `Mail: reading${w.mail.since ? ` from message ${w.mail.since}` : ''}` : 'Mail not connected', 'watches.md')}
+      ${cell('database', d.observations.length > 0, `${d.observations.length} thing${d.observations.length === 1 ? '' : 's'} I have noticed about you. They never change a setting.`, 'observations.md', d.observations.length)}
+      ${cell('person', !!p.name, p.name ? `${p.name} · ${p.timezone}` : 'Profile not filled in yet', 'profile.md')}
+    </div>
+    ${Object.entries(t).map(([k, v]) => `<div class="trust-row" tabindex="0" data-tip="${esc(TRUST_TIP[k] ?? k)}: ${v === 'live' ? 'may leave in your name' : 'written to out/ for you to read, never sent'}">${ic(TRUST_ICON[k] ?? 'shield')}<span class="sandbox-track"><i></i><i></i><i></i></span>${ic(v === 'live' ? 'lock_open' : 'shield', v === 'live' ? 'warn' : 'ok')}</div>`).join('')}
+    <div class="file-tabs">${ibtn('notifications', 'Open priorities.md', 'data-f="priorities.md"', 'small')}${ibtn('shield', 'Open trust.md', 'data-f="trust.md"', 'small')}</div>`;
   $('#desk-watches').querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => showDeskFile(b.dataset.f)));
+  $('#watches-settings').onclick = () => showView('settings');
 }
