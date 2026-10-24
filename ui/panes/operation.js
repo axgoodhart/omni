@@ -122,7 +122,7 @@ function summary(e) {
     case 'budget.refused': return `Stopped: needs about ${fmt(d.estimate)} tokens, only ${fmt(d.remaining)} left today`;
     case 'schedule.tick': return `Scheduled run (${d.cron}): ${d.prompt}`;
     case 'loop.tick': return `Saw ${Object.entries(d.saw || {}).map(([k, v]) => `${k} ${Array.isArray(v) ? (v.length || 'none') : v}`).join(', ')}. ${d.did?.length ? `Did: ${d.did.join('; ')}.` : 'Did nothing.'} ${d.left?.length ? `Left alone: ${d.left.join('; ')}.` : ''}`;
-    case 'loop.started': return `I now look every ${d.everyMin} minutes`;
+    case 'loop.started': return `Omnii now looks every ${d.everyMin} minutes`;
     case 'settings.changed': return `You changed ${d.key} from ${d.from === undefined ? '(unset)' : JSON.stringify(d.from)} to ${JSON.stringify(d.to)}`;
     case 'checkin.opened': return `${d.title} ${(d.options || []).join(' ')}`;
     case 'checkin.sent': return `Texted it (${d.why})`;

@@ -13,6 +13,6 @@ export function get(): Record<Domain, Setting> {
 export const of = (domain: Domain): Setting => get()[domain];
 export const surface: Surface = {
   name: 'trust',
-  questions: () => [{ id: 'trust.note', surface: 'trust', kind: 'statement', prompt: 'Nothing leaves this machine in your name.', hint: 'Every reply, unsubscribe, site change or submission I draft is written to the out/ folder. desk/trust.md is the dial, and it starts at sandbox for everything.' }],
+  questions: () => [{ id: 'trust.note', surface: 'trust', kind: 'statement', prompt: 'Nothing leaves this machine in your name.', hint: 'Every reply, unsubscribe, site change or submission Omnii drafts is written to the out/ folder. desk/trust.md is the dial, and it starts at sandbox for everything.' }],
   apply: () => ensure(),
 };

@@ -18,6 +18,6 @@ export function add(text: string, source: string, date: string) {
 }
 export const surface: Surface = {
   name: 'observations',
-  questions: () => [{ id: 'observations.note', surface: 'observations', kind: 'statement', prompt: "I'll keep notes about you in desk/observations.md.", hint: 'Things like when you tend to answer, or what you leave for Sundays. You can read every line and strike any of them. They never change a priority.' }],
+  questions: () => [{ id: 'observations.note', surface: 'observations', kind: 'statement', prompt: 'Omnii will keep notes about you in desk/observations.md.', hint: 'Things like when you tend to answer, or what you leave for Sundays. You can read every line and strike any of them. They never change a priority.' }],
   apply: () => ensure(),
 };

@@ -15,10 +15,10 @@ export const mailConfigured = () => !!(getEnv('IMAP_HOST') && getEnv('IMAP_USER'
 export const surface: Surface = {
   name: 'watches',
   questions: () => [
-    { id: 'watch.export', surface: 'watches', kind: 'path', prompt: 'Where does finished work land?', hint: 'A folder. When something new appears there I ask what to do with it. Nothing in it is ever moved.', optional: true, current: () => get().export.path || undefined },
+    { id: 'watch.export', surface: 'watches', kind: 'path', prompt: 'Where does finished work land?', hint: 'A folder. When something new appears there Omnii asks what to do with it. Nothing in it is ever moved.', optional: true, current: () => get().export.path || undefined },
     { id: 'watch.mail_host', surface: 'watches', kind: 'text', prompt: 'Your mail server?', hint: 'IMAP host, e.g. imap.gmail.com or imap.fastmail.com. Leave blank to skip mail for now.', optional: true, current: () => getEnv('IMAP_HOST') || undefined },
-    { id: 'watch.mail_user', surface: 'watches', kind: 'text', prompt: 'The address I read?', optional: true, current: () => getEnv('IMAP_USER') || undefined },
-    { id: 'watch.mail_pass', surface: 'watches', kind: 'secret', prompt: 'An app password for it', hint: 'Goes to .env, never to a desk file. I only read. Replies and unsubscribes are written to out/mail for you to look at.', optional: true },
+    { id: 'watch.mail_user', surface: 'watches', kind: 'text', prompt: 'The address Omnii reads?', optional: true, current: () => getEnv('IMAP_USER') || undefined },
+    { id: 'watch.mail_pass', surface: 'watches', kind: 'secret', prompt: 'An app password for it', hint: 'Goes to .env, never to a desk file. Omnii only reads. Replies and unsubscribes are written to out/mail for you to look at.', optional: true },
   ],
   apply: (id, value) => {
     ensure();

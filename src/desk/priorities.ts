@@ -32,7 +32,7 @@ const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const surface: Surface = {
   name: 'priorities',
   questions: () => [
-    { id: 'rhythm.medicine_time', surface: 'priorities', kind: 'time', prompt: 'What time do you take your medicine?', hint: 'If it is not logged by then, I ask. Medicine is top priority unless you change priorities.md.', current: () => get().medicine.time },
+    { id: 'rhythm.medicine_time', surface: 'priorities', kind: 'time', prompt: 'What time do you take your medicine?', hint: 'If it is not logged by then, Omnii asks. Medicine is top priority unless you change priorities.md.', current: () => get().medicine.time },
     { id: 'rhythm.chores_days', surface: 'priorities', kind: 'text', prompt: 'Which days are for the apartment?', hint: 'e.g. sat, or tue thu. A quiet nudge, never a chase.', optional: true, current: () => get().chores.days.join(', ') || undefined },
   ],
   apply: (id, value) => {

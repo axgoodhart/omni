@@ -21,18 +21,18 @@ function renderStrip(d) {
   const l = d.loop, last = l.last, on = !l.paused;
   const node = (icon, n, tip, done) => `<span class="loop-node ${done ? 'done' : ''}" tabindex="0" data-tip="${esc(tip)}">${ic(icon)}${n === null ? '' : `<span class="num">${n}</span>`}</span>`;
   $('#loopstrip').innerHTML = `
-    ${ibtn(on ? 'pause' : 'play_arrow', on ? 'Running. Click to pause everything: nothing looks, nothing asks, until you turn me back on.' : 'Paused. Nothing looks, nothing asks. Click to turn me back on.', `id="strip-pause" aria-pressed="${on}"`)}
+    ${ibtn(on ? 'pause' : 'play_arrow', on ? 'Running. Click to pause everything: nothing looks, nothing asks, until you turn Omnii back on.' : 'Paused. Nothing looks, nothing asks. Click to turn Omnii back on.', `id="strip-pause" aria-pressed="${on}"`)}
     <span class="live-dot ${on ? 'on' : ''}" data-tip="${on ? 'Running' : 'Paused'}"></span>
     <div class="loop-track">
-      ${node('visibility', last ? hm(last.at) : '–', last ? `Last looked at ${hm(last.at)}` : 'I have not looked yet', !!last)}
-      ${node('task', last ? last.decisions : '–', last ? `${last.decisions} decision${last.decisions === 1 ? '' : 's'} on my last look` : 'No decisions yet', !!last && last.decisions > 0)}
+      ${node('visibility', last ? hm(last.at) : '–', last ? `Last looked at ${hm(last.at)}` : 'Omnii has not looked yet', !!last)}
+      ${node('task', last ? last.decisions : '–', last ? `${last.decisions} decision${last.decisions === 1 ? '' : 's'} on Omnii's last look` : 'No decisions yet', !!last && last.decisions > 0)}
       ${node('notifications', last ? last.waiting : '–', last ? `${last.waiting} waiting on you` : 'Nothing waiting', !!last && last.waiting > 0)}
       ${node('shield', null, 'Sandboxed: nothing leaves in your name', true)}
     </div>
     ${l.busy?.length ? `<span class="busy" data-tip="Working right now: ${esc(l.busy.join(', '))}">${ic('sync', 'spin')}</span>` : ''}
-    <button type="button" class="frequency" id="strip-settings" data-tip="I look every ${l.everyMin} minutes${on && l.next ? ` · next ${hm(l.next)}` : ''}. Click to change.">${ic('schedule')}<span class="num">${l.everyMin}</span></button>
+    <button type="button" class="frequency" id="strip-settings" data-tip="Omnii looks every ${l.everyMin} minutes${on && l.next ? ` · next ${hm(l.next)}` : ''}. Click to change.">${ic('schedule')}<span class="num">${l.everyMin}</span></button>
     ${ibtn('refresh', 'Look now', 'id="strip-tick"', 'small')}
-    ${ibtn('history', 'What I did', 'id="strip-loop"', 'small')}`;
+    ${ibtn('history', 'What Omnii did', 'id="strip-loop"', 'small')}`;
   $('#strip-pause').addEventListener('click', async () => { await api('/api/settings', { method: 'PUT', body: { key: 'loop.paused', value: on } }); deskSoon(); });
   $('#strip-settings').addEventListener('click', () => showView('settings'));
   $('#strip-tick').addEventListener('click', async () => { await api('/api/loop/tick', { method: 'POST' }); deskSoon(); });
@@ -67,7 +67,7 @@ function renderNeeds(d) {
   const archived = d.checkins.recent.filter((c) => c.state === 'archived' || c.state === 'answered').slice(0, 6);
   if (archived.length) {
     const h = document.createElement('details'); h.className = 'history';
-    h.innerHTML = `<summary data-tip="Answered and filed questions. I never delete them.">${ic('history')}<span class="num">${archived.length}</span></summary>${archived.map((c) => `<div class="hist ${c.state}"><span class="t">${hm(c.answered ?? c.created)}</span><span>${esc(c.title)}</span><span class="r">${c.state === 'answered' ? `${esc(c.answer)}) ${esc(c.options.find((o) => o.k === c.answer)?.label ?? 'ok')} · ${esc(c.via ?? '')}` : `filed · ${esc(c.archivedReason ?? '')}`}</span></div>`).join('')}`;
+    h.innerHTML = `<summary data-tip="Answered and filed questions. Omnii never deletes them.">${ic('history')}<span class="num">${archived.length}</span></summary>${archived.map((c) => `<div class="hist ${c.state}"><span class="t">${hm(c.answered ?? c.created)}</span><span>${esc(c.title)}</span><span class="r">${c.state === 'answered' ? `${esc(c.answer)}) ${esc(c.options.find((o) => o.k === c.answer)?.label ?? 'ok')} · ${esc(c.via ?? '')}` : `filed · ${esc(c.archivedReason ?? '')}`}</span></div>`).join('')}`;
     box.appendChild(h);
   }
 }
@@ -81,7 +81,7 @@ function renderRhythms(d) {
     <div class="rhythm ${p[key].enabled ? '' : 'off'}">
       <span class="ic" data-tip="${esc(lastTip)}">${ic(icon, key === 'medicine' ? 'accent' : '')}</span>
       <b data-tip="${esc(lastTip)}">${name}</b>
-      <span class="time num" data-tip="When I ask, if it has not been logged">${esc(time)}</span>
+      <span class="time num" data-tip="When Omnii asks, if it has not been logged">${esc(time)}</span>
       ${week(days, daysTip)}
       ${priority(pri)}
       ${ibtn('check', logTip, `data-log="${key}"`, 'small')}
@@ -146,7 +146,7 @@ function renderMail(d) {
 function renderOut(d) {
   const box = $('#desk-out');
   box.innerHTML = d.out.length ? d.out.map((f) => `<button type="button" class="outrow" data-domain="${esc(f.domain)}" data-name="${esc(f.name)}" data-tip="${esc(f.domain)} · written ${ago(f.mtime)} · not sent">${ic(OUT_ICON[f.domain] ?? 'description')}<span class="nm">${esc(f.name)}</span><span class="muted">${ago(f.mtime)}</span></button>`).join('')
-    : `<div class="out-visual" tabindex="0" data-tip="Nothing written yet. Anything I would send or publish as you lands here as a file.">${ic('shield')}<span class="out-arrow"></span>${ic('folder_open')}</div>`;
+    : `<div class="out-visual" tabindex="0" data-tip="Nothing written yet. Anything Omnii would send or publish as you lands here as a file.">${ic('shield')}<span class="out-arrow"></span>${ic('folder_open')}</div>`;
   box.querySelectorAll('.outrow').forEach((b) => b.addEventListener('click', () => showOut(b.dataset.domain, b.dataset.name)));
 }
 
@@ -157,9 +157,9 @@ function renderWatches(d) {
   const TRUST_ICON = { mail: 'mail', site: 'public', submissions: 'upload' };
   $('#desk-watches').innerHTML = `
     <div class="watch-grid">
-      ${cell('folder', !!w.export.path, w.export.path ? `Export folder: ${w.export.path} · ${w.export.seen} file${w.export.seen === 1 ? '' : 's'} asked about` : 'Export folder not set. Set it under What I do.', 'watches.md')}
+      ${cell('folder', !!w.export.path, w.export.path ? `Export folder: ${w.export.path} · ${w.export.seen} file${w.export.seen === 1 ? '' : 's'} asked about` : 'Export folder not set. Set it under What Omnii does.', 'watches.md')}
       ${cell('mail', w.mail.configured, w.mail.configured ? `Mail: reading${w.mail.since ? ` from message ${w.mail.since}` : ''}` : 'Mail not connected', 'watches.md')}
-      ${cell('database', d.observations.length > 0, `${d.observations.length} thing${d.observations.length === 1 ? '' : 's'} I have noticed about you. They never change a setting.`, 'observations.md', d.observations.length)}
+      ${cell('database', d.observations.length > 0, `${d.observations.length} thing${d.observations.length === 1 ? '' : 's'} Omnii has noticed about you. They never change a setting.`, 'observations.md', d.observations.length)}
       ${cell('person', !!p.name, p.name ? `${p.name} · ${p.timezone}` : 'Profile not filled in yet', 'profile.md')}
     </div>
     ${Object.entries(t).map(([k, v]) => `<div class="trust-row" tabindex="0" data-tip="${esc(TRUST_TIP[k] ?? k)}: ${v === 'live' ? 'may leave in your name' : 'written to out/ for you to read, never sent'}">${ic(TRUST_ICON[k] ?? 'shield')}<span class="sandbox-track"><i></i><i></i><i></i></span>${ic(v === 'live' ? 'lock_open' : 'shield', v === 'live' ? 'warn' : 'ok')}</div>`).join('')}

@@ -45,7 +45,7 @@ export const surface: Surface = {
       prompt: "What's something you're working on, have finished, or keep avoiding?", hint: `Each one becomes a place on the desk. Say "that's all" when the plate is full.${list().length ? ` Already here: ${list().map((i) => i.name).join(', ')}.` : ''}` },
     { id: 'island.kind', surface: 'islands', group: 'island', kind: 'choice', prompt: 'What kind of thing is it?', options: Object.entries(KINDS).map(([k, st]) => ({ value: k, label: `${k} · ${st.join(' → ')}` })) },
     { id: 'island.position', surface: 'islands', group: 'island', kind: 'choice', prompt: 'Where does it stand?', options: POSITIONS.map((p) => ({ value: p, label: p })) },
-    { id: 'island.priority', surface: 'islands', group: 'island', kind: 'choice', prompt: 'How hard should I hold onto questions about it?', hint: 'top: I come back once, then archive at end of day. normal: one ask, archived after a day. low: one quiet ask.', options: [{ value: 'normal', label: 'normal' }, { value: 'top', label: 'top' }, { value: 'low', label: 'low' }] },
+    { id: 'island.priority', surface: 'islands', group: 'island', kind: 'choice', prompt: 'How hard should Omnii hold onto questions about it?', hint: 'top: Omnii comes back once, then archive at end of day. normal: one ask, archived after a day. low: one quiet ask.', options: [{ value: 'normal', label: 'normal' }, { value: 'top', label: 'top' }, { value: 'low', label: 'low' }] },
   ],
   apply: (id, value) => {
     if (id === 'island.name') { draft = { slug: slugify(value) }; upsert(draft.slug!, { name: value.trim() }); return; }

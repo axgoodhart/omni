@@ -83,7 +83,7 @@ export async function tick(why: string) {
     if (cfg.paused) {
       T.paused = true;
       T.status.activity = 'paused by you; nothing looks, nothing asks';
-      T.inaction.push({ what: 'Everything', why: 'you paused me on the "What I do" page' });
+      T.inaction.push({ what: 'Everything', why: 'you paused Omnii on the "What Omnii does" page' });
       return;
     }
 
@@ -168,7 +168,7 @@ export async function tick(why: string) {
           if (checkins.latestByDedupe(key)) continue;
           const who = cand.name ? `${cand.name} (${cand.sender})` : cand.sender;
           if (!room()) { heldBack(`Whether to unsubscribe you from ${who}`); continue; }
-          checkins.ask({ priority: 'low', dedupe: key, title: `Can I unsubscribe you from ${who}? You received ${cand.n} this week.`, options: [
+          checkins.ask({ priority: 'low', dedupe: key, title: `Can Omnii unsubscribe you from ${who}? You received ${cand.n} this week.`, options: [
             opt('a', 'Yes', { type: 'deliver', domain: 'mail', name: `unsubscribe-${cand.sender}.md`, content: `# Unsubscribe request\n\nSender: ${who}\nReceived this week: ${cand.n}\nList-Unsubscribe: ${cand.listUnsub}\n\nNothing was sent. Open the link or address above to unsubscribe yourself, or wait for a live email connector.\n` }),
             opt('b', 'Not now', { type: 'archive', reason: 'not now' }),
             opt('c', `Never ask about ${cand.sender}`, { type: 'ignore-sender', sender: cand.sender }),
@@ -229,8 +229,8 @@ export async function tick(why: string) {
       if (i.position === 'finished, not shared') continue;
       T.inaction.push({ what: `Island "${i.name}"`, why: `${i.position}, ${priorities.ofIsland(i.slug)} priority; nothing is due and no rule applies to this position yet` });
     }
-    if (!ex.path) T.inaction.push({ what: 'Export folder', why: 'not set; set it on the "What I do" page' });
-    if (!watches.mailConfigured()) T.inaction.push({ what: 'Email', why: 'not connected; connect it on the "What I do" page' });
+    if (!ex.path) T.inaction.push({ what: 'Export folder', why: 'not set; set it on the "What Omnii does" page' });
+    if (!watches.mailConfigured()) T.inaction.push({ what: 'Email', why: 'not connected; connect it on the "What Omnii does" page' });
 
     // ---- 9. observations: only from patterns in his own answers
     const med = checkins.recent(200).filter((c) => c.dedupe?.startsWith('medicine') && c.state === 'answered' && c.answer === 'a' && c.answered);

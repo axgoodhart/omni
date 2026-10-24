@@ -1,17 +1,17 @@
 import { readFm, patchFm, exists, writeFm } from './store.ts';
 import { LOOP_INTERVAL_MIN } from '../config.ts';
 
-/** desk/loop.md — how the loop behaves. Every sentence on the "What I do" page is a field here. The loop never writes this file. */
+/** desk/loop.md — how the loop behaves. Every sentence on the "What Omnii does" page is a field here. The loop never writes this file. */
 export type LevelRule = { remind_after?: string; end_of_day?: string; file_after?: string; text: boolean };
 export type LoopCfg = {
   every_min: number; paused: boolean; quiet: { from: string; to: string } | null; max_open: number; ask: { text: boolean };
   levels: { top: LevelRule; normal: LevelRule; low: LevelRule };
 };
 const FILE = 'loop.md';
-const SEED = `How I behave. Change a number here or on the "What I do" page and I follow it on my next look. I never edit this file myself.
+const SEED = `How Omnii behaves. Change a number here or on the "What Omnii does" page and Omnii follows it on its next look. Omnii never edits this file.
 
-every_min: how often I look. quiet: I don't text between these hours; questions wait for the morning.
-max_open: how many questions I may have out to you at once. ask.text: whether a new question is also texted.
+every_min: how often Omnii looks. quiet: Omnii doesn't text between these hours; questions wait for the morning.
+max_open: how many questions Omnii may have out to you at once. ask.text: whether a new question is also texted.
 levels: what happens when you don't answer, by priority. remind_after / end_of_day for top; file_after for the others; text = whether that level texts at all.`;
 
 export function ensure() {
