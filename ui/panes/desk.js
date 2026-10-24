@@ -1,5 +1,5 @@
 import { $, api, esc, ic, ibtn } from '../lib.js';
-import { state, deskSoon, discuss, kindIcon, showView } from '../app.js';
+import { state, deskSoon, discuss, kindIcon, showView, switchMode } from '../app.js';
 import { openDrawer, showOut, showDeskFile } from './side.js';
 
 const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -44,13 +44,13 @@ export function checkinHTML(c) {
   return `<div class="checkin p-${esc(c.priority)} ${snoozed ? 'snoozed' : ''}" data-id="${esc(c.id)}">
     <div class="ci-head">${priority(c.priority)}<span class="ci-when">${snoozed ? `snoozed until ${hm(c.snoozedUntil)}` : `${ago(c.created)}${c.reminders ? ` · reminded ${c.reminders}×` : ''}`}</span></div>
     <div class="ci-title">${esc(c.title)}</div>
-    ${c.options.length ? `<div class="ci-opts">${c.options.map((o) => `<button class="${o.k === 'd' ? 'ghost' : ''}" data-k="${esc(o.k)}"><span class="k">${esc(o.k)}</span>${esc(o.label)}</button>`).join('')}</div>` : `<div class="ci-opts"><button data-k="ok">ok</button></div>`}
+    ${c.options.length ? `<div class="ci-opts">${c.options.map((o) => `<button class="${o.k === 'd' ? 'ghost' : ''}" data-k="${esc(o.k)}" data-act="${esc(o.action?.type ?? '')}"><span class="k">${esc(o.k)}</span>${esc(o.label)}</button>`).join('')}</div>` : `<div class="ci-opts"><button data-k="ok">ok</button></div>`}
   </div>`;
 }
 function wireCheckins(root) {
   root.querySelectorAll('.checkin button').forEach((b) => b.addEventListener('click', async () => {
     const box = b.closest('.checkin'); box.classList.add('answering');
-    try { const { reply } = await api(`/api/checkins/${box.dataset.id}/answer`, { method: 'POST', body: { option: b.dataset.k } }); box.innerHTML = `<div class="ci-title muted-text">${esc(reply)}</div>`; }
+    try { const { reply } = await api(`/api/checkins/${box.dataset.id}/answer`, { method: 'POST', body: { option: b.dataset.k } }); box.innerHTML = `<div class="ci-title muted-text">${esc(reply)}</div>`; if (b.dataset.act === 'discuss') switchMode('assistant'); }
     catch (e) { alert(e.message); box.classList.remove('answering'); }
     deskSoon();
   }));

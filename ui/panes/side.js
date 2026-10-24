@@ -1,5 +1,5 @@
 import { $, api, esc, ic } from '../lib.js';
-import { state, refresh, currentMode, deskSoon } from '../app.js';
+import { state, refresh, currentMode, deskSoon, switchMode } from '../app.js';
 import { checkinHTML } from './desk.js';
 import { askCard, wireAsks } from '../describe.js';
 
@@ -68,7 +68,7 @@ function renderApprovals(pending) {
   wireAsks($('#tab-approvals'));
   $('#tab-approvals').querySelectorAll('.checkin button').forEach((b) => b.addEventListener('click', async () => {
     const box = b.closest('.checkin');
-    try { const { reply } = await api(`/api/checkins/${box.dataset.id}/answer`, { method: 'POST', body: { option: b.dataset.k } }); box.innerHTML = `<div class="ci-title muted-text">${esc(reply)}</div>`; } catch (e) { alert(e.message); }
+    try { const { reply } = await api(`/api/checkins/${box.dataset.id}/answer`, { method: 'POST', body: { option: b.dataset.k } }); box.innerHTML = `<div class="ci-title muted-text">${esc(reply)}</div>`; if (b.dataset.act === 'discuss') switchMode('assistant'); } catch (e) { alert(e.message); }
     deskSoon();
   }));
 }

@@ -1,6 +1,6 @@
 import { $, api, esc, ic } from '../lib.js';
 import { state, loadThread } from '../app.js';
-import { describeCall, describeResult, askCard, wireAsks } from '../describe.js';
+import { describeCall, describeResult, askCard, wireAsks, place } from '../describe.js';
 
 let streaming = null, buffer = '';
 
@@ -39,8 +39,8 @@ function renderMessage(m) {
   const texts = m.parts.filter((p) => p.type === 'text').map((p) => p.text).join('\n');
   if (m.role === 'user') {
     const mm = /^(\[[^\]]+\])\n?([\s\S]*)$/.exec(texts);
-    const disc = /About this check-in: "(.*)"\. The user chose "(.*)"/s.exec(mm ? mm[2] : texts);
-    if (disc) return `<div class="msg note">From a check-in: you chose ${esc(disc[2])} on “${esc(disc[1].replace(/[:.\s]+$/, ''))}”.</div>`;
+    const disc = /About this check-in: "(.*?)"\. The user chose "(.*?)"/s.exec(mm ? mm[2] : texts), file = /\nThe file is at (.+?)\. It/.exec(texts)?.[1];
+    if (disc) return `<div class="msg note">From a check-in: you chose ${esc(disc[2])} on “${esc(disc[1].replace(/[:.\s]+$/, ''))}”.${file ? ` Omnii handed the assistant the file, ${esc(place(file))}.` : ''}</div>`;
     return `<div class="msg user">${mm ? `<span class="ctx">${esc(mm[1])}</span>${esc(mm[2])}` : esc(texts)}</div>`;
   }
   if (m.role === 'tool') return ''; // results and answers are shown with the step they belong to

@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { db } from '../db.ts';
 import { activity, emit } from '../events/log.ts';
 import * as outbound from '../channels/outbound.ts';
@@ -91,6 +93,20 @@ export function archive(c: Checkin, reason: string) {
   emit('checkin.archived', 'loop', { id: c.id, title: c.title, reason });
 }
 
+const CAP = 40_000; // characters of a file handed over whole; longer ones are cut and the assistant is told so
+/** What a check-in is about, handed to the assistant on Discuss: the file's place and text, or the island's notes. Empty when the title says it all. */
+function about(c: Checkin): string {
+  const key = c.dedupe ?? '';
+  if (key.startsWith('export:')) {
+    const full = path.join(watches.get().export.path, key.slice('export:'.length));
+    let text = ''; try { text = fs.readFileSync(full, 'utf8'); } catch {}
+    if (!text || text.slice(0, 2000).includes('\u0000')) return `The file is at ${full}. It isn't plain text, so open it with a tool if you need its contents.`;
+    return `The file is at ${full}. ${text.length > CAP ? `Its first ${CAP} characters follow.` : 'Its text follows.'}\n\n${text.slice(0, CAP)}`;
+  }
+  const slug = c.island ?? (key.startsWith('carry:') ? key.slice('carry:'.length) : ''), i = slug ? islands.get(slug) : null;
+  return i ? `It is about "${i.name}" on the user's plate: ${i.position}${i.status ? `, "${i.status}"` : ''}.${i.files.length ? ` Its files: ${i.files.join(', ')}.` : ''}${i.notes.trim() ? `\n\nTheir notes on it:\n${i.notes.trim()}` : ''}` : '';
+}
+
 /** Answer with an option letter. Returns a one-line confirmation for the channel that answered. */
 export const answer = (id: string, k: string, via: string): Promise<string> => activity('answer', 'loop', () => answerNow(id, k, via));
 async function answerNow(id: string, k: string, via: string): Promise<string> {
@@ -118,7 +134,12 @@ async function answerNow(id: string, k: string, via: string): Promise<string> {
       if (a.type === 'island') { islands.upsert(a.slug, a.patch); reply = 'Updated on the desk.'; }
       if (a.type === 'deliver') { const r = out.deliver(a.domain, a.name, a.content, `checkin ${c.id}`); reply = `Written to out/${r.domain}/${r.name}.`; }
       if (a.type === 'handoff') { void runner.run({ mode: a.mode, text: a.text, channel: 'checkin' }).catch((e) => emit('checkin.handoff_error', 'loop', { id: c.id, error: e.message })); reply = `Handed to ${a.mode}; the result lands in out/.`; }
-      if (a.type === 'discuss') { void runner.run({ mode: 'assistant', text: `About this check-in: "${c.title}". The user chose "discuss". Ask one question or offer one way forward.`, channel: 'checkin' }).catch(() => {}); reply = 'Opening it in the assistant thread.'; }
+      if (a.type === 'discuss') {
+        const ctx = about(c);
+        const done = runner.run({ mode: 'assistant', channel: 'checkin', text: `About this check-in: "${c.title.replace(/[:.\s]+$/, '')}". The user chose "${o.label}".${ctx ? `\n${ctx}` : ''}\n\nYou already have what this is about, so never ask the user to find, upload or paste it. In one or two short sentences, say what it is and ask what they'd like, offering two or three likely choices.` });
+        void done.then((t) => (via === 'imessage' && t ? outbound.send('imessage', null, t) : undefined)).catch((e) => emit('checkin.handoff_error', 'loop', { id: c.id, error: e.message }));
+        reply = via === 'imessage' ? 'Looking at it now.' : 'Opening it in the assistant conversation.';
+      }
     }
   }
   emit('checkin.answered', 'loop', { id: c.id, title: c.title, answer: o.k, label: o.label, via, action: a.type });

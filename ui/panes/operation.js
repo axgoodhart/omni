@@ -70,7 +70,7 @@ const line = (text, raw, cls = '') => ({ text, raw, cls });
 
 function talk(evs, inbound) {
   const d = inbound.data, mode = inbound.thread;
-  const disc = /^About this check-in: "(.*)"\. The user chose "(.*)"/s.exec(d.text ?? '');
+  const disc = /^About this check-in: "(.*?)"\. The user chose "(.*?)"/s.exec(d.text ?? '');
   const title = disc ? `You chose ${disc[2]} on “${short(clean(disc[1]), 60)}”` : d.channel === 'schedule' ? `Scheduled ${mode}: ${short(d.text, 80)}` : `You asked the ${mode}${d.channel === 'imessage' ? ' by text' : ''}: “${short(d.text, 90)}”`;
   const results = new Map(evs.filter((e) => e.type === 'tool.result').map((e) => [e.data.toolCallId, e]));
   const steps = []; let tokens = 0, calls = 0, asked = 0;
