@@ -401,55 +401,59 @@ p.normal b {
     color: var(--paper-dim);
 }
 
-.nav-item /* ---------- history: one card per activity ---------- */
+/* ---------- history: one line per activity; open it for the steps ---------- */
 
 .filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-bottom: 0.7rem;
+    gap: 0.2rem;
+    margin-bottom: 0.5rem;
 }
 
 .facet {
     font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.04em;
+    font-size: 0.74rem;
+    letter-spacing: 0.02em;
     text-transform: none;
     color: var(--paper-dim);
     background: transparent;
-    border: 1px solid var(--line-strong);
-    border-radius: 20px;
-    padding: 0.25rem 0.7rem;
+    border: 0;
+    border-radius: 3px;
+    padding: 0.25rem 0.55rem;
+}
+
+.facet:hover {
+    color: var(--paper);
+    background: var(--ink-3);
 }
 
 .facet .n {
-    margin-left: 0.2rem;
+    margin-left: 0.25rem;
     color: var(--slate-dim);
+    font-variant-numeric: tabular-nums;
 }
 
 .facet.on {
-    color: var(--ink);
-    background: var(--brass);
-    border-color: var(--brass);
+    color: var(--paper);
+    background: var(--ink-4);
 }
 
 .facet.on .n {
-    color: color-mix(in srgb, var(--ink) 60%, transparent);
+    color: var(--brass);
 }
 
-.facet.alert:not(.on) {
+.facet.alert:not(.on),
+.facet.alert:not(.on) .n {
     color: var(--sage);
-    border-color: color-mix(in srgb, var(--sage) 60%, transparent);
 }
 
 #events {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
 }
 
 .act-day {
-    margin: 0.9rem 0 0.2rem;
+    margin: 1rem 0 0.1rem;
     font-family: var(--mono);
     font-size: 0.66rem;
     font-weight: 500;
@@ -458,19 +462,17 @@ p.normal b {
     color: var(--paper-dim);
 }
 
-.act {
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: var(--ink-2);
+.act-day:first-child {
+    margin-top: 0.2rem;
 }
 
-.act.problem {
-    border-color: color-mix(in srgb, var(--sage) 45%, transparent);
+.act {
+    border-top: 1px solid var(--line);
 }
 
 .act-head {
     display: grid;
-    grid-template-columns: 3.4rem 1fr auto;
+    grid-template-columns: 4.2rem 1fr auto;
     gap: 0.6rem;
     align-items: baseline;
     width: 100%;
@@ -478,35 +480,45 @@ p.normal b {
     background: transparent;
     color: var(--paper);
     font-family: var(--body);
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     letter-spacing: 0;
     text-transform: none;
     line-height: 1.45;
-    padding: 0.55rem 0.7rem 0.3rem;
-    border-radius: 4px;
+    padding: 0.5rem 0.2rem 0.45rem;
+    border-radius: 3px;
 }
 
 .act-head:hover {
-    background: var(--ink-3);
+    background: var(--ink-2);
+}
+
+.act.open .act-head {
+    color: var(--brass-soft);
 }
 
 .act-head time,
 .rec time {
     font-family: var(--mono);
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     color: var(--paper-dim);
+    font-variant-numeric: tabular-nums;
+}
+
+.act.problem .act-head time {
+    color: var(--sage);
 }
 
 .act-meta {
     font-family: var(--mono);
     font-size: 0.68rem;
+    letter-spacing: 0.04em;
     color: var(--paper-dim);
     white-space: nowrap;
 }
 
 .act-out {
-    margin: 0;
-    padding: 0 0.7rem 0.55rem 4.7rem;
+    margin: -0.25rem 0 0;
+    padding: 0 0.2rem 0.5rem 4.8rem;
     color: var(--slate);
     font-size: 0.84rem;
     line-height: 1.5;
@@ -514,7 +526,7 @@ p.normal b {
 
 .act-body {
     display: none;
-    padding: 0.2rem 0.7rem 0.7rem 4.7rem;
+    padding: 0.1rem 0.2rem 0.8rem 4.8rem;
 }
 
 .act.open .act-body {
@@ -525,11 +537,6 @@ p.normal b {
     list-style: none;
     margin: 0;
     padding: 0;
-    border-left: 1px solid var(--line-strong);
-}
-
-.act-steps li {
-    padding-left: 0.7rem;
 }
 
 .st {
@@ -543,7 +550,7 @@ p.normal b {
     letter-spacing: 0;
     text-transform: none;
     line-height: 1.5;
-    padding: 0.25rem 0;
+    padding: 0.2rem 0;
     border-radius: 0;
 }
 
@@ -568,10 +575,11 @@ p.normal b {
     margin: 0.2rem 0 0.5rem;
     max-height: 40vh;
     overflow: auto;
+    font-size: 0.72rem;
 }
 
 .act-all {
-    margin-top: 0.6rem;
+    margin-top: 0.5rem;
 }
 
 .act-all summary {
@@ -1634,7 +1642,7 @@ pre {
     border-color: color-mix(in srgb, var(--brass) 45%, var(--line-strong));
 }
 
-.island .progress {
+.island .slider {
     margin: 1.2rem 0 0.4rem;
     max-width: none;
 }
@@ -1995,7 +2003,7 @@ pre.tall {
     }
 }
 
-/* ---------- config: header bands over a spine, one setting per line ---------- */
+/* ---------- config: quiet sections, one row per thing ---------- */
 
 .settings {
     flex: 1;
@@ -2004,134 +2012,162 @@ pre.tall {
 }
 
 .cfg {
-    --ic: 4rem;      /* header icon column; the spine runs down its middle */
-    --lab: 12rem;    /* label column */
-    --pad: 1.15rem;  /* rail to label */
-    max-width: 66rem;
+    --lab: 8.5rem;                     /* label column */
+    --cols: var(--lab) 1fr auto;       /* label · controls · status */
+    max-width: 72rem;
+    padding-bottom: 2rem;
 }
 
-.block {
-    margin: 0 0 1.8rem;
+.sec {
+    margin: 0 0 2.2rem;
 }
 
-.block-head {
+.sec-head {
     display: flex;
     align-items: center;
-    gap: 1.4rem;
-    min-height: 4.5rem;
-    padding: 0.5rem 1.1rem 0.5rem 0;
-    background: var(--ink-2);
-    border-radius: 4px;
-}
-
-.block-ic {
-    flex: none;
-    width: var(--ic);
-    display: grid;
-    place-items: center;
-}
-
-.block-ic .ms {
-    font-size: 34px;
-    color: var(--paper-dim);
-}
-
-.block-head h2 {
+    gap: 0.6rem;
+    min-height: 2.4rem;
     margin: 0;
-    min-width: 8.5rem;
-    font-family: var(--mono);
-    font-weight: 400;
-    font-size: 1.9rem;
-    line-height: 1;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--paper-dim);
-}
-
-.block-head .pills button {
-    font-size: 0.95rem;
-    padding: 0.4rem 0.9rem;
-}
-
-.block-status {
-    margin-left: auto;
-    display: grid;
-    grid-template-columns: auto auto;
-    align-items: baseline;
-    gap: 0.15rem 1.1rem;
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--line-strong);
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 1.2rem;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--paper);
 }
 
-.block-status .k {
+.sec-head>.ms {
+    font-size: 20px;
+    color: var(--brass);
+}
+
+.sec-right {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     color: var(--paper-dim);
 }
 
-.block-status .next {
-    font-style: italic;
-}
-
-.block-status .warn {
+.sec-right .warn {
     color: var(--clay);
 }
 
-.block-head .info .ms {
+.info {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: help;
+}
+
+.info .ms {
+    font-size: 20px;
+    color: var(--slate-dim);
+}
+
+.info:hover .ms,
+.info:focus-visible .ms {
     color: var(--paper);
 }
 
-.block-body {
-    margin-left: calc(var(--ic) / 2);
-    padding: 0.3rem 0 0.4rem calc(var(--ic) * 1.2 - 1px);
-    border-left: 1px solid color-mix(in srgb, var(--paper) 70%, transparent);
+/* the row */
+.line {
+    display: grid;
+    grid-template-columns: var(--cols);
+    align-items: center;
+    gap: 0.4rem 1rem;
+    min-height: 2.9rem;
+    padding: 0.3rem 0;
+    border-top: 1px solid var(--line);
 }
 
-/* a rail holds lines; a rail inside a rail holds what belongs to the line above */
-.rail {
-    border-left: 1px solid var(--line-strong);
-    padding-left: var(--pad);
+.sec-head+.line,
+.line.heads+.line {
+    border-top: 0;
 }
 
-.rail.off {
+.line.heads {
+    min-height: 1.5rem;
+    padding: 0.55rem 0 0;
+    border-top: 0;
+}
+
+.line.heads .lab {
+    font-size: 0.66rem;
+    color: var(--slate-dim);
+}
+
+.line.off> :nth-child(n+3) {
     opacity: 0.45;
 }
 
-.group {
-    margin: 0.1rem 0 0.5rem;
-}
-
-.line {
-    position: relative;
+/* a table: several things of one shape share one grid, so columns line up across lines */
+.table {
     display: grid;
-    grid-template-columns: var(--lab) 1fr;
+    grid-template-columns: var(--cols);
+    column-gap: 0.9rem;
     align-items: center;
-    gap: 1rem;
-    min-height: 3.2rem;
 }
 
-.rail .rail .line {
-    grid-template-columns: calc(var(--lab) - var(--pad) - 1px) 1fr;
+.table .line {
+    display: contents;
 }
 
-.rail .rail .rail .line {
-    grid-template-columns: calc(var(--lab) - 2 * (var(--pad) + 1px)) 1fr;
+.table .line>* {
+    display: flex;
+    align-items: center;
+    min-height: 3rem;
+    padding: 0.45rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.table .heads>* {
+    min-height: 1.5rem;
+    padding: 0.55rem 0 0;
+    border-top: 0;
+}
+
+.table .heads+.line>* {
+    border-top: 0;
+}
+
+.cell {
+    gap: 0.6rem;
+    min-width: 0;
 }
 
 .lab {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
+    min-width: 0;
     font-family: var(--mono);
-    font-size: 0.9rem;
-    letter-spacing: 0.14em;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--paper-dim);
 }
 
+.lab[data-tip] {
+    cursor: help;
+}
+
 .lab b {
-    font-weight: 500;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--paper);
 }
 
@@ -2140,73 +2176,63 @@ pre.tall {
     color: var(--brass);
 }
 
-/* (i) dots: on a line they sit on its rail; in a header, at the far right */
-.info {
-    flex: none;
-    display: inline-grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: var(--ink);
-    cursor: help;
-}
-
-.info .ms {
-    font-size: 22px;
-    color: var(--paper-dim);
-}
-
-.info:hover .ms,
-.info:focus-visible .ms {
-    color: var(--paper);
-}
-
-.line>.info {
-    position: absolute;
-    left: calc(-1 * var(--pad) - 11.5px);
-    top: 50%;
-    translate: 0 -50%;
-}
-
-.val {
+.cells {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.6rem 1rem;
+    gap: 0.5rem 0.9rem;
     min-width: 0;
+}
+
+.status {
+    justify-self: end;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.06em;
+    color: var(--paper-dim);
+}
+
+.status .warn {
+    color: var(--clay);
 }
 
 .fact {
     color: var(--slate);
-    font-size: 0.92rem;
+    font-size: 0.9rem;
 }
 
 .fact.dim {
     color: var(--paper-dim);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
+}
+
+.fact .ms {
+    font-size: 16px;
+    vertical-align: -3px;
+    margin-right: 0.2rem;
 }
 
 .unit {
     font-family: var(--mono);
-    font-size: 0.85rem;
-    letter-spacing: 0.14em;
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--paper-dim);
 }
 
 .cfg .field {
     font-family: var(--mono);
-    font-size: 0.9rem;
-    padding: 0.35rem 0.55rem;
-    width: min(26rem, 100%);
+    font-size: 0.88rem;
+    padding: 0.3rem 0.5rem;
+    width: min(24rem, 100%);
 }
 
 .cfg .field.time {
     width: auto;
 }
 
-/* pick-one rows: every choice visible, the current one filled */
+/* pick one: every choice visible, the current one filled */
 .pills {
     display: inline-flex;
     flex-wrap: wrap;
@@ -2217,14 +2243,14 @@ pre.tall {
 
 .pills button {
     font-family: var(--mono);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     letter-spacing: 0.01em;
     text-transform: none;
     color: var(--paper-dim);
     background: transparent;
     border-radius: 0;
-    padding: 0.3rem 0.75rem;
-    min-height: 2rem;
+    padding: 0.2rem 0.6rem;
+    min-height: 1.75rem;
 }
 
 .pills button+button {
@@ -2246,90 +2272,162 @@ pre.tall {
     background: var(--clay);
 }
 
-.pills.times button {
-    padding: 0.3rem 0.55rem;
+.pills.days button {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.74rem;
 }
 
-/* sliders: lengths of time and counts */
-.cfg input[type=range],
-.progress input {
-    -webkit-appearance: none;
-    appearance: none;
+/* letters: H M L, the current one bright */
+.letters {
+    display: inline-flex;
+    gap: 0.1rem;
+}
+
+.letters button {
+    min-width: 1.9rem;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: var(--slate-dim);
     background: transparent;
     border: 0;
-    padding: 0;
-    margin: 0;
+    border-radius: 3px;
+    padding: 0.25rem 0.45rem;
 }
 
-.cfg input[type=range]::-webkit-slider-thumb,
-.progress input::-webkit-slider-thumb {
+.letters button:hover {
+    color: var(--paper-dim);
+    background: var(--ink-3);
+}
+
+.letters button[aria-checked="true"] {
+    color: var(--paper);
+    font-weight: 600;
+}
+
+/* kinds: a small grid of words, the current one filled */
+.kinds {
+    display: grid;
+    grid-template-rows: repeat(3, auto);
+    grid-auto-flow: column;
+    gap: 0.1rem 0.5rem;
+}
+
+.kinds button {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    text-align: left;
+    color: var(--paper-dim);
+    background: transparent;
+    border: 0;
+    border-radius: 3px;
+    padding: 0.1rem 0.45rem;
+}
+
+.kinds button:hover {
+    color: var(--paper);
+    background: var(--ink-3);
+}
+
+.kinds button[aria-checked="true"] {
+    color: var(--ink);
+    background: var(--brass);
+}
+
+/* slider: a thin range; the value's word rides above the thumb */
+.slider {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    min-width: 7rem;
+    max-width: 16rem;
+    height: 1.4rem;
+    margin-top: 0.9rem;
+}
+
+.slider.wide {
+    max-width: 22rem;
+}
+
+.slider .word {
+    position: absolute;
+    bottom: calc(100% - 0.2rem);
+    left: calc(8px + (100% - 16px) * var(--p) / 100);
+    translate: calc(var(--p) * -1%) 0;  /* slides from left-aligned at 0 to right-aligned at 100, so it never leaves the track */
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 0.84rem;
+    line-height: 1;
+    color: var(--paper-dim);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.slider input {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.slider input::-webkit-slider-runnable-track {
+    height: 2px;
+    background: linear-gradient(90deg, var(--brass-dim) calc(var(--p) * 1%), var(--line-strong) 0);
+}
+
+.slider input::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 16px;
     height: 16px;
+    margin-top: -7px;
     border-radius: 50%;
-    background: var(--paper-dim);
+    background: var(--brass);
 }
 
-.cfg input[type=range]::-moz-range-thumb,
-.progress input::-moz-range-thumb {
+.slider input::-moz-range-track {
+    height: 2px;
+    background: var(--line-strong);
+}
+
+.slider input::-moz-range-progress {
+    height: 2px;
+    background: var(--brass-dim);
+}
+
+.slider input::-moz-range-thumb {
     width: 16px;
     height: 16px;
     border: 0;
     border-radius: 50%;
-    background: var(--paper-dim);
+    background: var(--brass);
 }
 
-.cfg input[type=range]:hover::-webkit-slider-thumb,
-.progress input:hover::-webkit-slider-thumb {
-    background: var(--paper);
+.slider input:hover::-webkit-slider-thumb,
+.slider input:focus-visible::-webkit-slider-thumb {
+    background: var(--brass-soft);
 }
 
-.cfg input[type=range]:hover::-moz-range-thumb,
-.progress input:hover::-moz-range-thumb {
-    background: var(--paper);
+.slider input:hover::-moz-range-thumb,
+.slider input:focus-visible::-moz-range-thumb {
+    background: var(--brass-soft);
 }
 
-.slide {
-    display: inline-flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.slide input {
-    width: clamp(10rem, 28vw, 24rem);
-    height: 1.6rem;
-}
-
-.slide input::-webkit-slider-runnable-track {
-    height: 2px;
-    background: var(--line-strong);
-}
-
-.slide input::-webkit-slider-thumb {
-    margin-top: -7px;
-}
-
-.slide input::-moz-range-track {
-    height: 2px;
-    background: var(--line-strong);
-}
-
-.slide output {
-    min-width: 3ch;
-    text-align: right;
-    font-family: var(--mono);
-    font-size: 1rem;
-    letter-spacing: 0.08em;
-    color: var(--paper);
-    font-variant-numeric: tabular-nums;
-}
-
-/* quiet hours: a day from 5 PM to 5 PM, the quiet stretch filled, each end labelled with its time */
+/* quiet hours: a day from 5 PM to 5 PM, the quiet stretch filled, each end labelled */
 .quiet {
     display: inline-flex;
     align-items: center;
-    gap: 0.9rem;
-    padding-top: 1.1rem;
+    gap: 0.8rem;
+    padding-top: 1rem;
 }
 
 .quiet.off {
@@ -2338,17 +2436,17 @@ pre.tall {
 
 .q-end {
     font-family: var(--mono);
-    font-size: 0.72rem;
-    line-height: 1.5;
-    letter-spacing: 0.12em;
+    font-size: 0.66rem;
+    line-height: 1.4;
+    letter-spacing: 0.1em;
     text-align: center;
     color: var(--paper-dim);
 }
 
 .q-track {
     position: relative;
-    width: clamp(10rem, 26vw, 22rem);
-    height: 1.6rem;
+    width: clamp(10rem, 24vw, 20rem);
+    height: 1.4rem;
 }
 
 .q-track::before {
@@ -2373,15 +2471,16 @@ pre.tall {
 
 .q-at {
     position: absolute;
-    bottom: calc(100% + 0.15rem);
+    bottom: calc(100% + 0.1rem);
     left: calc(var(--a) / 96 * 100%);
     translate: -50% 0;
     white-space: nowrap;
-    font-family: var(--mono);
-    font-size: 0.75rem;
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 0.84rem;
     font-weight: 400;
-    letter-spacing: 0.1em;
-    color: var(--paper);
+    letter-spacing: 0;
+    color: var(--paper-dim);
 }
 
 .q-at[data-q="to"] {
@@ -2389,104 +2488,60 @@ pre.tall {
 }
 
 .q-track input {
+    -webkit-appearance: none;
+    appearance: none;
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
     pointer-events: none;
 }
 
 .q-track input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--paper-dim);
     pointer-events: auto;
 }
 
 .q-track input::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--paper-dim);
     pointer-events: auto;
 }
 
-/* progress: a slider; the word for where it stands rides above the thumb */
-.progress {
-    position: relative;
-    display: block;
-    width: 100%;
-    max-width: 22rem;
-    height: 1.6rem;
-    margin-top: 0.9rem;
+.q-track input:hover::-webkit-slider-thumb {
+    background: var(--paper);
 }
 
-.progress .word {
-    position: absolute;
-    bottom: calc(100% - 0.15rem);
-    left: calc(8px + (100% - 16px) * var(--p) / 100);
-    translate: -50% 0;
-    font-family: var(--display);
-    font-style: italic;
-    font-size: 0.84rem;
-    color: var(--paper-dim);
-    white-space: nowrap;
-    pointer-events: none;
+/* tables: several things of one shape share column heads */
+.sec.levels {
+    --cols: 6.5rem auto minmax(7rem, 1fr) auto minmax(7rem, 1fr) auto auto auto;
 }
 
-.progress input {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    cursor: pointer;
+.sec.rhythms {
+    --cols: var(--lab) auto minmax(9rem, 1fr) auto auto minmax(7rem, 0.6fr);
 }
 
-.progress input::-webkit-slider-runnable-track {
-    height: 2px;
-    background: linear-gradient(90deg, var(--brass-dim) calc(var(--p) * 1%), var(--line-strong) 0);
+.sec.plate {
+    --cols: 1.3rem minmax(12rem, 1.3fr) auto auto minmax(9rem, 1fr) 2rem;
 }
 
-.progress input::-webkit-slider-thumb {
-    margin-top: -7px;
-    background: var(--brass);
+.sec.plate .line>* {
+    min-height: 3.6rem;
 }
 
-.progress input::-moz-range-track {
-    height: 2px;
-    background: var(--line-strong);
-}
-
-.progress input::-moz-range-progress {
-    height: 2px;
-    background: var(--brass-dim);
-}
-
-.progress input::-moz-range-thumb {
-    background: var(--brass);
-}
-
-.progress input:hover::-webkit-slider-thumb,
-.progress input:focus-visible::-webkit-slider-thumb {
-    background: var(--brass-soft);
-}
-
-/* plate: one row per island. The name is the field; pencil and remove show on hover. */
-.plate {
-    --cols: 1.6rem minmax(12rem, 1.3fr) auto auto minmax(9rem, 1fr) 2rem;
-}
-
-.plate-row {
-    display: grid;
-    grid-template-columns: var(--cols);
-    align-items: center;
-    gap: 0 1.4rem;
-    min-height: 3.8rem;
-    padding: 0.4rem 0;
-    border-top: 1px solid var(--line);
-}
-
-.plate-row.head {
-    min-height: 1.8rem;
-    padding: 0 0 0.2rem;
-    border-top: 0;
-}
-
-.plate-row.head .lab {
-    font-size: 0.72rem;
+.line.add .plate-name {
+    grid-column: 2 / -1;
 }
 
 .plate-gutter {
@@ -2501,9 +2556,9 @@ pre.tall {
     font-size: 18px;
 }
 
-.plate-row:hover .plate-gutter,
-.plate-row:focus-within .plate-gutter,
-.plate-row.add .plate-gutter {
+.line:hover .plate-gutter,
+.line:focus-within .plate-gutter,
+.line.add .plate-gutter {
     opacity: 1;
 }
 
@@ -2528,7 +2583,7 @@ pre.tall {
     font-weight: 400;
 }
 
-.plate-row:hover .plate-name,
+.line:hover .plate-name,
 .plate-name:focus {
     color: var(--brass-soft);
 }
@@ -2538,122 +2593,83 @@ pre.tall {
     background: var(--ink-3);
 }
 
-.plate-row.add .plate-name {
+.line.add .plate-name {
     font-weight: 400;
 }
 
-.letters {
-    display: inline-flex;
-    gap: 0.1rem;
-}
-
-.letters button {
-    min-width: 2rem;
-    font-family: var(--mono);
-    font-size: 1rem;
-    letter-spacing: 0.04em;
-    text-transform: none;
-    color: var(--slate-dim);
-    background: transparent;
-    border: 0;
-    border-radius: 3px;
-    padding: 0.3rem 0.5rem;
-}
-
-.letters button:hover {
-    color: var(--paper-dim);
-    background: var(--ink-3);
-}
-
-.letters button[aria-checked="true"] {
-    color: var(--paper);
-    font-weight: 600;
-}
-
-.kinds {
-    display: grid;
-    grid-template-rows: repeat(3, auto);
-    grid-auto-flow: column;
-    gap: 0.1rem 0.5rem;
-}
-
-.kinds button {
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    letter-spacing: 0.01em;
-    text-transform: none;
-    text-align: left;
-    color: var(--paper-dim);
-    background: transparent;
-    border: 0;
-    border-radius: 3px;
-    padding: 0.1rem 0.45rem;
-}
-
-.kinds button:hover {
-    color: var(--paper);
-    background: var(--ink-3);
-}
-
-.kinds button[aria-checked="true"] {
-    color: var(--ink);
-    background: var(--brass);
-}
-
-.plate-row>.icon-btn {
+.line>.icon-btn {
     justify-self: end;
     opacity: 0;
 }
 
-.plate-row:hover>.icon-btn,
-.plate-row:focus-within>.icon-btn {
+.line:hover>.icon-btn,
+.line:focus-within>.icon-btn {
     opacity: 1;
+}
+
+@media (max-width: 1100px) {
+
+    /* tables stack: each thing becomes a short block, each cell says what it is */
+    .table {
+        grid-template-columns: 1fr;
+    }
+
+    .table .line>* {
+        min-height: 0;
+        padding: 0.2rem 0;
+        border-top: 0;
+    }
+
+    .table .line> :first-child {
+        min-height: 2.4rem;
+        padding-top: 0.8rem;
+        border-top: 1px solid var(--line);
+    }
+
+    .table .heads {
+        display: none;
+    }
+
+    .cell::before {
+        content: attr(data-h);
+        min-width: 6rem;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--slate-dim);
+    }
+
+    .cell[data-h=""]::before {
+        content: none;
+    }
+
+    .sec.plate .table {
+        grid-template-columns: 1.3rem 1fr 2rem;
+    }
+
+    .sec.plate .line> :nth-child(-n+2) {
+        border-top: 1px solid var(--line);
+    }
+
+    .sec.plate .line> :nth-child(n+3):not(.icon-btn) {
+        grid-column: 2;
+    }
 }
 
 @media (max-width: 720px) {
     .cfg {
-        --ic: 2.6rem;
-        --lab: 100%;
+        --cols: 1fr;
     }
 
-    .plate {
-        --cols: 1.6rem 1fr 2rem;
-    }
-
-    .plate-row {
-        gap: 0.5rem 1rem;
-    }
-
-    .plate-row.head {
-        display: none;
-    }
-
-    .plate-row>.letters,
-    .plate-row>.kinds,
-    .plate-row>.progress {
-        grid-column: 2;
-    }
-
-    .block-head {
-        flex-wrap: wrap;
-        gap: 0.8rem;
-    }
-
-    .block-head h2 {
-        font-size: 1.4rem;
-        min-width: 0;
-    }
-
-    .block-body {
-        padding-left: calc(var(--ic) * 0.6);
-    }
-
-    .line,
-    .rail .rail .line,
-    .rail .rail .rail .line {
-        grid-template-columns: 1fr;
+    .line {
         gap: 0.3rem;
-        padding: 0.4rem 0;
+        padding: 0.5rem 0;
+    }
+
+    .status {
+        justify-self: start;
+        text-align: left;
     }
 }
 

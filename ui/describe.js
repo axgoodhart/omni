@@ -45,7 +45,7 @@ export function describeCall(tool, input = {}) {
     case 'shell': return shell(input.command);
     case 'read_file': return `Read ${place(input.path)}`;
     case 'write_file': return `Wrote ${place(input.path)}`;
-    case 'memory_view': return input.path && input.path !== '/' ? `Looked at its note ${place(input.path)}` : 'Looked through its notes';
+    case 'memory_view': { const [c, ...r] = String(input.path ?? '').replace(/^\/+/, '').split('/'); return r.join('') ? `Read its note “${r.join('/')}” in ${c}` : c ? `Looked through its “${c}” notes` : 'Looked through its notes'; }
     case 'memory_search': return `Searched its notes for “${short(input.query, 40)}”`;
     case 'memory_write': return `Saved a note, ${place(input.path)}`;
     case 'memory_edit': return `Edited its note ${place(input.path)}`;

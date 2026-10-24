@@ -86,10 +86,10 @@ function renderRhythms(d) {
       ${ibtn('check', logTip, `data-log="${key}"`, 'small')}
     </div>`;
   $('#desk-rhythms').innerHTML = row('medicine', 'medication', 'Medicine', p.medicine.time, DAYS, 'Every day', p.medicine.priority, med ? `Last logged ${dateTime(med.ts)}` : 'Not logged yet', 'Log medicine now')
-    + `<details class="medicine-history" id="medicine-history" ${historyOpen ? 'open' : ''}>
+    + (history?.length === 0 ? '' : `<details class="medicine-history" id="medicine-history" ${historyOpen ? 'open' : ''}>
       <summary data-tip="Every time medicine was logged">${ic('history')}<span class="num">${history?.length ?? 0}</span></summary>
-      ${history ? history.length ? `<ol>${history.map((entry) => `<li><time datetime="${esc(new Date(entry.ts).toISOString())}">${esc(dateTime(entry.ts))}</time><span>${entry.via === 'web' ? 'in the app' : entry.via === 'imessage' ? 'by text' : ''}</span></li>`).join('')}</ol>` : '<p class="muted-text">Nothing logged yet.</p>' : '<p class="muted-text">History unavailable. Restart the background service and reload.</p>'}
-    </details>`
+      ${history ? `<ol>${history.map((entry) => `<li><time datetime="${esc(new Date(entry.ts).toISOString())}">${esc(dateTime(entry.ts))}</time><span>${entry.via === 'web' ? 'in the app' : entry.via === 'imessage' ? 'by text' : ''}</span></li>`).join('')}</ol>` : '<p class="muted-text">History unavailable. Restart the background service and reload.</p>'}
+    </details>`)
     + row('chores', 'home', 'Apartment', p.chores.time, p.chores.days, p.chores.days.length ? `On ${p.chores.days.join(', ')}` : 'No days set', p.chores.priority, ch ? `Last done ${ago(ch.ts)}` : 'Not logged yet', 'Mark the apartment done');
   $('#desk-rhythms').querySelectorAll('[data-log]').forEach((b) => b.addEventListener('click', async () => {
     const open = d.checkins.live.find((c) => c.state !== 'answered' && (c.title.startsWith('Medicine') && b.dataset.log === 'medicine' || c.title.startsWith('Apartment') && b.dataset.log === 'chores'));

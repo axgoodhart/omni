@@ -40,17 +40,36 @@ function group(events) {
     const t = e.thread === 'loop' && e.type !== 'loop.tick' && !e.type.startsWith('settings') && ticks.find((x) => x.id > e.id && e.ts >= (x.data?.at ?? x.ts));
     add(t ? `tick:${t.id}` : e.type === 'loop.tick' ? `tick:${e.id}` : `ev:${e.id}`, e);
   }
-  return [...by.entries()].map(([key, evs]) => card(key, evs)).filter(Boolean).sort((a, b) => a.ts - b.ts);
+  return fold([...by.entries()].map(([key, evs]) => card(key, evs)).filter(Boolean).sort((a, b) => a.ts - b.ts));
+}
+const HARD = PROBLEM.filter((t) => t !== 'tool.error'); // a tool failing mid-run is a step, not a problem, unless the run never recovered
+
+// consecutive looks with nothing done fold into one line, so a quiet afternoon is one row, not twelve
+function fold(cards) {
+  const out = [];
+  for (const c of cards) {
+    const prev = out.at(-1);
+    if (c.quiet && prev?.quiet && day(prev.ts) === day(c.ts)) { prev.looks.push(c); continue; }
+    out.push(c.quiet ? { ...c, looks: [c] } : c);
+  }
+  return out.map((c) => (c.looks?.length > 1 ? folded(c) : c));
+}
+function folded(c) {
+  const L = c.looks, last = L.at(-1), boots = L.filter((x) => x.why === 'boot').length;
+  return { ...last, key: `fold:${c.key}`, ts: c.ts, evs: L.flatMap((x) => x.evs), meta: boots ? `restarted ${boots}×` : '',
+    title: `Looked ${L.length} times, ${hm(c.ts)}–${hm(last.ts)}: nothing to do${last.waiting ? `, ${last.waiting} waiting on you` : ''}`,
+    steps: [...last.steps.filter((s) => s.cls === 'ask'), ...L.map((x) => line(`${hm(x.ts)}${x.why === 'boot' ? ' (after a restart)' : x.why && x.why !== 'cron' ? ` (${x.why})` : ''}`, x.evs, 'quiet'))] };
 }
 
 function card(key, evs) {
-  const has = (t) => evs.find((e) => e.type === t), problem = evs.some((e) => PROBLEM.includes(e.type));
+  const has = (t) => evs.find((e) => e.type === t);
+  let problem = evs.some((e) => HARD.includes(e.type));
   const tick = has('loop.tick'), inbound = evs.find((e) => e.type === 'inbound' && e.thread !== 'loop'), answered = has('checkin.answered');
-  const facets = new Set(problem ? ['problems'] : []);
+  const facets = new Set();
   let c;
   if (inbound) {
     facets.add('talk'); if (has('approval.requested')) facets.add('access');
-    c = talk(evs, inbound);
+    c = talk(evs, inbound); problem = problem || c.failed;
   } else if (tick) {
     if (tick.data?.paused) return null;
     facets.add('looks'); if (evs.some((e) => e.type.startsWith('checkin.'))) facets.add('checkins');
@@ -64,8 +83,10 @@ function card(key, evs) {
     facets.add(SYSTEM.includes(e.type) ? 'system' : e.type.startsWith('checkin.') ? 'checkins' : e.type.startsWith('approval.') || e.type.startsWith('allowed.') || e.type === 'policy.decision' ? 'access' : e.type.startsWith('settings') || e.type.startsWith('watch.') || e.type === 'logbook' || e.type === 'observation' || e.type.startsWith('interview') ? 'changes' : problem ? 'problems' : 'system');
     c = { title: short(summary(e), 140), steps: evs.length > 1 ? evs.slice(1).map((x) => line(summary(x), [x])) : [] };
   }
+  if (problem) facets.add('problems');
   return { key, evs, facets, problem, ts: evs[0].ts, ...c };
 }
+const lc = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 const line = (text, raw, cls = '') => ({ text, raw, cls });
 
 function talk(evs, inbound) {
@@ -73,10 +94,12 @@ function talk(evs, inbound) {
   const disc = /^About this check-in: "(.*?)"\. The user chose "(.*?)"/s.exec(d.text ?? '');
   const title = disc ? `You chose ${disc[2]} on “${short(clean(disc[1]), 60)}”` : d.channel === 'schedule' ? `Scheduled ${mode}: ${short(d.text, 80)}` : `You asked the ${mode}${d.channel === 'imessage' ? ' by text' : ''}: “${short(d.text, 90)}”`;
   const results = new Map(evs.filter((e) => e.type === 'tool.result').map((e) => [e.data.toolCallId, e]));
+  const callsById = new Map(evs.filter((e) => e.type === 'tool.call').map((e) => [e.data.toolCallId, e]));
   const steps = []; let tokens = 0, calls = 0, asked = 0;
   for (const e of evs) {
     const x = e.data || {};
     if (e.type === 'tool.call') { const r = results.get(x.toolCallId), out = r ? describeResult(x.toolName, x.input, r.data.output) : ''; steps.push(line(`${describeCall(x.toolName, x.input)}${out ? ` — ${out}` : ''}`, r ? [e, r] : [e])); }
+    else if (e.type === 'tool.error') { const call = callsById.get(x.toolCallId); steps.push(line(`Tried to ${lc(describeCall(x.toolName, call?.data?.input ?? {}))}, but ${short(x.error, 140)}`, call ? [call, e] : [e], 'quiet')); }
     else if (e.type === 'approval.requested') { asked++; steps.push(line(`Asked you first. ${askSentence(x.toolName, x.input)}`, [e], 'ask')); }
     else if (e.type === 'approval.resolved') steps.push(line(x.always ? `You allowed it, and said Omnii may always ${x.always}` : x.approved ? 'You allowed it' : `You said no${x.reason && !/denied in web app/.test(x.reason) ? `: ${x.reason}` : ''}`, [e], 'ask'));
     else if (e.type === 'reasoning') steps.push(line(`Thought: ${short(x.text.replace(/\*\*/g, ''), 180)}`, [e], 'quiet'));
@@ -85,16 +108,18 @@ function talk(evs, inbound) {
     else if (e.type === 'usage') { tokens += x.usage?.totalTokens ?? 0; calls++; }
   }
   const out = evs.findLast((e) => e.type === 'outbound');
+  const failed = !out && evs.some((e) => PROBLEM.includes(e.type)); // errors and no reply: it never recovered
   if (calls) steps.push(line(`${calls} model call${calls === 1 ? '' : 's'}, ${fmt(tokens)} tokens`, evs.filter((e) => ['prompt.assembled', 'model.request', 'usage'].includes(e.type)), 'quiet'));
   const n = steps.filter((s) => s.cls !== 'quiet').length;
-  return { title, outcome: out ? `Replied: “${short(out.data.text, 160)}”` : 'Still working…', meta: [n ? `${n} step${n === 1 ? '' : 's'}` : '', asked ? `asked you ${asked === 1 ? 'once' : `${asked} times`}` : ''].filter(Boolean).join(' · '), steps };
+  return { title, failed, outcome: out ? `Replied: “${short(out.data.text, 160)}”` : failed ? 'Stopped on a problem' : 'Still working…', meta: [n ? `${n} step${n === 1 ? '' : 's'}` : '', asked ? `asked you ${asked === 1 ? 'once' : `${asked} times`}` : ''].filter(Boolean).join(' · '), steps };
 }
 
 function look(tick) {
   const d = tick.data, dec = d.decisions ?? [], w = d.waiting ?? [], left = d.inaction ?? [];
-  const title = `Looked${d.why && d.why !== 'cron' ? ` (${d.why})` : ''}: ${dec.length ? `${dec.length} thing${dec.length === 1 ? '' : 's'} done` : 'nothing to do'}${w.length ? `, ${w.length} waiting on you` : ''}`;
+  const title = `Looked: ${dec.length ? `${dec.length} thing${dec.length === 1 ? '' : 's'} done` : 'nothing to do'}${w.length ? `, ${w.length} waiting on you` : ''}`;
   return {
-    title, outcome: dec.length ? short(dec.join(' · '), 160) : '',
+    title, quiet: !dec.length, why: d.why, waiting: w.length, meta: d.why === 'boot' ? 'after a restart' : d.why && d.why !== 'cron' ? d.why : '',
+    outcome: dec.length ? short(dec.join(' · '), 160) : '',
     steps: [
       ...dec.map((x) => line(x, [tick])),
       ...w.map((x) => line(`Waiting on you: ${clean(x.what)} (asked ${hm(x.since)}). Next: ${x.next}`, [tick], 'ask')),

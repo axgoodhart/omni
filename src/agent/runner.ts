@@ -82,7 +82,7 @@ async function runNow(input: RunInput): Promise<string> {
   emit('inbound', thread, { channel: input.channel, from: input.from ?? null, text: input.text });
   store.save(thread, messages);
 
-  let finalText = '', lastInput = 0;
+  let finalText = '', lastInput = 0, lastError = '';
   const granted = new Set<string>(); // calls you approved; the library re-checks them before running, and they shouldn't be asked about again
   for (let round = 0; round < 8; round++) { // a new round after every approval pause
     const estimate = Math.ceil((JSON.stringify(messages).length + instructions.length) / 4) + 2000;
@@ -107,7 +107,7 @@ async function runNow(input: RunInput): Promise<string> {
       stopWhen: isStepCount(mode.maxSteps),
       providerOptions: providerOptionsFor(mode, choice.model),
       toolApproval: ({ toolCall }) => (granted.has(toolCall.toolCallId) ? 'approved' : decide(mode, toolCall.toolName, toolCall.input)),
-      onError: ({ error }) => emit('error', thread, { message: String((error as any)?.message ?? error) }),
+      onError: ({ error }) => { lastError = String((error as any)?.message ?? error); emit('error', thread, { message: lastError }); },
     });
 
     for await (const part of result.stream) {
@@ -119,12 +119,12 @@ async function runNow(input: RunInput): Promise<string> {
         case 'tool-input-start': live('tool.input.start', thread, { toolName: part.toolName }); break;
         case 'tool-call': emit('tool.call', thread, { toolCallId: part.toolCallId, toolName: part.toolName, input: part.input, providerExecuted: (part as any).providerExecuted ?? false }); break;
         case 'tool-result': emit('tool.result', thread, { toolCallId: part.toolCallId, toolName: part.toolName, output: trim((part as any).output) }); break;
-        case 'tool-error': emit('tool.error', thread, { toolCallId: (part as any).toolCallId, toolName: (part as any).toolName, error: String((part as any).error?.message ?? (part as any).error) }); break;
+        case 'tool-error': lastError = `${(part as any).toolName}: ${String((part as any).error?.message ?? (part as any).error)}`; emit('tool.error', thread, { toolCallId: (part as any).toolCallId, toolName: (part as any).toolName, error: String((part as any).error?.message ?? (part as any).error) }); break;
         case 'tool-output-denied': emit('tool.denied', thread, { toolCallId: (part as any).toolCallId }); break;
         case 'tool-approval-request': if (!(part as any).isAutomatic) requests.push(part); break; // automatic ones were already decided and run
         case 'source': emit('source', thread, trim(part)); break;
         case 'finish-step': lastInput = part.usage.inputTokens ?? lastInput; budget.record(choice.model, part.usage); emit('usage', thread, { model: choice.model, usage: part.usage, finishReason: part.finishReason }); break;
-        case 'error': emit('error', thread, { message: String((part.error as any)?.message ?? part.error) }); break;
+        case 'error': lastError = String((part.error as any)?.message ?? part.error); emit('error', thread, { message: lastError }); break;
       }
     }
     messages.push(...(await result.responseMessages));
@@ -138,6 +138,7 @@ async function runNow(input: RunInput): Promise<string> {
     store.save(thread, messages);
   }
 
+  if (!finalText && lastError) finalText = `Omnii hit a problem and stopped: ${lastError}`; // never silence after a failure
   emit('outbound', thread, { channel: input.channel, text: finalText });
   if (lastInput > COMPACT_AT) store.save(thread, await compact(thread, messages, inserted[0] ?? null));
   return finalText;
