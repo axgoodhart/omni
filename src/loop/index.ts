@@ -108,7 +108,7 @@ async function tickNow(why: string) {
     else if (!medPrior) {
       if (!room()) { heldBack('The medicine question'); T.status.medicine = `Due since ${pr.medicine.time}, not logged, question held back`; }
       else {
-        medPrior = checkins.ask({ priority: pr.medicine.priority, dedupe: medKey, title: 'Medicine logging is a top priority. You should:', options: [
+        medPrior = checkins.ask({ priority: pr.medicine.priority, dedupe: medKey, title: 'Medicine logging is a high priority. You should:', options: [
           opt('a', 'Take now if necessary and have it logged', { type: 'log', kind: 'medicine' }),
           opt('b', `Be reminded in ${medLater}`, { type: 'snooze', for: medLater }),
           opt('c', 'Be reminded at end of day', { type: 'snooze-eod' }),
@@ -143,7 +143,7 @@ async function tickNow(why: string) {
     for (const f of ex.fresh) {
       if (asked.length >= 3) { T.inaction.push({ what: `New file ${f}`, why: 'at most three questions about new files per look; next look' }); continue; }
       if (!room()) { heldBack(`A question about the new file ${f}`); continue; }
-      const isl = islands.forFile(f), level = isl ? priorities.ofIsland(isl.slug) : 'normal';
+      const isl = islands.forFile(f), level = isl ? priorities.ofIsland(isl.slug) : 'medium';
       checkins.ask({ priority: level, island: isl?.slug ?? null, dedupe: `export:${f}`, title: `New finished piece: ${f}.`, options: [
         opt('a', 'Add it to the site', { type: 'handoff', mode: 'carrier', text: `A finished piece landed: "${f}" in the export folder (desk_view export/${f} to read it, desk_view site to see how the site lists work). Produce the changed or new site files that add it, written with deliver to out/site. Say what you wrote.` }),
         opt('b', 'Draft a submission for it', { type: 'handoff', mode: 'drafter', text: `Draft a submission for the finished piece "${f}" (desk_view export/${f}). Read desk_view profile and a sample of desk_view writing to match the user's voice. Write the draft with deliver to out/submissions as "${f.replace(/\.[^.]+$/, '')}-submission.md". Say what you wrote.` }),
@@ -184,22 +184,22 @@ async function tickNow(why: string) {
       T.status.mail = `${fetched}, ${mail.needsYou().length} need you${w.lastError ? `, last error: ${w.lastError}` : ''}`;
     }
 
-    // ---- 6. carry: finished work that never left
+    // ---- 6. carry: finished work, asked about once
     const all = islands.list();
-    const carry = all.filter((i) => i.position === 'finished, not shared' && !checkins.latestByDedupe(`carry:${i.slug}`));
+    const carry = all.filter((i) => i.progress >= 100 && !checkins.latestByDedupe(`carry:${i.slug}`));
     if (carry.length) {
       const i = carry[0], level = priorities.ofIsland(i.slug);
-      if (!room()) heldBack(`What to do with "${i.name}", finished and not shared`);
+      if (!room()) heldBack(`What to do with "${i.name}", now finished`);
       else {
-        checkins.ask({ priority: level, island: i.slug, dedupe: `carry:${i.slug}`, title: `${i.name} is finished and hasn't been shared.`, options: [
+        checkins.ask({ priority: level, island: i.slug, dedupe: `carry:${i.slug}`, title: `${i.name} is finished. What should happen with it?`, options: [
           opt('a', 'Add it to the site', { type: 'handoff', mode: 'carrier', text: `"${i.name}" is finished and not shared (desk_view islands/${i.slug}; its files, if any, are listed there and live under desk_view export/). Produce the site files that add it, with deliver to out/site. Say what you wrote.` }),
           opt('b', 'Draft a submission', { type: 'handoff', mode: 'drafter', text: `Draft a submission for "${i.name}" (desk_view islands/${i.slug}). Match the user's voice from desk_view profile and desk_view writing. Write it with deliver to out/submissions as "${i.slug}-submission.md". Say what you wrote.` }),
-          opt('c', "It's fine where it is", { type: 'island', slug: i.slug, patch: { position: 'done' } }),
+          opt('c', "Nothing, it's done", { type: 'none' }),
           discuss,
         ] }, deliver(level));
-        T.decisions.push(`Asked you about "${i.name}": finished and never shared`);
+        T.decisions.push(`Asked you about "${i.name}": finished`);
       }
-      if (carry.length > 1) T.inaction.push({ what: `${carry.length - 1} more finished, unshared islands`, why: 'one of these per look' });
+      if (carry.length > 1) T.inaction.push({ what: `${carry.length - 1} more finished islands`, why: 'one of these per look' });
     }
     const byPos: Record<string, number> = {};
     for (const i of all) byPos[i.position] = (byPos[i.position] ?? 0) + 1;
@@ -238,8 +238,8 @@ async function tickNow(why: string) {
     // ---- 8. what was looked at and left, with the reason
     for (const i of all) {
       if (liveNow.some((c) => c.island === i.slug)) continue;
-      if (i.position === 'finished, not shared') continue;
-      T.inaction.push({ what: `Island "${i.name}"`, why: `${i.position}, ${priorities.ofIsland(i.slug)} priority; nothing is due and no rule applies to this position yet` });
+      if (i.progress >= 100) continue;
+      T.inaction.push({ what: `Island "${i.name}"`, why: `${i.position} (${i.progress}%), ${priorities.ofIsland(i.slug)} priority; nothing is due` });
     }
     if (!ex.path) T.inaction.push({ what: 'Export folder', why: 'not set; set it on the Config page' });
     if (!watches.mailConfigured()) T.inaction.push({ what: 'Email', why: 'not connected; connect it on the Config page' });

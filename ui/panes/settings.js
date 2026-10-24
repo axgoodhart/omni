@@ -1,4 +1,4 @@
-import { $, api, esc, ic, ibtn } from '../lib.js';
+import { $, api, esc, ic, ibtn, progressHTML, wireProgress } from '../lib.js';
 import { state, deskSoon, showView, kindIcon } from '../app.js';
 import { openDrawer } from './side.js';
 import { showInterview } from './interview.js';
@@ -9,19 +9,18 @@ const pad = (n) => String(n).padStart(2, '0');
 const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const ago = (ts) => { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
 const toMs = (s) => [...String(s).matchAll(/(\d+(?:\.\d+)?)\s*([mhdw]?)/g)].reduce((t, [, n, u]) => t + Number(n) * ({ h: 3_600_000, d: 86_400_000, w: 604_800_000 }[u] ?? 60_000), 0);
-const LEVELS = ['top', 'normal', 'low'];
-const NAME = { top: 'Top', normal: 'Normal', low: 'Low' };
+const LEVELS = ['high', 'medium', 'low'];
+const NAME = { high: 'High', medium: 'Medium', low: 'Low' };
 const VIA = [['desk', 'Desk'], ['phone', 'Phone'], ['both', 'Both']];
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const KINDS = ['make', 'research', 'build', 'story', 'grow', 'open'];
-const POSITIONS = ['not started', 'in progress', 'finished, not shared', 'ongoing', 'done'];
 const TRUST = { mail: 'Email replies', site: 'Website changes', submissions: 'Submissions' };
 
 // ==== NUDGE SCALES (per priority: the quick nudges, then the slower ones) ====
 const UNIT = { m: [60_000, 'min'], d: [86_400_000, 'days'], w: [604_800_000, 'weeks'] };
 const NUDGE = {
-  top: [{ u: 'm', min: 5, max: 240, step: 5 }, { u: 'm', min: 15, max: 480, step: 15 }],
-  normal: [{ u: 'm', min: 15, max: 480, step: 15 }, { u: 'd', picks: [0.5, 1, 2, 3, 4, 5, 6, 7] }],
+  high: [{ u: 'm', min: 5, max: 240, step: 5 }, { u: 'm', min: 15, max: 480, step: 15 }],
+  medium: [{ u: 'm', min: 15, max: 480, step: 15 }, { u: 'd', picks: [0.5, 1, 2, 3, 4, 5, 6, 7] }],
   low: [{ u: 'd', picks: [1, 2, 3, 4, 5, 6, 7] }, { u: 'w', picks: [1, 2, 3, 4, 5, 6, 7] }],
 };
 // ==== QUIET TRACK ====
@@ -72,8 +71,8 @@ export async function renderSettings() {
   ${block('verified_user', 'Always allowed', 'Things you told Omnii it may do without asking, each as narrow as one exact command, one folder or one person. Remove one and Omnii asks again. They live in desk/allowed.md.',
     S.allowed.length ? S.allowed.map((r, i) => line(esc(r.added ?? ''), `${fact(esc(r.label))}${ibtn('close', 'Take this back; Omnii will ask again', `data-unallow="${i}"`, 'small')}`)).join('') : line('', fact('Nothing yet. When Omnii asks, “Always allow this” adds a line here.')))}
 
-  ${block('account_tree', 'Plate', 'Priorities are yours alone; Omnii never changes them. When something is finished and has not been shared, Omnii asks you once what to do with it.',
-    S.islands.length ? S.islands.map(island).join('') : line('', fact('Nothing on the plate yet.')))}
+  ${block('account_tree', 'Plate', 'Everything you are working on. Click a name to rename it; the slider is how far along it is. Priorities are yours alone; Omnii never changes them. When something reaches done, Omnii asks you once what should happen with it.',
+    plate(S.islands))}
 
   ${block('database', 'Noticed', 'Things that help Omnii arrange and phrase better. They never change a setting on this page. Strike any you disagree with.',
     S.observations.length ? S.observations.map((o) => line(esc(o.date), `${fact(`${esc(o.text)} · ${esc(o.source)}`)}${ibtn('close', 'Strike this', `data-strike="${esc(o.text)}"`, 'small')}`)).join('') : line('', fact('Nothing yet.')))}
@@ -132,11 +131,22 @@ function rhythm(key, name, tip, extra, last) {
     + line('Priority', pills(`priorities.${key}.priority`, p.priority, LEVELS.map((l) => [l, NAME[l]])))
     + line('Last', fact(last)), !p.enabled)}</div>`;
 }
-function island(i) {
-  return `<div class="group">${line(`${kindIcon(i.kind)}<b>${esc(i.name)}</b>`, pills(`islands.${i.slug}.priority`, i.priority, LEVELS.map((l) => [l, NAME[l]])) + ibtn('delete', 'Remove from the plate (its file is deleted)', `data-remove="${esc(i.slug)}"`, 'small'))}${rail(
-    line('Name', text(`islands.${i.slug}.name`, i.name, 'name'))
-    + line('Kind', pills(`islands.${i.slug}.kind`, i.kind, KINDS.map((k) => [k, k])))
-    + line('Where it stands', pills(`islands.${i.slug}.position`, i.position, POSITIONS.map((p) => [p, p]))))}</div>`;
+// ---- plate: one row per island. The name is the field (pencil on hover); priority as a letter; type as a grid; progress as a slider.
+const choice = (k, cur, opts, cls, tip = () => '') => `<span class="${cls}" role="radiogroup" data-k="${k}">${opts.map(([v, label]) => `<button type="button" role="radio" aria-checked="${v === cur}" data-v="${esc(JSON.stringify(v))}"${tip(v) ? ` data-tip="${esc(tip(v))}"` : ''}>${esc(label)}</button>`).join('')}</span>`;
+function plate(list) {
+  const row = (i) => `<div class="plate-row" data-slug="${esc(i.slug)}">
+    <span class="plate-gutter">${ic('edit')}</span>
+    <input class="plate-name" data-k="islands.${esc(i.slug)}.name" value="${esc(i.name)}" aria-label="Name">
+    ${choice(`islands.${i.slug}.priority`, i.priority, LEVELS.map((l) => [l, NAME[l][0]]), 'letters', (l) => NAME[l])}
+    ${choice(`islands.${i.slug}.kind`, i.kind, KINDS.map((k) => [k, k]), 'kinds')}
+    ${progressHTML(i.progress, `data-k="islands.${esc(i.slug)}.progress"`)}
+    ${ibtn('delete', 'Remove from the plate (its file is deleted)', `data-remove="${esc(i.slug)}"`, 'small')}
+  </div>`;
+  return `<div class="plate">
+    <div class="plate-row head"><span></span><span></span><span class="lab">Priority</span><span class="lab">Type</span><span class="lab">Progress</span><span></span></div>
+    ${list.map(row).join('')}
+    <div class="plate-row add"><span class="plate-gutter">${ic('add')}</span><input class="plate-name" id="plate-add" placeholder="Add something to the plate" aria-label="Add to the plate"></div>
+  </div>`;
 }
 
 // ---- quiet hours: one day on a track, the quiet stretch between two handles, each handle labelled with its time
@@ -168,9 +178,14 @@ function toast(msg, undo) {
 }
 
 function wire(box) {
-  box.querySelectorAll('.pills[role=radiogroup] button').forEach((b) => b.addEventListener('click', () => {
+  box.querySelectorAll('[role=radiogroup][data-k] button').forEach((b) => b.addEventListener('click', () => {
     if (b.getAttribute('aria-checked') !== 'true') save(b.parentElement.dataset.k, JSON.parse(b.dataset.v));
   }));
+  wireProgress(box, (el, v) => save(el.dataset.k, v));
+  const add = $('#plate-add');
+  const addIsland = async () => { const name = add.value.trim(); if (!name) return; add.value = ''; await api('/api/islands', { method: 'POST', body: { name } }); deskSoon(); renderSettings(); };
+  add?.addEventListener('change', addIsland);
+  add?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addIsland(); } });
   box.querySelectorAll('.pills.multi').forEach((el) => el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
     const on = [...el.querySelectorAll('[aria-pressed="true"]')].map((x) => x.dataset.day);
     save(el.dataset.k, b.getAttribute('aria-pressed') === 'true' ? on.filter((d) => d !== b.dataset.day) : [...on, b.dataset.day]);
@@ -187,7 +202,7 @@ function wire(box) {
     ta.addEventListener('input', () => { if (+ta.value <= +fa.value) ta.value = +fa.value + 1; show(); });
     [fa, ta].forEach((i) => i.addEventListener('change', () => save('loop.quiet', { from: qHm(+fa.value), to: qHm(+ta.value) })));
   });
-  box.querySelectorAll('input.field[data-k]').forEach((el) => el.addEventListener('change', () => save(el.dataset.k, el.value)));
+  box.querySelectorAll('input[data-k]').forEach((el) => el.addEventListener('change', () => save(el.dataset.k, el.value)));
   box.querySelectorAll('.act').forEach((el) => el.addEventListener('click', () => {
     const k = el.dataset.k;
     if (k === 'open.files') return openDrawer('desk');

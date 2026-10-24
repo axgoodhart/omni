@@ -38,7 +38,7 @@ const asTime = (v: unknown) => priorities.normTimeStr(String(v));
 const asDur = (v: unknown) => { const s = String(v).trim(); if (!/^\d+(\.\d+)?\s*[mhdw]?$/.test(s)) throw new Error('use minutes like 90m, hours like 2h, days like 1d, or weeks like 1w'); return s.replace(/\s+/g, ''); };
 const asVia = (v: unknown) => { if (!loopcfg.VIA.includes(v as loopcfg.Via)) throw new Error('use desk, phone or both'); return v as loopcfg.Via; };
 const asDays = (v: unknown) => { const D = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']; const list = Array.isArray(v) ? v : String(v).toLowerCase().split(/[\s,]+/); return list.map((x) => String(x).slice(0, 3).toLowerCase()).filter((x) => D.includes(x)); };
-const asLevel = (v: unknown) => { if (!['top', 'normal', 'low'].includes(String(v))) throw new Error('priority is top, normal or low'); return String(v) as priorities.Level; };
+const asLevel = (v: unknown) => { if (!priorities.LEVELS.includes(v as priorities.Level)) throw new Error('priority is high, medium or low'); return v as priorities.Level; };
 
 /** Change one setting. Returns what it was and what it is now. */
 export function set(key: string, value: unknown, by = 'web') {
@@ -100,10 +100,9 @@ export function set(key: string, value: unknown, by = 'web') {
     case 'islands': {
       const [slug, f] = rest; const cur = islands.get(slug); if (!cur) throw new Error('no such island');
       if (f === 'priority') { from = priorities.ofIsland(slug); to = asLevel(value); priorities.setIsland(slug, to as priorities.Level); break; }
-      if (!['name', 'kind', 'position', 'status', 'stage'].includes(f)) throw new Error(`unknown setting ${key}`);
-      from = (cur as any)[f]; to = f === 'stage' ? Number(value) : String(value ?? '');
-      if (f === 'kind' && !islands.KINDS[String(to)]) throw new Error('unknown kind');
-      if (f === 'position' && !islands.POSITIONS.includes(to as any)) throw new Error('unknown position');
+      if (!['name', 'kind', 'progress', 'status'].includes(f)) throw new Error(`unknown setting ${key}`);
+      from = (cur as any)[f]; to = f === 'progress' ? islands.clampProgress(value) : String(value ?? '');
+      if (f === 'kind' && !islands.KINDS.includes(to as islands.Kind)) throw new Error('unknown kind');
       islands.upsert(slug, { [f]: to } as any);
       break;
     }
@@ -134,7 +133,7 @@ export function removeIsland(slug: string, by = 'web') {
   return { ok: true };
 }
 
-const LEVEL_LABELS = Object.fromEntries((['top', 'normal', 'low'] as const).flatMap((l) => [
+const LEVEL_LABELS = Object.fromEntries(priorities.LEVELS.flatMap((l) => [
   [`loop.levels.${l}.via`, `where ${l}-priority questions go`], [`loop.levels.${l}.first_after`, `${l} priority: wait before each quick nudge`], [`loop.levels.${l}.first_times`, `${l} priority: number of quick nudges`],
   [`loop.levels.${l}.second_after`, `${l} priority: wait before each slower nudge`], [`loop.levels.${l}.second_times`, `${l} priority: number of slower nudges`], [`loop.levels.${l}.stop`, `${l} priority: file after the slower nudges`], [`loop.levels.${l}.stop_text`, `${l} priority: text you when it's filed`],
 ]));

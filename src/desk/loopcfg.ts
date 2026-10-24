@@ -8,13 +8,13 @@ export type Via = 'desk' | 'phone' | 'both';
 export type LevelRule = { via: Via; first_after: string; first_times: number; second_after: string; second_times: number; stop: boolean; stop_text: boolean };
 export type LoopCfg = {
   every_min: number; paused: boolean; quiet: { from: string; to: string } | null; max_open: number; via: Via;
-  levels: { top: LevelRule; normal: LevelRule; low: LevelRule };
+  levels: { high: LevelRule; medium: LevelRule; low: LevelRule };
 };
 const FILE = 'loop.md';
 export const VIA: Via[] = ['desk', 'phone', 'both'];
 export const LEVEL_DEFAULTS: LoopCfg['levels'] = {
-  top: { via: 'both', first_after: '15m', first_times: 2, second_after: '90m', second_times: 2, stop: true, stop_text: true },
-  normal: { via: 'desk', first_after: '120m', first_times: 2, second_after: '1d', second_times: 2, stop: true, stop_text: false },
+  high: { via: 'both', first_after: '15m', first_times: 2, second_after: '90m', second_times: 2, stop: true, stop_text: true },
+  medium: { via: 'desk', first_after: '120m', first_times: 2, second_after: '1d', second_times: 2, stop: true, stop_text: false },
   low: { via: 'desk', first_after: '1d', first_times: 2, second_after: '1w', second_times: 2, stop: true, stop_text: false },
 };
 export const SEED = `How Omnii behaves. Change a value here or on the Config page and Omnii follows it on its next look. Omnii never edits this file.
@@ -48,7 +48,7 @@ export function get(): LoopCfg {
     quiet: d.quiet && d.quiet.from && d.quiet.to ? { from: String(d.quiet.from), to: String(d.quiet.to) } : null,
     max_open: Math.max(1, Math.min(5, Number(d.max_open ?? 1) || 1)),
     via: VIA.includes(d.via) ? d.via : d.ask?.text === false ? 'desk' : 'both', // ask.text: the older name
-    levels: { top: rule(d.levels?.top, LEVEL_DEFAULTS.top), normal: rule(d.levels?.normal, LEVEL_DEFAULTS.normal), low: rule(d.levels?.low, LEVEL_DEFAULTS.low) },
+    levels: { high: rule(d.levels?.high ?? d.levels?.top, LEVEL_DEFAULTS.high), medium: rule(d.levels?.medium ?? d.levels?.normal, LEVEL_DEFAULTS.medium), low: rule(d.levels?.low, LEVEL_DEFAULTS.low) }, // top/normal: the older names
   };
 }
 export const patch = (p: Record<string, any>) => { ensure(); patchFm(FILE, p); };

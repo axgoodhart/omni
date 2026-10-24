@@ -1,6 +1,6 @@
 ---
 medicine:
-  priority: top
+  priority: high
   time: 09:00
 chores:
   priority: low
@@ -8,9 +8,9 @@ chores:
     - sat
   time: 11:00
 islands:
-  getting-my-room-setup: normal
-  getting-music-students: normal
-  sharing-my-music-online: top
+  getting-my-room-setup: medium
+  getting-music-students: medium
+  sharing-my-music-online: high
 ---
 
 Priorities are yours. The loop reads them and never changes them.

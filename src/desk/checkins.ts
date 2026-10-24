@@ -10,7 +10,7 @@ import * as out from './out.ts';
 import * as loopcfg from './loopcfg.ts';
 import * as profile from './profile.ts';
 import * as watches from './watches.ts';
-import type { Level } from './priorities.ts';
+import { normLevel, type Level } from './priorities.ts';
 
 db.exec(`CREATE TABLE IF NOT EXISTS checkins (
   id TEXT PRIMARY KEY, kind TEXT NOT NULL, priority TEXT NOT NULL, island TEXT, dedupe TEXT, title TEXT NOT NULL, options_json TEXT NOT NULL,
@@ -28,7 +28,7 @@ export type Action =
 export type Option = { k: string; label: string; action: Action };
 export type Checkin = { id: string; kind: 'ask' | 'nudge'; priority: Level; island: string | null; dedupe: string | null; title: string; options: Option[]; state: 'open' | 'snoozed' | 'answered' | 'archived'; created: number; snoozedUntil: number | null; reminders: number; lastSent: number; heldUntil: number | null; texted: boolean; answer: string | null; answered: number | null; via: string | null; archivedReason: string | null };
 
-const row = (r: any): Checkin => ({ id: r.id, kind: r.kind, priority: r.priority, island: r.island, dedupe: r.dedupe, title: r.title, options: JSON.parse(r.options_json), state: r.state, created: r.created, snoozedUntil: r.snoozed_until, reminders: r.reminders, lastSent: r.last_sent ?? r.created, heldUntil: r.held_until ?? null, texted: !!r.texted, answer: r.answer, answered: r.answered, via: r.via, archivedReason: r.archived_reason });
+const row = (r: any): Checkin => ({ id: r.id, kind: r.kind, priority: normLevel(r.priority), island: r.island, dedupe: r.dedupe, title: r.title, options: JSON.parse(r.options_json), state: r.state, created: r.created, snoozedUntil: r.snoozed_until, reminders: r.reminders, lastSent: r.last_sent ?? r.created, heldUntil: r.held_until ?? null, texted: !!r.texted, answer: r.answer, answered: r.answered, via: r.via, archivedReason: r.archived_reason });
 const q = {
   ins: db.prepare('INSERT INTO checkins (id, kind, priority, island, dedupe, title, options_json, state, created, last_sent, held_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
   get: db.prepare('SELECT * FROM checkins WHERE id = ?'),

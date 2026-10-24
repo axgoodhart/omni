@@ -83,9 +83,9 @@ api.put('/api/desk/files/*', async (c) => {
   try { deskStore.writeRaw(rel, text); return c.json({ ok: true }); } catch (e) { return bad(c, e); }
 });
 api.post('/api/islands', async (c) => {
-  const { name, kind, position } = await c.req.json<{ name: string; kind?: string; position?: string }>();
+  const { name, kind } = await c.req.json<{ name: string; kind?: islands.Kind }>();
   if (!name?.trim()) return bad(c, new Error('name is empty'));
-  try { return c.json(islands.upsert(islands.slugify(name), { name: name.trim(), kind, position: position as any })); } catch (e) { return bad(c, e); }
+  try { return c.json(islands.upsert(islands.slugify(name), { name: name.trim(), kind })); } catch (e) { return bad(c, e); }
 });
 api.post('/api/islands/:slug', async (c) => { try { return c.json(islands.upsert(c.req.param('slug'), await c.req.json())); } catch (e) { return bad(c, e); } });
 api.post('/api/mail/:uid/handled', (c) => { mail.markHandled(Number(c.req.param('uid'))); return c.json({ ok: true }); });

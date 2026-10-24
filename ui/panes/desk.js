@@ -1,12 +1,11 @@
-import { $, api, esc, ic, ibtn } from '../lib.js';
+import { $, api, esc, ic, ibtn, progressHTML, wireProgress } from '../lib.js';
 import { state, deskSoon, discuss, kindIcon, showView } from '../app.js';
 import { openDrawer, showOut, showDeskFile } from './side.js';
 
 const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const ago = (ts) => { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
-const LEVEL = { top: 3, normal: 2, low: 1 };
+const LEVEL = { high: 3, medium: 2, low: 1 };
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const POS_ICON = { 'not started': 'radio_button_unchecked', 'in progress': 'pending', 'finished, not shared': 'outbox', ongoing: 'all_inclusive', done: 'check_circle' };
 const OUT_ICON = { mail: 'mail', site: 'public', submissions: 'upload' };
 export const priority = (p, what = 'Priority') => `<span class="priority" data-level="${LEVEL[p] ?? 2}" data-tip="${esc(what)}: ${esc(p)}"><i></i><i></i><i></i></span>`;
 const week = (on, tip) => `<span class="week" data-tip="${esc(tip)}">${DAYS.map((d) => `<i class="day ${on.includes(d) ? 'on' : ''}"></i>`).join('')}</span>`;
@@ -103,10 +102,9 @@ function renderRhythms(d) {
 function renderIslands(d) {
   const box = $('#desk-islands');
   const byIsland = (slug) => d.checkins.live.filter((c) => c.island === slug && c.onDesk !== false);
-  box.innerHTML = d.islands.map((i) => `<article class="island" data-slug="${esc(i.slug)}" data-position="${esc(i.position)}">
-    <header><span class="ic" data-tip="${esc(i.kind)}">${kindIcon(i.kind)}</span><h3>${esc(i.name)}</h3>
-      <span class="island-state">${priority(d.priorities.islands[i.slug] ?? 'normal')}<span class="position-dot" tabindex="0" data-tip="Where it stands: ${esc(i.position)}">${ic(POS_ICON[i.position] ?? 'radio_button_unchecked')}</span></span></header>
-    <div class="track">${i.stages.map((s, n) => `<span class="step"><button type="button" class="dot ${n <= i.stage ? 'on' : ''} ${n === i.stage ? 'cur' : ''}" data-stage="${n}" data-tip="${esc(s)}${n === i.stage ? ' (now)' : ''}" aria-label="${esc(s)}"></button></span>`).join('')}</div>
+  box.innerHTML = d.islands.map((i) => `<article class="island" data-slug="${esc(i.slug)}" data-done="${i.progress >= 100}">
+    <header><span class="ic" data-tip="${esc(i.kind)}">${kindIcon(i.kind)}</span><h3>${esc(i.name)}</h3>${priority(d.priorities.islands[i.slug] ?? 'medium')}</header>
+    ${progressHTML(i.progress)}
     <input class="status" value="${esc(i.status)}" placeholder="what's true about it right now">
     ${byIsland(i.slug).map(checkinHTML).join('')}
     <footer><span class="file-count" data-tip="${i.files.length ? `${i.files.length} file${i.files.length === 1 ? '' : 's'} in its folder` : 'No files yet'}">${ic('attachment')}<span class="num">${i.files.length}</span></span><span class="spacer"></span>${ibtn('chat_bubble', 'Talk about this with the assistant', 'data-discuss', 'small')}${ibtn('description', 'Open its file', 'data-edit', 'small')}</footer>
@@ -114,7 +112,7 @@ function renderIslands(d) {
   wireCheckins(box);
   box.querySelectorAll('.island').forEach((el) => {
     const slug = el.dataset.slug;
-    el.querySelectorAll('.dot').forEach((b) => b.addEventListener('click', async () => { await api(`/api/islands/${slug}`, { method: 'POST', body: { stage: Number(b.dataset.stage) } }); deskSoon(); }));
+    wireProgress(el, async (_, progress) => { await api(`/api/islands/${slug}`, { method: 'POST', body: { progress } }); deskSoon(); });
     el.querySelector('.status').addEventListener('change', async (e) => { await api(`/api/islands/${slug}`, { method: 'POST', body: { status: e.target.value } }); });
     el.querySelector('[data-discuss]').addEventListener('click', () => discuss(`About ${d.islands.find((x) => x.slug === slug)?.name}: `));
     el.querySelector('[data-edit]').addEventListener('click', () => showDeskFile(`islands/${slug}.md`));
