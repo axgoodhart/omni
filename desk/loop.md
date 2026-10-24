@@ -7,7 +7,7 @@ quiet:
 max_open: 2
 via: both
 levels:
-  top:
+  high:
     via: both
     first_after: 15m
     first_times: 2
@@ -15,7 +15,7 @@ levels:
     second_times: 2
     stop: true
     stop_text: true
-  normal:
+  medium:
     via: desk
     first_after: 120m
     first_times: 2

@@ -1404,7 +1404,7 @@ pre {
     background: transparent;
 }
 
-.checkin.p-normal {
+.checkin.p-medium {
     border-color: color-mix(in srgb, var(--slate) 45%, transparent);
     background: color-mix(in srgb, var(--slate) 6%, transparent);
 }
@@ -1630,107 +1630,13 @@ pre {
     flex: 1;
 }
 
-.island[data-position="finished, not shared"] {
-    border-color: color-mix(in srgb, var(--clay) 55%, var(--line-strong));
-}
-
-.island[data-position="done"] {
+.island[data-done="true"] {
     border-color: color-mix(in srgb, var(--brass) 45%, var(--line-strong));
 }
 
-.island-state {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.position-dot {
-    display: inline-flex;
-    color: var(--paper-dim);
-    cursor: normal;
-    border-radius: 50%;
-}
-
-.position-dot .ms {
-    font-size: 18px;
-}
-
-.island[data-position="finished, not shared"] .position-dot {
-    color: var(--clay);
-}
-
-.island[data-position="done"] .position-dot {
-    color: var(--brass);
-}
-
-.island .track {
-    display: flex;
-    align-items: center;
-    margin: 0.7rem 0 0.3rem;
-}
-
-.island .step {
-    display: flex;
-    align-items: center;
-    flex: 1;
-}
-
-.island .step:last-child {
-    flex: 0;
-}
-
-.island .step::after {
-    content: "";
-    height: 1px;
-    flex: 1;
-    background: var(--line-strong);
-}
-
-.island .step:last-child::after {
-    display: none;
-}
-
-.island .step:has(.dot.on)::after {
-    background: var(--brass-dim);
-}
-
-.island .dot {
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    display: grid;
-    place-items: center;
-    cursor: pointer;
-}
-
-.island .dot::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 1px solid var(--line-strong);
-    background: var(--ink);
-    transition: transform 0.15s, background 0.15s;
-}
-
-.island .dot:hover::before {
-    transform: scale(1.35);
-}
-
-.island .dot.on::before {
-    background: var(--brass-dim);
-    border-color: var(--brass-dim);
-}
-
-.island .dot.cur::before {
-    width: 11px;
-    height: 11px;
-    background: var(--brass);
-    border-color: var(--brass);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brass) 14%, transparent);
+.island .progress {
+    margin: 1.2rem 0 0.4rem;
+    max-width: none;
 }
 
 .island .status {
@@ -2345,7 +2251,8 @@ pre.tall {
 }
 
 /* sliders: lengths of time and counts */
-.cfg input[type=range] {
+.cfg input[type=range],
+.progress input {
     -webkit-appearance: none;
     appearance: none;
     background: transparent;
@@ -2354,7 +2261,8 @@ pre.tall {
     margin: 0;
 }
 
-.cfg input[type=range]::-webkit-slider-thumb {
+.cfg input[type=range]::-webkit-slider-thumb,
+.progress input::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 16px;
     height: 16px;
@@ -2362,7 +2270,8 @@ pre.tall {
     background: var(--paper-dim);
 }
 
-.cfg input[type=range]::-moz-range-thumb {
+.cfg input[type=range]::-moz-range-thumb,
+.progress input::-moz-range-thumb {
     width: 16px;
     height: 16px;
     border: 0;
@@ -2370,11 +2279,13 @@ pre.tall {
     background: var(--paper-dim);
 }
 
-.cfg input[type=range]:hover::-webkit-slider-thumb {
+.cfg input[type=range]:hover::-webkit-slider-thumb,
+.progress input:hover::-webkit-slider-thumb {
     background: var(--paper);
 }
 
-.cfg input[type=range]:hover::-moz-range-thumb {
+.cfg input[type=range]:hover::-moz-range-thumb,
+.progress input:hover::-moz-range-thumb {
     background: var(--paper);
 }
 
@@ -2493,10 +2404,234 @@ pre.tall {
     pointer-events: auto;
 }
 
+/* progress: a slider; the word for where it stands rides above the thumb */
+.progress {
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: 22rem;
+    height: 1.6rem;
+    margin-top: 0.9rem;
+}
+
+.progress .word {
+    position: absolute;
+    bottom: calc(100% - 0.15rem);
+    left: calc(8px + (100% - 16px) * var(--p) / 100);
+    translate: -50% 0;
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 0.84rem;
+    color: var(--paper-dim);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.progress input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.progress input::-webkit-slider-runnable-track {
+    height: 2px;
+    background: linear-gradient(90deg, var(--brass-dim) calc(var(--p) * 1%), var(--line-strong) 0);
+}
+
+.progress input::-webkit-slider-thumb {
+    margin-top: -7px;
+    background: var(--brass);
+}
+
+.progress input::-moz-range-track {
+    height: 2px;
+    background: var(--line-strong);
+}
+
+.progress input::-moz-range-progress {
+    height: 2px;
+    background: var(--brass-dim);
+}
+
+.progress input::-moz-range-thumb {
+    background: var(--brass);
+}
+
+.progress input:hover::-webkit-slider-thumb,
+.progress input:focus-visible::-webkit-slider-thumb {
+    background: var(--brass-soft);
+}
+
+/* plate: one row per island. The name is the field; pencil and remove show on hover. */
+.plate {
+    --cols: 1.6rem minmax(12rem, 1.3fr) auto auto minmax(9rem, 1fr) 2rem;
+}
+
+.plate-row {
+    display: grid;
+    grid-template-columns: var(--cols);
+    align-items: center;
+    gap: 0 1.4rem;
+    min-height: 3.8rem;
+    padding: 0.4rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.plate-row.head {
+    min-height: 1.8rem;
+    padding: 0 0 0.2rem;
+    border-top: 0;
+}
+
+.plate-row.head .lab {
+    font-size: 0.72rem;
+}
+
+.plate-gutter {
+    display: grid;
+    place-items: center;
+    color: var(--paper-dim);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.plate-gutter .ms {
+    font-size: 18px;
+}
+
+.plate-row:hover .plate-gutter,
+.plate-row:focus-within .plate-gutter,
+.plate-row.add .plate-gutter {
+    opacity: 1;
+}
+
+.plate-name {
+    width: 100%;
+    min-width: 0;
+    font-family: var(--display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--paper);
+    background: transparent;
+    border: 0;
+    border-radius: 3px;
+    padding: 0.2rem 0.4rem;
+    margin-left: -0.4rem;
+    transition: color 0.15s, background 0.15s;
+}
+
+.plate-name::placeholder {
+    color: var(--slate-dim);
+    font-weight: 400;
+}
+
+.plate-row:hover .plate-name,
+.plate-name:focus {
+    color: var(--brass-soft);
+}
+
+.plate-name:focus {
+    outline: none;
+    background: var(--ink-3);
+}
+
+.plate-row.add .plate-name {
+    font-weight: 400;
+}
+
+.letters {
+    display: inline-flex;
+    gap: 0.1rem;
+}
+
+.letters button {
+    min-width: 2rem;
+    font-family: var(--mono);
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: var(--slate-dim);
+    background: transparent;
+    border: 0;
+    border-radius: 3px;
+    padding: 0.3rem 0.5rem;
+}
+
+.letters button:hover {
+    color: var(--paper-dim);
+    background: var(--ink-3);
+}
+
+.letters button[aria-checked="true"] {
+    color: var(--paper);
+    font-weight: 600;
+}
+
+.kinds {
+    display: grid;
+    grid-template-rows: repeat(3, auto);
+    grid-auto-flow: column;
+    gap: 0.1rem 0.5rem;
+}
+
+.kinds button {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    text-align: left;
+    color: var(--paper-dim);
+    background: transparent;
+    border: 0;
+    border-radius: 3px;
+    padding: 0.1rem 0.45rem;
+}
+
+.kinds button:hover {
+    color: var(--paper);
+    background: var(--ink-3);
+}
+
+.kinds button[aria-checked="true"] {
+    color: var(--ink);
+    background: var(--brass);
+}
+
+.plate-row>.icon-btn {
+    justify-self: end;
+    opacity: 0;
+}
+
+.plate-row:hover>.icon-btn,
+.plate-row:focus-within>.icon-btn {
+    opacity: 1;
+}
+
 @media (max-width: 720px) {
     .cfg {
         --ic: 2.6rem;
         --lab: 100%;
+    }
+
+    .plate {
+        --cols: 1.6rem 1fr 2rem;
+    }
+
+    .plate-row {
+        gap: 0.5rem 1rem;
+    }
+
+    .plate-row.head {
+        display: none;
+    }
+
+    .plate-row>.letters,
+    .plate-row>.kinds,
+    .plate-row>.progress {
+        grid-column: 2;
     }
 
     .block-head {
@@ -2751,8 +2886,7 @@ pre.tall {
 button[data-tip],
 .icon-btn[data-tip],
 .outrow[data-tip],
-.watch-cell[data-tip],
-.dot[data-tip] {
+.watch-cell[data-tip] {
     cursor: pointer;
 }
 

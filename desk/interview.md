@@ -10,8 +10,7 @@ answers:
   reach.handle: "+12155707949"
   island.name: Sharing my music online
   island.kind: build
-  island.position: not started
-  island.priority: top
+  island.priority: high
 ---
 
 The interview, as answered. Re-run it from the desk any time; answers here prefill it.

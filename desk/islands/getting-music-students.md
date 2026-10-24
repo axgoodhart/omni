@@ -1,8 +1,7 @@
 ---
 name: Getting music students
 kind: grow
-stage: 1
-position: not started
+progress: 0
 status: ""
 files: []
 ---
