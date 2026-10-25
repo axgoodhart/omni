@@ -56,7 +56,7 @@ export function set(key: string, value: unknown, by = 'web') {
       else if (v === 'quiet.from' || v === 'quiet.to') to = asTime(value);
       else if (v === 'via' || v.endsWith('.via')) to = asVia(value);
       else if (v.endsWith('_after')) to = asDur(value);
-      else if (v.endsWith('_times')) to = Math.max(1, Math.min(3, Number(value) || 1));
+      else if (v.endsWith('_times')) to = Math.max(v.endsWith('second_times') ? 0 : 1, Math.min(3, Math.round(Number(value)) || 0));
       else if (v.endsWith('.stop') || v.endsWith('.stop_text')) to = asBool(value);
       else throw new Error(`unknown setting ${key}`);
       if (v === 'quiet' && to === null) { const { data, body } = store.readFm('loop.md'); data.quiet = null; store.writeFm('loop.md', data, body); }

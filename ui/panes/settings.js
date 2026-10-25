@@ -12,7 +12,8 @@ const toMs = (s) => [...String(s).matchAll(/(\d+(?:\.\d+)?)\s*([mhdw]?)/g)].redu
 const durWord = (s) => { const m = /^(\d+(?:\.\d+)?)([mhdw]?)$/.exec(String(s)); if (!m) return s; const n = Number(m[1]), one = n === 1, u = { m: 'min', h: one ? 'hour' : 'hours', d: one ? 'day' : 'days', w: one ? 'week' : 'weeks' }[m[2] || 'm']; return `${n === 0.5 ? '½' : n} ${u}`; };
 const LEVELS = ['high', 'medium', 'low'];
 const NAME = { high: 'High', medium: 'Medium', low: 'Low' };
-const VIA = [['desk', 'Desk'], ['phone', 'Phone'], ['both', 'Both']];
+const TIMES = ['none', 'once', 'twice', 'three times'];
+const RULE_KIND = { shell: 'Command', write_file: 'Files', imessage_send: 'Texts' };
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const KINDS = ['make', 'research', 'build', 'story', 'grow', 'open'];
 const TRUST = ['Email replies', 'Website changes', 'Submissions'];
@@ -23,6 +24,9 @@ const PICKS = {
   medium: [['15m', '30m', '1h', '2h', '4h', '8h'], ['12h', '1d', '2d', '3d', '5d', '7d']],
   low: [['1d', '2d', '3d', '5d', '7d'], ['1w', '2w', '3w', '4w']],
 };
+// ==== REACH GLYPHS (SF Symbols, set in SF Pro) ====
+const LAMP = '􁌞';   // lamp.desk.fill: the desk
+const BUBBLE = '􁒘'; // ellipsis.message: a text
 // ==== QUIET TRACK ====
 const Q0 = 17 * 60; // the day track starts at 5 PM so the night sits in the middle
 const QN = 96;      // 15-minute steps
@@ -40,12 +44,12 @@ export async function renderSettings() {
     { right: pills('loop.paused', L.paused, [[false, 'Active'], [true, 'Paused']], L.paused ? 'warn' : '') + (st.paused ? '<span class="warn">Paused</span>' : st.last ? `<span>Last ${hm(st.last.at)} · next ${st.next ? hm(st.next) : '–'}</span>` : '<span>Not looked yet</span>') })}
 
   ${sec('notifications', 'Reach', 'Where questions reach you, and how many may be out at once. The rest wait their turn.',
-    line('Questions go to', cells(pills('loop.via', L.via, VIA) + (!texting && L.via !== 'desk' ? fact('Texting is off, so everything goes to the desk.', 'dim') : '')), 'Where questions may reach you at all. Each priority below can narrow this, never widen it.')
+    line('Questions go to', cells(reach('loop.via', L.via) +(!texting && L.via !== 'desk' ? fact('Texting is off, so everything goes to the desk.', 'dim') : '')), 'Where questions may reach you at all. Each priority below can narrow this, never widen it.')
     + line('Out at once', cells(pills('loop.max_open', L.max_open, [1, 2, 3, 4, 5].map((n) => [n, String(n)]))), 'How many questions Omnii may have out to you at the same time.', waiting.length ? `${waiting.length} open` : "none open")
     + (waiting.length ? line("Open requests", cells(fact(waiting.map((c) => `${esc(c.title.replace(/[:.\s]+$/, '').slice(0, 40))} (asked ${hm(c.created)})`).join('; ')))) : ''))}
 
   ${sec('low_priority', 'Priorities', "What happens when you don't answer: a few quick nudges, then slower ones, then filed or kept going. Ignoring a question is allowed; filed ones stay in the desk history.",
-    heads(['', 'Reaches you', 'Nudge every', 'Times', 'Then every', 'Times', 'After that', 'Say so']) + LEVELS.map(level).join(''), { cls: 'levels', table: true })}
+    heads(['', ' ', 'Premiere Cycle', 'Secondary Cycle', 'Continue?', 'Confirm']) + LEVELS.map(level).join(''), { cls: 'levels', table: true })}
 
   ${sec('repeat', 'Rhythms', 'Routines Omnii keeps for you. Logging one from the desk or by text counts for the day.',
     heads(['', '', 'Days', 'Time', 'Priority', 'Last'])
@@ -66,6 +70,9 @@ export async function renderSettings() {
   ${sec('shield', 'In your name', 'Everything Omnii would send or publish as you is written to the out/ folder instead, for you to read. Sending for real is not available yet.',
     line('Sends as you', cells(TRUST.map((t) => `<span class="fact">${ic('lock', 'dim')}${esc(t)}</span>`).join('') + fact('written to out/, never sent', 'dim')), 'Three kinds of thing Omnii could send as you. All of them are written to the out/ folder for you to read; none is sent.'),
     { right: ibtn('folder_open', "See what's in out/", 'data-k="open.out" data-json="null"', 'small act') })}
+
+  ${S.allowed?.length ? sec('verified_user', 'Always allowed', 'Things you told Omnii it may always do without asking, each kept narrow: one exact command in one folder, one folder for files, one person for texts. Remove one and Omnii asks again next time.',
+    S.allowed.map((a, i) => line(esc(RULE_KIND[a.tool] ?? a.tool), cells(fact(esc(a.label)) + (a.added ? fact(`since ${esc(a.added)}`, 'dim') : '')) + ibtn('close', 'Remove: Omnii asks again next time', `data-unallow="${i}"`, 'small'))).join('')) : ''}
 
   ${sec('account_tree', 'Plate', 'Everything you are working on. Click a name to rename it; the slider is how far along it is. Priorities are yours alone; Omnii never changes them. When something reaches done, Omnii asks you once what should happen with it.',
     heads(['', '', 'Priority', 'Type', 'Progress', '']) + S.islands.map(island).join('')
@@ -92,7 +99,7 @@ export async function renderSettings() {
 const sec = (icon, title, tip, rows, { right = '', cls = '', table = false } = {}) => `<section class="sec ${cls}">
   <h2 class="sec-head">${ic(icon)}<span>${esc(title)}</span><span class="sec-right">${right}</span>${info(tip)}</h2>
   ${table ? `<div class="table">${rows}</div>` : rows}</section>`;
-const cell = (h, html) => `<span class="cell" data-h="${esc(h)}">${html}</span>`;
+const cell = (h, html, cls = '') => `<span class="cell ${cls}" data-h="${esc(h)}">${html}</span>`;
 const line = (label, inner, tip = '', status = '', cls = '') => `<div class="line ${cls}"><span class="lab"${tip ? ` data-tip="${esc(tip)}" tabindex="0"` : ''}>${label}</span>${inner}${status ? `<span class="status">${status}</span>` : ''}</div>`;
 const heads = (list) => `<div class="line heads">${list.map((h) => `<span class="lab">${esc(h)}</span>`).join('')}</div>`;
 const cells = (html) => `<span class="cells">${html}</span>`;
@@ -108,14 +115,17 @@ const scale = (k, cur, picks) => { const list = [...new Set([...picks, cur])].so
 const time = (k, v) => `<input class="field time" type="time" data-k="${k}" value="${esc(v)}">`;
 const text = (k, v, ph) => `<input class="field" type="text" data-k="${k}" value="${esc(v ?? '')}" placeholder="${esc(ph)}">`;
 const btn = (k, v, label) => `<button type="button" class="ghost tiny act" data-k="${k}" data-json='${esc(JSON.stringify(v))}'>${esc(label)}</button>`;
+const reach = (k, via) => `<span class="reach" data-k="${k}">${[['desk', LAMP, 'Desk'], ['phone', BUBBLE, 'Text']].map(([w, g, name]) => `<button type="button" class="glyph" data-w="${w}" aria-pressed="${via === 'both' || via === w}" aria-label="${name}" data-tip="${name}">${g}</button>`).join('')}</span>`;
+const dots = (k, n, zero = false) => `<button type="button" class="dots" data-k="${k}" data-n="${n}"${zero ? ' data-zero="1"' : ''} aria-label="${TIMES[n]}" data-tip="${TIMES[n]}">${[1, 2, 3].map((i) => `<i${i <= n ? ' class="on"' : ''}></i>`).join('')}</button>`;
 
 function level(l) {
-  const R = S.loop.levels[l], k = (f) => `loop.levels.${l}.${f}`, times = (f) => pills(k(f), R[f], [1, 2, 3].map((t) => [t, `${t}×`]));
+  const R = S.loop.levels[l], k = (f) => `loop.levels.${l}.${f}`;
   return line(`<b>${NAME[l]}</b>`,
-    cell('Reaches you', pills(k('via'), R.via, VIA)) + cell('Nudge every', scale(k('first_after'), R.first_after, PICKS[l][0])) + cell('Times', times('first_times'))
-    + cell('Then every', scale(k('second_after'), R.second_after, PICKS[l][1])) + cell('Times', times('second_times'))
-    + cell('After that', pills(k('stop'), R.stop, [[true, 'File it'], [false, 'Keep on']])) + cell('Say so', R.stop ? pills(k('stop_text'), R.stop_text, [[true, 'Text me'], [false, 'Log only']]) : ''),
-    `${NAME[l]} priority: where its questions reach you; the quick nudges after Omnii asks and how many; the slower nudges that follow and how many; then whether it is filed as unanswered or keeps the slower pace; and whether Omnii texts you when it files one.`);
+    cell(' ', reach(k('via'), R.via))
+    + cell('Premiere Cycle', scale(k('first_after'), R.first_after, PICKS[l][0]) + dots(k('first_times'), R.first_times))
+    + cell('Secondary Cycle', scale(k('second_after'), R.second_after, PICKS[l][1]) + dots(k('second_times'), R.second_times, true), R.second_times === 0 && R.stop ? 'skipped' : '')
+    + cell('Continue?', pills(k('stop'), R.stop, [[true, 'File it'], [false, 'Keep on']])) + cell('Confirm', R.stop ? pills(k('stop_text'), R.stop_text, [[true, 'Text me'], [false, 'Log only']]) : ''),
+    `${NAME[l]} priority: where its questions reach you (the lamp is the desk, the bubble is a text); the quick nudges after Omnii asks, and how many; the slower nudges that follow, and how many or none; then whether it is filed as unanswered or keeps the slower pace; and whether Omnii texts you when it files one. Click the dots to change how many.`);
 }
 function rhythm(key, name, tip, last) {
   const p = S.priorities[key], k = (f) => `priorities.${key}.${f}`;
@@ -167,6 +177,19 @@ function wire(box) {
   box.querySelectorAll('[role=radiogroup][data-k] button').forEach((b) => b.addEventListener('click', () => {
     if (b.getAttribute('aria-checked') !== 'true') save(b.parentElement.dataset.k, JSON.parse(b.dataset.v));
   }));
+  box.querySelectorAll('.reach').forEach((el) => el.querySelectorAll('.glyph').forEach((b) => b.addEventListener('click', () => {
+    const lit = (w) => el.querySelector(`[data-w="${w}"]`).getAttribute('aria-pressed') === 'true' !== (w === b.dataset.w); // the clicked one flips
+    const desk = lit('desk'), phone = lit('phone');
+    if (!desk && !phone) return toast('Questions need somewhere to go: keep the lamp or the bubble lit.');
+    save(el.dataset.k, desk && phone ? 'both' : desk ? 'desk' : 'phone');
+  })));
+  box.querySelectorAll('.dots').forEach((b) => b.addEventListener('click', () => {
+    const n = b.dataset.zero ? (Number(b.dataset.n) + 1) % 4 : (Number(b.dataset.n) % 3) + 1; // quick: 1 2 3; slower: 1 2 3 0
+    b.dataset.n = n; b.dataset.tip = TIMES[n]; b.setAttribute('aria-label', TIMES[n]);
+    b.querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i < n));
+    clearTimeout(b.saveTimer); b.saveTimer = setTimeout(() => save(b.dataset.k, n), 600); // a few clicks in a row save once
+  }));
+  box.querySelectorAll('[data-unallow]').forEach((b) => b.addEventListener('click', () => save('allowed.remove', Number(b.dataset.unallow))));
   box.querySelectorAll('.pills.multi').forEach((el) => el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
     const on = [...el.querySelectorAll('[aria-pressed="true"]')].map((x) => x.dataset.day);
     save(el.dataset.k, b.getAttribute('aria-pressed') === 'true' ? on.filter((d) => d !== b.dataset.day) : [...on, b.dataset.day]);

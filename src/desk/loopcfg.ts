@@ -25,19 +25,19 @@ via: where questions may reach you at all: desk, phone or both.
 max_open: how many questions may be out to you at once.
 levels: for each priority, what happens when you don't answer.
   via: where that priority's questions go. It can narrow the overall via, never widen it.
-  first_after / first_times: the quick nudges.
-  second_after / second_times: the slower nudges that follow.
+  first_after / first_times: the quick nudges, 1 to 3.
+  second_after / second_times: the slower nudges that follow, 0 to 3.
   stop: true files the question as unanswered after the slower nudges; false keeps nudging at the slower pace.
   stop_text: true also texts you that it was filed; false only writes it in the log.`;
 
 export function ensure() {
   if (!exists(FILE)) writeFm(FILE, { every_min: LOOP_INTERVAL_MIN, paused: false, quiet: { from: '22:00', to: '08:00' }, max_open: 1, via: 'both', levels: LEVEL_DEFAULTS }, SEED);
 }
-const times = (v: any, def: number) => ([1, 2, 3].includes(Number(v)) ? Number(v) : def);
+const times = (v: any, def: number, min = 1) => (v != null && [0, 1, 2, 3].includes(Number(v)) && Number(v) >= min ? Number(v) : def);
 const rule = (d: any, def: LevelRule): LevelRule => ({
   via: VIA.includes(d?.via) ? d.via : def.via,
   first_after: String(d?.first_after ?? def.first_after), first_times: times(d?.first_times, def.first_times),
-  second_after: String(d?.second_after ?? def.second_after), second_times: times(d?.second_times, def.second_times),
+  second_after: String(d?.second_after ?? def.second_after), second_times: times(d?.second_times, def.second_times, 0), // 0: straight from the quick nudges to filing
   stop: d?.stop ?? def.stop, stop_text: d?.stop_text ?? def.stop_text,
 });
 export function get(): LoopCfg {

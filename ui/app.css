@@ -1245,19 +1245,62 @@ pre {
 
 @media (max-width: 760px) {
 
+    /* the sidebar becomes a rail of icons; names show on hover */
     .sidebar {
-        position: static;
-        width: 70px;
-        height: auto;
+        width: 3.6rem;
+        padding: 1.2rem 0.4rem 1rem;
     }
-    .nav-item .label {
-      display:none;
+
+    .brand-mark {
+        width: 0.5em;
+        margin: 0 auto;
+        overflow: hidden;
+        font-size: 1.7rem;
     }
-    .sidebar-foot {
-        margin-top: 1rem;
+
+    .brand p {
+        width: 0.45rem;
+        height: 0.45rem;
+        margin: 0.5rem auto 1.4rem;
+        border-radius: 50%;
+        font-size: 0;
+        background: var(--slate-dim);
     }
+
+    .brand p.on {
+        background: var(--brass);
+    }
+
+    .nav-group {
+        margin-bottom: 1rem;
+    }
+
+    .nav-group h2 {
+        justify-content: center;
+        font-size: 0;
+        padding-bottom: 0.35rem;
+    }
+
+    .nav-item,
+    .nav-item:hover,
+    .nav-item.active {
+        justify-content: center;
+        width: 100%;
+        margin: 0;
+        padding: 0.45rem 0;
+    }
+
+    .nav-item span.label,
+    #budget-text {
+        display: none;
+    }
+
+    .foot-row {
+        justify-content: center;
+    }
+
     main {
-        padding: 1.2rem;
+        padding: 1.2rem 1rem;
     }
 }
 
@@ -2021,6 +2064,7 @@ pre.tall {
     --cols: var(--lab) 1fr auto;       /* label · controls · status */
     max-width: 72rem;
     padding-bottom: 2rem;
+    container: cfg / inline-size;      /* rows rearrange by the page's own width, not the window's */
 }
 
 .sec {
@@ -2282,6 +2326,80 @@ pre.tall {
     font-size: 0.74rem;
 }
 
+/* reach: the lamp is the desk, the bubble is a text; lit means questions go there */
+.reach {
+    display: inline-flex;
+    gap: 0.1rem;
+}
+
+.glyph {
+    display: inline-grid;
+    place-items: center;
+    min-width: 2.1rem;
+    min-height: 2.1rem;
+    padding: 0;
+    font-family: 'SF Pro', 'SF Pro Display', 'SF Pro Text', system-ui;
+    font-size: 1.1rem;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--slate-dim);
+    background: transparent;
+    border-radius: 4px;
+}
+
+.glyph:hover {
+    color: var(--paper-dim);
+    background: var(--ink-3);
+}
+
+.glyph[aria-pressed="true"] {
+    color: var(--brass);
+}
+
+/* how many: ●●○ is twice; a click steps to the next count */
+.dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    min-height: 2.1rem;
+    padding: 0 0.4rem;
+    background: transparent;
+    border-radius: 4px;
+}
+
+.dots i {
+    width: 0.5rem;
+    height: 0.5rem;
+    border: 1px solid var(--slate-dim);
+    border-radius: 50%;
+}
+
+.dots i.on {
+    background: var(--brass);
+    border-color: var(--brass);
+}
+
+.dots:hover {
+    background: var(--ink-3);
+}
+
+.dots:hover i:not(.on) {
+    border-color: var(--paper-dim);
+}
+
+.cell.skipped .slider {
+    opacity: 0.35;
+}
+
+@media (pointer: coarse) {
+    .glyph,
+    .dots {
+        min-height: 2.75rem;
+        min-width: 2.75rem;
+    }
+}
+
 /* letters: H M L, the current one bright */
 .letters {
     display: inline-flex;
@@ -2530,7 +2648,7 @@ pre.tall {
 
 /* tables: several things of one shape share column heads */
 .sec.levels {
-    --cols: 6.5rem auto minmax(7rem, 1fr) auto minmax(7rem, 1fr) auto auto auto;
+    --cols: 6.5rem auto minmax(10rem, 1fr) minmax(10rem, 1fr) auto auto;
 }
 
 .sec.rhythms {
@@ -2538,7 +2656,7 @@ pre.tall {
 }
 
 .sec.plate {
-    --cols: 1.3rem minmax(12rem, 1.3fr) auto auto minmax(9rem, 1fr) 2rem;
+    --cols: 1.3rem minmax(10rem, 1.3fr) auto auto minmax(9rem, 1fr) 2rem;
 }
 
 .sec.plate .line>* {
@@ -2612,32 +2730,99 @@ pre.tall {
     opacity: 1;
 }
 
-@media (max-width: 1100px) {
+/* no hover on touch: row actions stay visible */
+@media (hover: none) {
+    .line>.icon-btn,
+    .plate-gutter {
+        opacity: 1;
+    }
+}
 
-    /* tables stack: each thing becomes a short block, each cell says what it is */
-    .table {
-        grid-template-columns: 1fr;
+/* ==== CONFIG WIDTHS (where each table stops fitting; measured on the page, not the window) ==== */
+/* rhythms 62rem · priorities 56rem (two columns, one below 38rem) · plate 45rem · label beside controls 38rem · phone 26rem */
+
+/* a table that no longer fits stacks: the name and its first control share a top line, each other cell says what it is */
+@container cfg (max-width: 62rem) {
+    .sec.rhythms .table {
+        grid-template-columns: 1fr auto;
+        column-gap: 0;
     }
 
-    .table .line>* {
-        min-height: 0;
-        padding: 0.2rem 0;
-        border-top: 0;
-    }
-
-    .table .line> :first-child {
-        min-height: 2.4rem;
-        padding-top: 0.8rem;
-        border-top: 1px solid var(--line);
-    }
-
-    .table .heads {
+    .sec.rhythms .heads {
         display: none;
     }
 
-    .cell::before {
+    .sec.rhythms .line>* {
+        min-height: 0;
+        padding: 0.15rem 0;
+        border-top: 0;
+    }
+
+    .sec.rhythms .line> :nth-child(-n+2) {
+        min-height: 2.6rem;
+        padding-top: 0.7rem;
+        border-top: 1px solid var(--line);
+    }
+
+    .sec.rhythms .line> :nth-child(n+3) {
+        grid-column: 1 / -1;
+    }
+
+    .sec.rhythms .cell::before {
         content: attr(data-h);
-        min-width: 6rem;
+        flex: 0 0 5rem;
+        white-space: nowrap;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--slate-dim);
+    }
+}
+
+@container cfg (max-width: 56rem) {
+    .sec.levels .table {
+        grid-template-columns: 1fr 1fr;
+        column-gap: 0;                 /* the row's hairline runs unbroken; the right column pads itself */
+    }
+
+    .sec.levels .line> :nth-child(4),
+    .sec.levels .line> :nth-child(6) {
+        padding-left: 2rem;
+    }
+
+    .sec.levels .line> :first-child {
+        grid-column: 1;
+    }
+
+    .sec.levels .line> :nth-child(2) {
+        justify-content: flex-end;
+    }
+
+    .sec.levels .heads {
+        display: none;
+    }
+
+    .sec.levels .line>* {
+        min-height: 0;
+        padding: 0.15rem 0;
+        border-top: 0;
+    }
+
+    .sec.levels .line> :nth-child(-n+2) {
+        min-height: 2.6rem;
+        padding-top: 0.7rem;
+        border-top: 1px solid var(--line);
+    }
+
+    .sec.levels .line> :nth-child(n+5) {
+        padding-bottom: 0.6rem;
+    }
+
+    .sec.levels .cell::before {
+        content: attr(data-h);
+        flex: 0 0 7.5rem;
+        white-space: nowrap;
         font-family: var(--mono);
         font-size: 0.62rem;
         letter-spacing: 0.12em;
@@ -2645,36 +2830,132 @@ pre.tall {
         color: var(--slate-dim);
     }
 
-    .cell[data-h=""]::before {
-        content: none;
+    .sec.levels .cell:empty {
+        display: none;
     }
+}
 
+.cell[data-h=""]::before,
+.cell[data-h=" "]::before {
+    content: none !important;
+}
+
+@container cfg (max-width: 45rem) {
     .sec.plate .table {
         grid-template-columns: 1.3rem 1fr 2rem;
     }
 
-    .sec.plate .line> :nth-child(-n+2) {
+    .sec.plate .heads {
+        display: none;
+    }
+
+    .sec.plate .line>* {
+        min-height: 0;
+        padding: 0.15rem 0;
+        border-top: 0;
+    }
+
+    .sec.plate .line> :nth-child(-n+2),
+    .sec.plate .line>.icon-btn {
+        min-height: 3rem;
+        padding-top: 0.7rem;
         border-top: 1px solid var(--line);
     }
 
     .sec.plate .line> :nth-child(n+3):not(.icon-btn) {
         grid-column: 2;
     }
+
+    .sec.plate .cell::before {
+        content: attr(data-h);
+        flex: 0 0 5.5rem;
+        white-space: nowrap;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--slate-dim);
+    }
 }
 
-@media (max-width: 720px) {
-    .cfg {
-        --cols: 1fr;
-    }
-
-    .line {
-        gap: 0.3rem;
-        padding: 0.5rem 0;
+@container cfg (max-width: 38rem) {
+    .sec>.line,
+    #mail-connect>.line {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+        padding: 0.6rem 0;
     }
 
     .status {
         justify-self: start;
         text-align: left;
+    }
+
+    .slider,
+    .slider.wide {
+        max-width: none;
+    }
+
+    .sec.levels .table {
+        grid-template-columns: 1fr auto;
+    }
+
+    .sec.levels .line> :nth-child(n+3) {
+        grid-column: 1 / -1;
+        padding-left: 0;
+    }
+
+    .sec.levels .line> :nth-child(5) {
+        padding-bottom: 0.15rem;
+    }
+
+    .sec-head {
+        flex-wrap: wrap;
+        row-gap: 0.3rem;
+    }
+
+    .sec-head>.info {
+        order: 1;
+    }
+
+    .sec-right {
+        order: 2;
+    }
+
+    .sec-right {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        row-gap: 0.3rem;
+    }
+
+    .sec-right>span {
+        white-space: nowrap;
+    }
+
+    .plate-name {
+        font-size: 1.1rem;
+        text-overflow: ellipsis;
+    }
+}
+
+@container cfg (max-width: 26rem) {
+    .table .cell {
+        flex-wrap: wrap;
+        row-gap: 0.1rem;
+    }
+
+    .table .cell::before {
+        flex-basis: 100% !important;
+    }
+
+    .table .cell .slider {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 6rem;
+    }
+
+    .table .line> :nth-child(n+3) {
+        padding-top: 0.35rem;
     }
 }
 

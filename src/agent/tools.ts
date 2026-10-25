@@ -114,7 +114,7 @@ export function buildTools(ctx: ToolCtx): ToolSet {
       execute: async ({ path: p, content }) => { files.write(WORKSPACE_DIR, p, content); return { ok: true, path: p }; },
     }),
     shell: tool({
-      description: `Run a zsh command inside the workspace (${WORKSPACE_DIR}); ${SHELL_TIMEOUT_MS / 1000}s timeout. Destructive commands pause for approval.`,
+      description: `Run a zsh command inside the workspace (${WORKSPACE_DIR}); ${SHELL_TIMEOUT_MS / 1000}s timeout. For files and folders use plain commands (ls, find, cat, cp, mv, mkdir, grep, sed), never a Python or Node script. Commands that delete, move or overwrite pause for approval.`,
       inputSchema: z.object({ command: z.string(), cwd: z.string().optional() }),
       execute: async ({ command, cwd }) => {
         try {

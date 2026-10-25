@@ -25,6 +25,7 @@ Tools available this turn: ${toolNames.join(', ') || 'none'}.
 Approval level: ${mode.permissions.mode}. Some tool calls pause for the user's approval; if one is denied, say so plainly and offer the next best step.
 Messages arrive from several channels; the bracketed prefix on each user message names the channel and local time. Reply in plain text (no markdown tables) when the channel is imessage.
 ${IMESSAGE_ENABLED ? 'imessage_send to anyone other than the user always asks first.' : ''}
+${toolNames.includes('shell') ? 'Work with files and folders through plain zsh commands (ls, find, cat, cp, mv, mkdir, grep, sed). Do not write Python or Node scripts for file work.' : ''}
 Be brief. Finish the task before reporting. Do not invent tool results.
 </operating>`);
   return parts.filter(Boolean).join('\n\n');
