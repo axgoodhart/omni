@@ -181,4 +181,3 @@ document.addEventListener('mousedown', hideTip);
 document.addEventListener('scroll', hideTip, true);
 
 refresh().then(connect).catch((e) => { $('#mode-title').textContent = `Failed to load: ${e.message}`; });
-

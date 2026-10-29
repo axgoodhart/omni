@@ -12,12 +12,12 @@
 </head>
 <body>
 <div class="layout">
-  <aside class="sidebar">
-    <div class="brand">
-      <span class="brand-mark">omnii</span>
-      <p id="status" data-tip="Whether this page is connected to the background service">connecting…</p>
-    </div>
-    <nav>
+<aside class="sidebar" id="sideBar">
+  <div class="brand">
+    <span class="brand-mark" id="sidbearToggle" onclick="clickSidebarToggle()" style="cursor: pointer;"></span>
+    <p id="status" data-tip="Whether this page is connected to the background service">connecting…</p>
+  </div>
+     <nav>
       <div class="nav-group" data-nav="desk"><h2>Desk</h2><ul id="nav-desk"></ul></div>
       <div class="nav-group" data-nav="islands"><h2>Islands</h2><ul id="nav-islands"></ul></div>
       <div class="nav-group" data-nav="modes"><h2>Modes</h2><ul id="nav-modes"></ul></div>
@@ -117,5 +117,15 @@
 
 <div class="tip" id="tip" role="tooltip" hidden></div>
 <script type="module" src="/app.js"></script>
+<script>
+
+  function clickSidebarToggle() {
+    document.getElementById('sideBar').classList.toggle('thin');
+  }
+
+
+
+
+</script>
 </body>
 </html>

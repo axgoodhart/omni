@@ -10,14 +10,14 @@ levels:
   high:
     via: both
     first_after: 15m
-    first_times: 2
+    first_times: 3
     second_after: 90m
     second_times: 2
     stop: true
     stop_text: true
   medium:
     via: desk
-    first_after: 120m
+    first_after: 1h
     first_times: 2
     second_after: 1d
     second_times: 2
