@@ -1,0 +1,318 @@
+/* Shared controls; all values inherit the interface tokens in app.css. */
+:where(.control-system, .notifications) button:where(.switch, .prio, .addp, .d, .sel, .chan, .step-btn, .tile, .tag-x, .link-add, .link-voice, .mode button, .menu button, .tabs .tab) {
+ min-width: 0; min-height: 0; display: inline-flex; align-items: center; justify-content: center; font: inherit; color: inherit;
+ background: none; border: 0; border-radius: 0; padding: 0; margin: 0;
+ letter-spacing: normal; text-transform: none; text-align: inherit; cursor: pointer;
+}
+
+:where(.control-system, .notifications) .switch {
+    flex: none;
+    width: 168px;
+    height: 52px;
+    justify-content: space-between;
+    flex-direction: row-reverse;
+    padding: 0 24px 0 6px;
+    border: var(--border-control) solid var(--line);
+    border-radius: var(--radius-full);
+    background: var(--surface);
+    color: var(--dim);
+    font-size: var(--font-control);
+    font-weight: 500;
+    letter-spacing: .06em;
+}
+
+:where(.control-system, .notifications) .switch .thumb, :where(.control-system, .notifications) .switch-thumb {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--thumb-off);
+}
+
+:where(.control-system, .notifications) .switch.on { flex-direction: row; padding: 0 6px 0 24px; border-color: var(--signal-dim); background: var(--go-deep); color: var(--text); }
+
+:where(.control-system, .notifications) .switch.on .thumb, :where(.control-system, .notifications) .switch.on .switch-thumb { background: var(--signal); box-shadow: inset 0 0 0 4px var(--go-deep), 0 0 0 1.5px var(--signal), 0 0 14px rgb(60 240 124 / .55); }
+
+:where(.control-system, .notifications) .switch:hover { border-color: var(--dim); }
+
+:where(.control-system, .notifications) .switch.on:hover { border-color: var(--signal); }
+
+:where(.control-system, .notifications) .switch.sm { width: 116px; height: 30px; padding: 0 14px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .16em; }
+
+:where(.control-system, .notifications) .switch.sm.on { padding: 0 4px 0 14px; }
+
+:where(.control-system, .notifications) .switch.sm .thumb, :where(.control-system, .notifications) .switch.sm .switch-thumb { width: 22px; height: 22px; }
+
+:where(.control-system, .notifications) .switch.sm.on .thumb, :where(.control-system, .notifications) .switch.sm.on .switch-thumb { box-shadow: inset 0 0 0 3px var(--go-deep), 0 0 0 1.5px var(--signal), 0 0 10px rgb(60 240 124 / .5); }
+
+:where(.control-system, .notifications) .mode { display: inline-flex; align-items: center; }
+
+:where(.control-system, .notifications) .mode button { border-radius: 6px; padding: 10px 16px; color: var(--dim); font: 400 28px/1.2 var(--control); }
+
+:where(.control-system, .notifications) .mode button:hover { color: var(--text-2); }
+
+:where(.control-system, .notifications) .mode button.on, :where(.control-system, .notifications) .mode button[aria-pressed="true"] { color: var(--text); }
+
+:where(.control-system, .notifications) .mode > i { flex: none; width: 1px; height: 40px; background: var(--line); }
+
+:where(.control-system, .notifications) .priorities, :where(.control-system, .notifications) .prios, :where(.control-system, .notifications) .prio-set { display: flex; gap: 4px; }
+
+:where(.control-system, .notifications) .prio { width: 56px; height: 56px; border-radius: var(--radius-control); display: inline-grid; place-items: center; }
+
+:where(.control-system, .notifications) .prio-face { display: grid; place-items: center; width: 52px; height: 52px; border-radius: var(--radius-tile); background: var(--go); color: var(--on-text); font: 700 26px/1 var(--control); transition: box-shadow .15s; }
+
+:where(.control-system, .notifications) .prio.off .prio-face { width: 36px; height: 36px; border-radius: 7px; background: var(--raised); color: var(--value); font-size: 18px; font-weight: 600; }
+
+:where(.control-system, .notifications) .prio:hover .prio-face { box-shadow: 0 0 0 2px var(--signal), var(--glow); }
+
+:where(.control-system, .notifications) .prio:focus-visible { box-shadow: none; }
+
+:where(.control-system, .notifications) .prio:focus-visible .prio-face { box-shadow: var(--ring); }
+
+:where(.control-system, .notifications) .addp { position: relative; display: flex; justify-content: center; width: 100%; min-width: 56px; height: var(--control-h); border-radius: var(--radius-control); color: var(--dim); }
+
+:where(.control-system, .notifications) .addp.end { justify-content: flex-end; padding-right: 15px; }
+
+:where(.control-system, .notifications) .addp-rest { display: grid; place-items: center; width: 56px; height: var(--control-h); }
+
+:where(.control-system, .notifications) .addp-rest .sf { font-size: var(--font-control); }
+
+:where(.control-system, .notifications) .addp-face { position: absolute; left: 0; top: 0; z-index: 4; display: flex; align-items: center; gap: 10px; width: max-content; height: var(--control-h); padding: 0 14px 0 18px; border: var(--border-control) solid var(--signal); border-radius: var(--radius-control); background: var(--ground); color: var(--text); font: 400 21px/1.2 var(--control); white-space: nowrap; }
+
+:where(.control-system, .notifications) .addp-face .sf { font-size: 15px; }
+
+:where(.control-system, .notifications) .addp:focus-visible { box-shadow: none; }
+
+:where(.control-system, .notifications) .addp:focus-visible .addp-face { box-shadow: var(--ring); }
+
+:where(.control-system, .notifications) .days-ctl { position: relative; display: inline-flex; width: 250px; height: var(--control-h); align-items: center; justify-content: center; }
+
+:where(.control-system, .notifications) .days { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 3px; }
+
+:where(.control-system, .notifications) .days > span { display: inline-grid; place-items: center; min-width: 22px; height: 26px; padding: 0 4px; border-radius: 6px; color: var(--dim); font: 500 14px/1 var(--control); }
+
+:where(.control-system, .notifications) .days > .on { background: var(--go); color: var(--on-text); }
+
+:where(.control-system, .notifications) .track { position: relative; isolation: isolate; display: inline-flex; align-items: center; height: var(--control-h); padding: 4.5px; border-radius: var(--radius-full); }
+
+:where(.control-system, .notifications) .track-skin { position: absolute; inset: 0; z-index: -1; border: var(--border-control) solid var(--signal-dim); border-radius: inherit; background: var(--surface); box-shadow: var(--glow); }
+
+:where(.control-system, .notifications) .day-slot { display: inline-flex; }
+
+:where(.control-system, .notifications) .d { min-width: 32px; height: 35px; padding: 0 7px; border-radius: var(--radius-full); color: var(--text-2); font: 600 16px/1 var(--control); }
+
+:where(.control-system, .notifications) .d:hover { background: var(--raised); color: var(--on-text); }
+
+:where(.control-system, .notifications) .d.on { border-radius: 0; background: var(--go); color: var(--on-text); }
+
+:where(.control-system, .notifications) .d.on.l { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
+
+:where(.control-system, .notifications) .d.on.r { border-top-right-radius: 999px; border-bottom-right-radius: 999px; }
+
+:where(.control-system, .notifications) .d.on.j { box-shadow: inset 1px 0 0 rgb(0 0 0 / .55); }
+
+:where(.control-system, .notifications) .d:focus-visible { position: relative; z-index: 1; border-radius: var(--radius-full); box-shadow: var(--ring); }
+
+:where(.control-system, .notifications) .track .day-slot:nth-child(3) { --d: var(--step-d); }
+
+:where(.control-system, .notifications) .track .day-slot:nth-child(4) { --d: calc(var(--step-d) * 2); }
+
+:where(.control-system, .notifications) .track .day-slot:nth-child(5) { --d: calc(var(--step-d) * 3); }
+
+:where(.control-system, .notifications) .track .day-slot:nth-child(6) { --d: calc(var(--step-d) * 4); }
+
+:where(.control-system, .notifications) .track .day-slot:nth-child(7) { --d: calc(var(--step-d) * 5); }
+
+:where(.control-system, .notifications) .track .day-slot:nth-child(8) { --d: calc(var(--step-d) * 6); }
+
+:where(.control-system, .notifications) .area-ctl { position: relative; width: 250px; height: var(--control-h); }
+
+:where(.control-system, .notifications) .sel { width: 250px; height: var(--control-h); gap: var(--space-3); padding: 0 12px; border: var(--border-field) solid var(--signal-dim); border-radius: var(--radius-field); background: var(--raised); color: var(--text-2); font: 400 21px/1 var(--control); transition: background-color .3s, border-color .3s, color .3s; transition-delay: var(--hold); }
+
+:where(.control-system, .notifications) .sel-text { flex: 1; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+:where(.control-system, .notifications) .sel-mark { flex: none; width: 7px; height: 26px; background: var(--signal); }
+
+:where(.control-system, .notifications) .sel > .sf { color: var(--signal); font-size: var(--font-small); }
+
+:where(.control-system, .notifications) .sel:hover, :where(.control-system, .notifications) .sel:focus-visible, :where(.control-system, .notifications) .sel[aria-expanded="true"], :where(.control-system, .notifications) .mx:hover .sel, :where(.control-system, .notifications) .mx:focus-within .sel, :where(.control-system, .notifications).always .sel { border-color: var(--signal); background: var(--ground); color: var(--signal); transition-delay: 0s; }
+
+:where(.control-system, .notifications) .menu { position: absolute; top: 52px; left: 0; z-index: 5; display: flex; flex-direction: column; gap: 2px; width: 250px; padding: 4px; border: var(--border-field) solid var(--signal-dim); border-radius: var(--radius-field); background: var(--surface); box-shadow: 0 12px 32px rgb(0 0 0 / .6); }
+
+:where(.control-system, .notifications) .menu button { justify-content: flex-start; min-height: 40px; padding: 8px 12px; border-radius: 3px; color: var(--text-2); font: 400 19px/1.25 var(--control); overflow-wrap: anywhere; }
+
+:where(.control-system, .notifications) .menu button:hover { background: var(--raised); color: var(--text); }
+
+:where(.control-system, .notifications) .menu button[aria-selected="true"] { color: var(--signal); }
+
+:where(.control-system, .notifications) .menu.flip { left: auto; right: 0; }
+
+:where(.control-system, .notifications) .sf { display: inline-block; flex: none; font-family: var(--symbols); font-weight: 500; line-height: 1; text-align: center; }
+
+:where(.control-system, .notifications) .led { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--led-off); }
+
+:where(.control-system, .notifications) .chans { display: flex; align-items: center; gap: 14px; }
+
+:where(.control-system, .notifications) .chan { position: relative; isolation: isolate; height: var(--control-h); gap: 10px; padding: 0 12px 0 14px; border-radius: var(--radius-control); color: var(--text-2); font: 400 var(--font-control)/1 var(--control); white-space: nowrap; }
+
+:where(.control-system, .notifications) .chan > .sf { width: 26px; font-size: 21px; }
+
+:where(.control-system, .notifications) .chan > .led { align-self: flex-start; margin-top: 8px; margin-left: 2px; }
+
+:where(.control-system, .notifications) .chan-skin { position: absolute; inset: 0; z-index: -1; border: var(--border-control) solid var(--line); border-radius: inherit; background: transparent; }
+
+:where(.control-system, .notifications) .chan.on { color: var(--text); }
+
+:where(.control-system, .notifications) .chan.on > .sf { color: var(--value); }
+
+:where(.control-system, .notifications) .chan.on .chan-skin { border-color: var(--signal); background: var(--go-deep); box-shadow: var(--glow); }
+
+:where(.control-system, .notifications) .chan.t2.on .chan-skin { border-color: var(--tier2); background: var(--tier2-deep); box-shadow: var(--glow-2); }
+
+:where(.control-system, .notifications) .chan:hover { color: var(--text); }
+
+:where(.control-system, .notifications) .chan:hover .chan-skin { border-color: var(--dim); }
+
+:where(.control-system, .notifications) .chan.on:hover .chan-skin { border-color: var(--signal); box-shadow: 0 0 0 1px rgb(60 240 124 / .4), 0 0 26px rgb(60 240 124 / .5); }
+
+:where(.control-system, .notifications) .chan.t2.on:hover .chan-skin { border-color: var(--tier2); box-shadow: 0 0 0 1px rgb(61 139 255 / .4), 0 0 26px rgb(61 139 255 / .5); }
+
+:where(.control-system, .notifications) .chan:focus-visible { box-shadow: var(--ring); }
+
+:where(.control-system, .notifications) .amp-pair { color: var(--text-2); font: 400 30px/1 var(--control); }
+
+:where(.control-system, .notifications) .glyphs { display: flex; align-items: center; gap: 6px; }
+
+:where(.control-system, .notifications) .glyph { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 46px; width: auto; height: 46px; color: var(--leaf); background: transparent; }
+
+:where(.control-system, .notifications) .glyph:hover { color: var(--leaf); background: transparent; }
+
+:where(.control-system, .notifications) .glyph .sf { font-size: 38px; }
+
+:where(.control-system, .notifications) .readout { color: var(--value); font: 400 var(--font-readout)/1 var(--control); white-space: nowrap; }
+
+:where(.control-system, .notifications) .readout b { font-weight: 700; }
+
+:where(.control-system, .notifications) .readout > span { margin-left: 12px; color: inherit; font: inherit; letter-spacing: 0; text-transform: none; }
+
+:where(.control-system, .notifications) .stepper { position: relative; isolation: isolate; display: inline-flex; flex: none; align-items: stretch; height: var(--control-h); padding: 1.5px; border-radius: var(--radius-control); color: var(--text-2); }
+
+:where(.control-system, .notifications) .step-skin { position: absolute; inset: 0; z-index: -1; border: var(--border-control) solid var(--line); border-radius: inherit; background: var(--ground); }
+
+:where(.control-system, .notifications) .step-val { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 108px; padding: 0 16px; color: var(--text-2); font: 400 var(--font-control)/1 var(--control); white-space: nowrap; }
+
+:where(.control-system, .notifications) .step-val b { color: var(--value); font-weight: 400; }
+
+:where(.control-system, .notifications) .step-btn { width: 38px; height: 41px; border-left: 1px solid var(--line); background: var(--go-deep); color: var(--text); }
+
+:where(.control-system, .notifications) .step-btn .sf { font-size: 15px; font-weight: 700; }
+
+:where(.control-system, .notifications) .step-btn:last-child { border-radius: 0 10.5px 10.5px 0; }
+
+:where(.control-system, .notifications) .step-btn:hover:not(:disabled) { background: var(--go); color: var(--on-text); }
+
+:where(.control-system, .notifications) .stepper.t2 .step-btn { background: var(--tier2-deep); }
+
+:where(.control-system, .notifications) .stepper.t2 .step-btn:hover:not(:disabled) { background: var(--tier2); }
+
+:where(.control-system, .notifications) .step-btn:disabled { opacity: 1; background: var(--surface); color: var(--line); }
+
+:where(.control-system, .notifications) .stepper:hover .step-skin, :where(.control-system, .notifications) .stepper:focus-within .step-skin { border-color: var(--signal); box-shadow: var(--glow); }
+
+:where(.control-system, .notifications) .stepper.t2:hover .step-skin, :where(.control-system, .notifications) .stepper.t2:focus-within .step-skin { border-color: var(--tier2); box-shadow: var(--glow-2); }
+
+:where(.control-system, .notifications) .step-btn:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-color); }
+
+:where(.control-system, .notifications) .tile { position: relative; isolation: isolate; flex: none; display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: var(--radius-tile); color: var(--leaf); transition: background .15s, color .15s; }
+
+:where(.control-system, .notifications) .tile .sf { font-size: 32px; }
+
+:where(.control-system, .notifications) .tile-skin { position: absolute; inset: 0; z-index: -1; border: var(--border-field) solid var(--signal); border-radius: inherit; background: var(--leaf); }
+
+:where(.control-system, .notifications) .tile-in { color: #000; }
+
+:where(.control-system, .notifications) .tile-out { position: absolute; inset: 0; display: grid; place-items: center; color: var(--leaf); }
+
+:where(.control-system, .notifications) .tile:focus-visible { box-shadow: var(--ring); }
+
+:where(.control-system, .notifications) .tier { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 32px; }
+
+:where(.control-system, .notifications) .tier-bar { height: 4px; border-radius: 2px; background: var(--signal); box-shadow: 0 0 14px rgb(60 240 124 / .45); }
+
+:where(.control-system, .notifications) .tier.t2 .tier-bar { background: var(--tier2); box-shadow: 0 0 14px rgb(61 139 255 / .45); }
+
+:where(.control-system, .notifications) .tier-foot { display: flex; align-items: center; justify-content: flex-end; gap: 14px; min-height: 32px; color: var(--text-2); font: 600 var(--font-label)/1 var(--control); letter-spacing: .14em; text-transform: uppercase; }
+
+:where(.control-system, .notifications) .tier.t2 .tier-foot { justify-content: flex-start; }
+
+:where(.control-system, .notifications) .tag-x { gap: 6px; height: 32px; padding: 0 10px; border-radius: var(--radius-field); background: var(--stop-fill); color: var(--stop); font: 600 11px/1 var(--control); letter-spacing: .14em; text-transform: uppercase; }
+
+:where(.control-system, .notifications) .tag-x .sf { font-size: 10px; font-weight: 800; }
+
+:where(.control-system, .notifications) .tag-x:hover { background: var(--stop-hover); color: var(--stop-hover-text); }
+
+:where(.control-system, .notifications) .link-add { min-height: var(--control-h); gap: 8px; color: var(--text-2); font: 600 15px/1.3 var(--control); letter-spacing: .14em; text-transform: uppercase; }
+
+:where(.control-system, .notifications) .link-add .sf { font-size: 13px; font-weight: 700; }
+
+:where(.control-system, .notifications) .link-add:hover { color: var(--tier2); }
+
+:where(.control-system, .notifications) .mx { position: relative; }
+
+:where(.control-system, .notifications) .m-in, :where(.control-system, .notifications) .m-out {
+    transform-origin: left center;
+    transition-property: transform, filter, opacity;
+    transition-duration: var(--bloom-t), var(--bloom-t), var(--fade-t);
+    transition-timing-function: var(--bloom), var(--bloom), linear;
+    transition-delay: calc(var(--hold) + var(--d, 0s));
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+:where(.control-system, .notifications) .m-out { transform: scale(1); opacity: 1; filter: brightness(1) hue-rotate(0deg); pointer-events: none; }
+
+:where(.control-system, .notifications) .m-in { transform: scale(.1); opacity: 0; filter: brightness(0) hue-rotate(720deg); pointer-events: none; }
+
+:where(.control-system, .notifications) .mx:hover .m-in, :where(.control-system, .notifications) .mx:focus-within .m-in, :where(.control-system, .notifications).always .m-in, :where(.control-system, .notifications) .always .m-in { transform: scale(1); opacity: 1; filter: brightness(1) hue-rotate(0deg); pointer-events: auto; }
+
+:where(.control-system, .notifications) .mx:hover .m-out, :where(.control-system, .notifications) .mx:focus-within .m-out, :where(.control-system, .notifications).always .m-out, :where(.control-system, .notifications) .always .m-out { transform: scale(.1); opacity: 0; filter: brightness(0) hue-rotate(720deg); }
+
+:where(.control-system, .notifications) .mx:hover .m-in, :where(.control-system, .notifications) .mx:hover .m-out, :where(.control-system, .notifications) .mx:focus-within .m-in, :where(.control-system, .notifications) .mx:focus-within .m-out { transition-delay: var(--d, 0s); }
+
+:where(.control-system, .notifications) .s1 { --d: var(--step-d); }
+
+:where(.control-system, .notifications) .s2 { --d: calc(var(--step-d) * 2); }
+
+:where(.control-system, .notifications) .s3 { --d: calc(var(--step-d) * 3); }
+
+:where(.control-system, .notifications) .s4 { --d: calc(var(--step-d) * 4); }
+
+:where(.control-system, .notifications) .s5 { --d: calc(var(--step-d) * 5); }
+
+:where(.control-system, .notifications) .s6 { --d: calc(var(--step-d) * 6); }
+
+:where(.control-system, .notifications) .s7 { --d: calc(var(--step-d) * 7); }
+
+:where(.control-system, .notifications) .s8 { --d: calc(var(--step-d) * 8); }
+
+@media (max-width: 767px) {
+:where(.control-system, .notifications) .mode button { padding-left: 0; padding-right: 16px; font-size: 25px; }
+
+:where(.control-system, .notifications) .mode button:last-child { padding-left: 16px; }
+
+:where(.control-system, .notifications) .chans { gap: 6px; }
+
+:where(.control-system, .notifications) .chan { gap: 7px; padding: 0 9px; }
+}
+
+@media (hover: none) {
+:where(.control-system, .notifications) .m-in { transform: scale(1); opacity: 1; filter: brightness(1) hue-rotate(0deg); pointer-events: auto; }
+
+:where(.control-system, .notifications) .m-out { transform: scale(.1); opacity: 0; filter: brightness(0) hue-rotate(720deg); }
+
+:where(.control-system, .notifications) .sel { border-color: var(--signal); background: var(--ground); color: var(--signal); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+:where(.control-system, .notifications) .m-in, :where(.control-system, .notifications) .m-out { transition-property: opacity; transform: none !important; filter: none !important; }
+}

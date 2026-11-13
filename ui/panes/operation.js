@@ -167,7 +167,7 @@ function scan(tick) {
 export function renderEvents() {
   const cards = absorb(group(state.events)), pick = (f) => cards.filter((c) => (f === 'all' ? !(c.facets.size === 1 && c.facets.has('system')) : c.facets.has(f)));
   const shown = digest(pick(facet)), count = (f) => pick(f).length;
-  $('#filters').innerHTML = FACETS.map(([f, label, tip]) => `<button type="button" class="facet${f === facet ? ' on' : ''}${f === 'problems' && count(f) ? ' alert' : ''}" data-f="${f}" data-tip="${esc(tip)}">${label} <span class="n">${count(f)}</span></button>`).join('');
+  $('#filters').innerHTML = FACETS.map(([f, label, tip]) => `<button type="button" class="facet${f === facet ? ' on' : ''}${f === 'problems' && count(f) ? ' alert' : ''}" aria-pressed="${f === facet}" data-f="${f}" data-tip="${esc(tip)}">${label} <span class="n">${count(f)}</span></button>`).join('');
   $('#filters').querySelectorAll('.facet').forEach((b) => b.addEventListener('click', () => { facet = b.dataset.f; localStorage.setItem('omni.facet', facet); renderEvents(); }));
   $('#counter').textContent = `${shown.length} of ${cards.length}`;
   const box = $('#events'), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
@@ -179,17 +179,17 @@ export function renderEvents() {
 }
 
 const cardHTML = (c) => `<article class="act${c.problem ? ' problem' : ''}${opened.has(c.key) ? ' open' : ''}" data-key="${esc(c.key)}">
-  <button type="button" class="act-head"><time>${hm(c.ts)}</time><span class="act-title">${esc(c.title)}</span>${c.meta ? `<span class="act-meta">${esc(c.meta)}</span>` : ''}</button>
+  <button type="button" class="act-head" aria-expanded="${opened.has(c.key)}"><time>${hm(c.ts)}</time><span class="act-title">${esc(c.title)}</span>${c.meta ? `<span class="act-meta">${esc(c.meta)}</span>` : ''}</button>
   ${c.outcome ? `<p class="act-out">${esc(c.outcome)}</p>` : ''}
   <div class="act-body">
-    ${c.steps.length ? `<ol class="act-steps">${c.steps.map((s) => `<li class="${s.cls}"><button type="button" class="st">${esc(s.text)}</button><pre hidden>${esc(s.raw.map((e) => JSON.stringify(e.data, null, 2)).join('\n\n'))}</pre></li>`).join('')}</ol>` : ''}
-    <details class="act-all"><summary>Every record (${c.evs.length})</summary>${c.evs.map((e) => `<div class="rec"><time>${new Date(e.ts).toLocaleTimeString([], { hour12: false })}</time><button type="button" class="st">${esc(short(summary(e), 200))}</button><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`).join('')}</details>
+    ${c.steps.length ? `<ol class="act-steps">${c.steps.map((s) => `<li class="${s.cls}"><button type="button" class="st" aria-expanded="false">${esc(s.text)}</button><pre hidden>${esc(s.raw.map((e) => JSON.stringify(e.data, null, 2)).join('\n\n'))}</pre></li>`).join('')}</ol>` : ''}
+    <details class="act-all"><summary>Every record (${c.evs.length})</summary>${c.evs.map((e) => `<div class="rec"><time>${new Date(e.ts).toLocaleTimeString([], { hour12: false })}</time><button type="button" class="st" aria-expanded="false">${esc(short(summary(e), 200))}</button><pre hidden>${esc(JSON.stringify(e.data, null, 2))}</pre></div>`).join('')}</details>
   </div>
 </article>`;
 
 function wire(root) {
-  root.querySelectorAll('.act-head').forEach((h) => h.addEventListener('click', () => { const a = h.closest('.act'); a.classList.toggle('open'); a.classList.contains('open') ? opened.add(a.dataset.key) : opened.delete(a.dataset.key); }));
-  root.querySelectorAll('.st').forEach((b) => b.addEventListener('click', () => { const pre = b.nextElementSibling; pre.hidden = !pre.hidden; }));
+  root.querySelectorAll('.act-head').forEach((h) => h.addEventListener('click', () => { const a = h.closest('.act'); a.classList.toggle('open'); h.setAttribute('aria-expanded', String(a.classList.contains('open'))); a.classList.contains('open') ? opened.add(a.dataset.key) : opened.delete(a.dataset.key); }));
+  root.querySelectorAll('.st').forEach((b) => b.addEventListener('click', () => { const pre = b.nextElementSibling; pre.hidden = !pre.hidden; b.setAttribute('aria-expanded', String(!pre.hidden)); }));
 }
 
 let pending = null;

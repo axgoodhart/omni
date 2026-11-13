@@ -22,6 +22,7 @@ function render() {
     $('#iv-hint').textContent = 'Everything you said is a file under desk/. Change any of it there or on the desk.';
     box.innerHTML = `<button type="submit">open the desk</button>`;
     $('#iv-help').textContent = '';
+    box.querySelector('button').focus();
     return;
   }
   $('#iv-prompt').textContent = q.prompt;
@@ -30,11 +31,13 @@ function render() {
     box.innerHTML = `<div class="iv-choices">${q.options.map((o) => `<button type="button" class="ghost" data-v="${esc(o.value)}">${esc(o.label)}</button>`).join('')}</div>`;
     box.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => submit(b.dataset.v)));
     $('#iv-help').textContent = 'choose one';
+    box.querySelector('button')?.focus();
   } else if (q.kind === 'statement') {
     box.innerHTML = `<button type="submit">continue</button>`;
     $('#iv-help').textContent = 'enter to continue';
+    box.querySelector('button').focus();
   } else {
-    box.innerHTML = `<input class="iv-input" type="${q.kind === 'secret' ? 'password' : q.kind === 'time' ? 'time' : 'text'}" value="${esc(q.prefill ?? '')}" placeholder="${q.kind === 'secret' ? '••••••••' : q.optional ? 'enter, or skip' : 'enter'}" autocomplete="off" spellcheck="false">`;
+    box.innerHTML = `<input class="iv-input" aria-labelledby="iv-prompt" aria-describedby="iv-hint" type="${q.kind === 'secret' ? 'password' : q.kind === 'time' ? 'time' : 'text'}" value="${esc(q.prefill ?? '')}" placeholder="${q.kind === 'secret' ? '••••••••' : q.optional ? 'enter, or skip' : 'enter'}" autocomplete="off" spellcheck="false">`;
     $('#iv-help').textContent = 'enter to continue';
     box.querySelector('input').focus();
   }

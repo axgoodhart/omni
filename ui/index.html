@@ -6,17 +6,19 @@
 <title>omnii</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300,0..1,0" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/controls.css">
 <link rel="stylesheet" href="/notifications.css">
+<link rel="stylesheet" href="/config.css">
+<link rel="stylesheet" href="/surfaces.css">
 </head>
-<body>
+<body class="control-system">
 <div class="layout">
 <aside class="sidebar" id="sideBar">
   <div class="brand">
-    <span class="brand-mark" id="sidbearToggle" onclick="clickSidebarToggle()" style="cursor: pointer;"></span>
+    <button type="button" class="brand-mark" id="sidebarToggle" onclick="clickSidebarToggle()" aria-label="Toggle navigation" aria-expanded="true"></button>
     <p id="status" data-tip="Whether this page is connected to the background service">connecting…</p>
   </div>
      <nav>
@@ -122,12 +124,21 @@
 <script>
 
   function clickSidebarToggle() {
-    document.getElementById('sideBar').classList.toggle('thin');
+    const sidebar = document.getElementById('sideBar');
+    const expanded = navigationQuery.matches
+      ? sidebar.classList.toggle('expanded')
+      : !sidebar.classList.toggle('thin');
+    document.getElementById('sidebarToggle').setAttribute('aria-expanded', String(expanded));
   }
-
-
-
-
+  const navigationQuery = matchMedia('(max-width: 760px)');
+  function syncNavigationSize() {
+    const sidebar = document.getElementById('sideBar');
+    sidebar.classList.remove('expanded');
+    if (navigationQuery.matches) sidebar.classList.remove('thin');
+    document.getElementById('sidebarToggle').setAttribute('aria-expanded', String(!navigationQuery.matches && !sidebar.classList.contains('thin')));
+  }
+  navigationQuery.addEventListener('change', syncNavigationSize);
+  syncNavigationSize();
 </script>
 </body>
 </html>

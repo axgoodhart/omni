@@ -5,10 +5,10 @@ import { openDrawer, showOut, showDeskFile } from './side.js';
 const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const ago = (ts) => { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
 const LEVEL = { high: 3, medium: 2, low: 1 };
-const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const OUT_ICON = { mail: 'mail', site: 'public', submissions: 'upload' };
-export const priority = (p, what = 'Priority') => `<span class="priority" data-level="${LEVEL[p] ?? 2}" data-tip="${esc(what)}: ${esc(p)}"><i></i><i></i><i></i></span>`;
-const week = (on, tip) => `<span class="week" data-tip="${esc(tip)}">${DAYS.map((d) => `<i class="day ${on.includes(d) ? 'on' : ''}"></i>`).join('')}</span>`;
+export const priority = (p, what = 'Priority') => `<span class="priority" role="img" aria-label="${esc(what)}: ${esc(p)}" data-priority="${({ high: 'H', medium: 'M', low: 'L' })[p] ?? 'M'}" data-level="${LEVEL[p] ?? 2}" data-tip="${esc(what)}: ${esc(p)}"><i></i><i></i><i></i></span>`;
+const week = (on, tip) => `<span class="week" role="img" aria-label="${esc(tip)}" data-tip="${esc(tip)}">${DAYS.map((d) => `<i class="day ${on.includes(d) ? 'on' : ''}" aria-hidden="true">${d === 'thu' ? 'Th' : d[0].toUpperCase()}</i>`).join('')}</span>`;
 const empty = (a, b, tip, n = '0') => `<div class="empty-visual" id="emptyVisual" tabindex="0" data-tip="${esc(tip)}">${ic(a, 'zero')}<span class="empty-line"></span>${n === null ? ic(b) : `<span class="num">${n}</span>`}</div>`;
 
 export function renderDesk() {
@@ -105,13 +105,14 @@ function renderIslands(d) {
   box.innerHTML = d.islands.map((i) => `<article class="island" data-slug="${esc(i.slug)}" data-done="${i.progress >= 100}">
     <header><span class="ic" data-tip="${esc(i.kind)}">${kindIcon(i.kind)}</span><h3>${esc(i.name)}</h3>${priority(d.priorities.islands[i.slug] ?? 'medium')}</header>
     ${progressHTML(i.progress)}
-    <input class="status" value="${esc(i.status)}" placeholder="what's true about it right now">
+    <input class="status" aria-label="Status for ${esc(i.name)}" value="${esc(i.status)}" placeholder="what's true about it right now">
     ${byIsland(i.slug).map(checkinHTML).join('')}
     <footer><span class="file-count" data-tip="${i.files.length ? `${i.files.length} file${i.files.length === 1 ? '' : 's'} in its folder` : 'No files yet'}">${ic('attachment')}<span class="num">${i.files.length}</span></span><span class="spacer"></span>${ibtn('chat_bubble', 'Talk about this with the assistant', 'data-discuss', 'small')}${ibtn('description', 'Open its file', 'data-edit', 'small')}</footer>
   </article>`).join('') || empty('account_tree', null, 'Nothing on the plate yet. Use + to add something, or run the interview.');
   wireCheckins(box);
   box.querySelectorAll('.island').forEach((el) => {
     const slug = el.dataset.slug;
+    el.querySelector('input[type="range"]').setAttribute('aria-label', `Progress for ${d.islands.find((i) => i.slug === slug)?.name ?? slug}`);
     wireProgress(el, async (_, progress) => { await api(`/api/islands/${slug}`, { method: 'POST', body: { progress } }); deskSoon(); });
     el.querySelector('.status').addEventListener('change', async (e) => { await api(`/api/islands/${slug}`, { method: 'POST', body: { status: e.target.value } }); });
     el.querySelector('[data-discuss]').addEventListener('click', () => discuss(`About ${d.islands.find((x) => x.slug === slug)?.name}: `));
@@ -150,7 +151,7 @@ function renderOut(d) {
 
 function renderWatches(d) {
   const w = d.watches, t = d.trust, p = d.profile;
-  const cell = (icon, on, tip, file, n = null) => `<button type="button" class="watch-cell" aria-pressed="${on}" data-tip="${esc(tip)}" data-f="${file}">${ic(icon)}${n === null ? '<span class="signal"></span>' : `<span class="num">${n}</span>`}</button>`;
+  const cell = (icon, on, tip, file, n = null) => `<button type="button" class="watch-cell" aria-label="${esc(tip)}" aria-pressed="${on}" data-tip="${esc(tip)}" data-f="${file}">${ic(icon)}${n === null ? '<span class="signal"></span>' : `<span class="num">${n}</span>`}</button>`;
   const TRUST_TIP = { mail: 'Email replies and unsubscribes', site: 'Changes to your website', submissions: 'Applications and submissions' };
   const TRUST_ICON = { mail: 'mail', site: 'public', submissions: 'upload' };
   $('#desk-watches').innerHTML = `

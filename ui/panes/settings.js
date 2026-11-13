@@ -1,8 +1,9 @@
-import { $, api, esc, ic, ibtn, sliderHTML, wireSliders, progressHTML, progressWord } from '../lib.js';
+import { $, api, esc, ic, ibtn, wireSliders, progressHTML, progressWord } from '../lib.js';
 import { state, deskSoon, showView } from '../app.js';
 import { openDrawer } from './side.js';
 import { showInterview } from './interview.js';
 import { renderNotifications, wireNotifications } from './notifications.js';
+import { dayControl, switchHTML, stepper } from '../controls.js';
 
 /** Config: quiet sections, one row per thing, every choice visible and small. Explanations live in the (i) per section and on each row's label. */
 let S = null;
@@ -11,7 +12,7 @@ const ago = (ts) => { const m = Math.round((Date.now() - ts) / 60000); return m 
 const LEVELS = ['high', 'medium', 'low'];
 const NAME = { high: 'High', medium: 'Medium', low: 'Low' };
 const RULE_KIND = { shell: 'Command', write_file: 'Files', imessage_send: 'Texts' };
-const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const WEEK = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const KINDS = ['make', 'research', 'build', 'story', 'grow', 'open'];
 const TRUST = ['Email replies', 'Website changes', 'Submissions'];
 
@@ -29,9 +30,9 @@ function paintSettings() {
 <div class="cfg">
   ${sec('autorenew', 'Loop', 'Every row on this page is a rule Omnii follows. Change one and Omnii follows it on its next scan. Omnii never edits this page; only you do.',
     line("Scans every", cells(slider('loop.every_min', L.every_min, 1, 120, 'min', 'wide')), 'How often Omnii scans your plate.')
-    + line('Out at once', cells(pills('loop.max_open', L.max_open, [1, 2, 3, 4, 5].map((n) => [n, String(n)]))), 'How many questions Omnii may have out to you at the same time.', waiting.length ? `${waiting.length} open` : 'none open')
+    + line('Out at once', cells(number('loop.max_open', L.max_open, 1, 5, 'open')), 'How many questions Omnii may have out to you at the same time.', waiting.length ? `${waiting.length} open` : 'none open')
     + (waiting.length ? line('Open requests', cells(fact(waiting.map((c) => `${esc(c.title.replace(/[:.\s]+$/, '').slice(0, 40))} (asked ${hm(c.created)})`).join('; ')))) : ''),
-    { right: pills('loop.paused', L.paused, [[false, 'Active'], [true, 'Paused']], L.paused ? 'warn' : '') + (st.paused ? '<span class="warn">Paused</span>' : st.last ? `<span>Last ${hm(st.last.at)} · next ${st.next ? hm(st.next) : '–'}</span>` : '<span>Not looked yet</span>') })}
+    { right: switchHTML('loop.paused', !L.paused, 'Loop running') + (st.paused ? '<span class="warn">Paused</span>' : st.last ? `<span>Last ${hm(st.last.at)} · next ${st.next ? hm(st.next) : '–'}</span>` : '<span>Not looked yet</span>') })}
 
   ${renderNotifications(S, texting)}
 
@@ -49,7 +50,7 @@ function paintSettings() {
       + line('', cells('<button type="button" id="mc-save">Save</button>'))}</div>`
     + (W.mail.lastError ? line('Problem', cells(fact(esc(W.mail.lastError), 'dim'))) : '')
     + (W.mail.ignore.length ? line('Never asks about', cells(fact(W.mail.ignore.map(esc).join(', '), 'dim'))) : '')
-    + line('Unsubscribe at', cells(slider('watches.mail.unsub_threshold', W.mail.unsub_threshold, 1, 30, 'in a week') + fact('from one sender that offers an unsubscribe link', 'dim')), 'When one sender sends this many in a week and offers an unsubscribe link, Omnii asks whether to unsubscribe.'))}
+    + line('Unsubscribe at', cells(number('watches.mail.unsub_threshold', W.mail.unsub_threshold, 1, 30, 'per week') + fact('from one sender that offers an unsubscribe link', 'dim')), 'When one sender sends this many in a week and offers an unsubscribe link, Omnii asks whether to unsubscribe.'))}
 
   ${sec('shield', 'In your name', 'Everything Omnii would send or publish as you is written to the out/ folder instead, for you to read. Sending for real is not available yet.',
     line('Sends as you', cells(TRUST.map((t) => `<span class="fact">${ic('lock', 'dim')}${esc(t)}</span>`).join('') + fact('written to out/, never sent', 'dim')), 'Three kinds of thing Omnii could send as you. All of them are written to the out/ folder for you to read; none is sent.'),
@@ -94,17 +95,17 @@ const fact = (t, cls = '') => `<span class="fact ${cls}">${t}</span>`;
 
 // ---- controls: each returns HTML; wire() attaches the saves
 const choice = (k, cur, opts, cls, tip = () => '') => `<span class="${cls}" role="radiogroup" data-k="${k}">${opts.map(([v, label]) => `<button type="button" role="radio" aria-checked="${JSON.stringify(cur) === JSON.stringify(v)}" data-v="${esc(JSON.stringify(v))}"${tip(v) ? ` data-tip="${esc(tip(v))}"` : ''}>${esc(label)}</button>`).join('')}</span>`;
-const pills = (k, cur, opts, cls = '') => choice(k, cur, opts, `pills ${cls}`);
-const days = (k, on) => `<span class="pills multi days" data-k="${k}">${DAYS.map((d) => `<button type="button" aria-pressed="${on.includes(d)}" data-day="${d}">${d}</button>`).join('')}</span>`;
-const slider = (k, v, min, max, unit, cls = '') => sliderHTML({ min, max, step: 1, value: v, word: `${v} ${unit}`, attrs: `data-k="${k}" data-unit="${esc(unit)}"`, cls });
-const time = (k, v) => `<input class="field time" type="time" data-k="${k}" value="${esc(v)}">`;
-const text = (k, v, ph) => `<input class="field" type="text" data-k="${k}" value="${esc(v ?? '')}" placeholder="${esc(ph)}">`;
+const days = (k, on) => dayControl(WEEK.map((d) => on.includes(d)), k, 'Apartment days');
+const number = (k, v, min, max, unit) => stepper(k, v, unit, S.labels?.[k] ?? k.split('.').at(-1), min, max, 1);
+const slider = (k, v, min, max, unit) => number(k, v, min, max, unit);
+const time = (k, v) => `<input class="field time" type="time" data-k="${k}" data-n-focus="${k}" aria-label="${esc(S.labels?.[k] ?? 'Time')}" value="${esc(v)}">`;
+const text = (k, v, ph) => `<input class="field" type="text" data-k="${k}" data-n-focus="${k}" aria-label="${esc(S.labels?.[k] ?? k.split('.').at(-1))}" value="${esc(v ?? '')}" placeholder="${esc(ph)}">`;
 const btn = (k, v, label) => `<button type="button" class="ghost tiny act" data-k="${k}" data-json='${esc(JSON.stringify(v))}'>${esc(label)}</button>`;
 function rhythm(key, name, tip, last) {
   const p = S.priorities[key], k = (f) => `priorities.${key}.${f}`;
   return line(`<b>${name}</b>`,
-    cell('', pills(k('enabled'), p.enabled, [[true, 'On'], [false, 'Off']])) + cell('Days', key === 'chores' ? days(k('days'), p.days) : fact('every day', 'dim')) + cell('Time', time(k('time'), p.time))
-    + cell('Priority', pills(k('priority'), p.priority, LEVELS.map((l) => [l, NAME[l]]))) + cell('Last', fact(esc(last), 'dim')),
+    cell('', switchHTML(k('enabled'), p.enabled, `${name} rhythm`)) + cell('Days', key === 'chores' ? days(k('days'), p.days) : fact('every day', 'dim')) + cell('Time', time(k('time'), p.time))
+    + cell('Priority', choice(k('priority'), p.priority, LEVELS.map((l) => [l, NAME[l][0]]), 'letters', (l) => NAME[l])) + cell('Last', fact(esc(last), 'dim')),
     tip, '', p.enabled ? '' : 'off');
 }
 function island(i) {
@@ -112,7 +113,7 @@ function island(i) {
     <span class="plate-gutter">${ic('edit')}</span>
     <input class="plate-name" data-k="islands.${esc(i.slug)}.name" value="${esc(i.name)}" aria-label="Name">
     ${cell('Priority', choice(`islands.${i.slug}.priority`, i.priority, LEVELS.map((l) => [l, NAME[l][0]]), 'letters', (l) => NAME[l]))}
-    ${cell('Type', choice(`islands.${i.slug}.kind`, i.kind, KINDS.map((k) => [k, k]), 'kinds'))}
+    ${cell('Type', `<select class="field kind-field" data-k="islands.${esc(i.slug)}.kind" data-n-focus="islands.${esc(i.slug)}.kind" aria-label="Type for ${esc(i.name)}">${KINDS.map((k) => `<option value="${k}"${i.kind === k ? ' selected' : ''}>${k}</option>`).join('')}</select>`)}
     ${cell('Progress', progressHTML(i.progress, `data-k="islands.${esc(i.slug)}.progress"`))}
     ${ibtn('delete', 'Remove from the plate (its file is deleted)', `data-remove="${esc(i.slug)}"`, 'small')}
   </div>`;
@@ -144,7 +145,7 @@ async function saveMany(changes) {
     box.removeAttribute('aria-busy');
     if (focus) {
       const target = box.querySelector('[data-n-focus="' + CSS.escape(focus) + '"]');
-      (target?.disabled ? target.closest('.step')?.querySelector('button:not(:disabled)') : target)?.focus({ preventScroll: true });
+      (target?.disabled ? target.closest('.stepper')?.querySelector('button:not(:disabled)') : target)?.focus({ preventScroll: true });
     }
   }
 }
@@ -158,18 +159,23 @@ function toast(msg, undo) {
 }
 
 function wire(box) {
+  box.querySelectorAll('.cfg > .sec [data-switch]').forEach((b) => b.addEventListener('click', () => {
+    const on = b.getAttribute('aria-checked') === 'true';
+    save(b.dataset.switch, b.dataset.switch === 'loop.paused' ? on : !on);
+  }));
+  box.querySelectorAll('.cfg > .sec [data-step]').forEach((b) => b.addEventListener('click', () => save(b.dataset.step, Number(b.dataset.value))));
+  box.querySelectorAll('.cfg > .sec [data-days]').forEach((group) => group.querySelectorAll('[data-day]').forEach((b) => b.addEventListener('click', () => {
+    const selected = [...group.querySelectorAll('[data-day]')].filter((d) => (d.getAttribute('aria-pressed') === 'true') !== (d === b)).map((d) => WEEK[Number(d.dataset.day)]);
+    save(group.dataset.days, selected);
+  })));
   box.querySelectorAll('[role=radiogroup][data-k] button').forEach((b) => b.addEventListener('click', () => {
     if (b.getAttribute('aria-checked') !== 'true') save(b.parentElement.dataset.k, JSON.parse(b.dataset.v));
   }));
   box.querySelectorAll('[data-unallow]').forEach((b) => b.addEventListener('click', () => save('allowed.remove', Number(b.dataset.unallow))));
-  box.querySelectorAll('.pills.multi').forEach((el) => el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-    const on = [...el.querySelectorAll('[aria-pressed="true"]')].map((x) => x.dataset.day);
-    save(el.dataset.k, b.getAttribute('aria-pressed') === 'true' ? on.filter((d) => d !== b.dataset.day) : [...on, b.dataset.day]);
-  })));
   wireSliders(box,
     (el, v) => el.dataset.unit ? [v, el.dataset.unit].join(' ') : progressWord(v),
     (el, v) => save(el.dataset.k, v));
-  box.querySelectorAll('input[data-k]').forEach((el) => el.addEventListener('change', () => save(el.dataset.k, el.value)));
+  box.querySelectorAll('input[data-k], select[data-k]').forEach((el) => el.addEventListener('change', () => save(el.dataset.k, el.value)));
   const add = $('#plate-add');
   const addIsland = async () => { const name = add.value.trim(); if (!name) return; add.value = ''; await api('/api/islands', { method: 'POST', body: { name } }); deskSoon(); renderSettings(); };
   add?.addEventListener('change', addIsland);
@@ -186,7 +192,7 @@ function wire(box) {
       await api('/api/settings', { method: 'PUT', body: { key: 'mail.host', value: $('#mc-host').value } });
       await api('/api/settings', { method: 'PUT', body: { key: 'mail.user', value: $('#mc-user').value } });
       if ($('#mc-pass').value) await api('/api/settings', { method: 'PUT', body: { key: 'mail.pass', value: $('#mc-pass').value } });
-      toast('Saved. Omnii starts reading on its next scan.'); await renderSettings(); deskSoon();
+      await renderSettings(); toast('Saved. Omnii starts reading on its next scan.'); deskSoon();
     } catch (e) { toast(e.message); }
   });
   box.querySelectorAll('[data-remove]').forEach((b) => b.addEventListener('click', async () => {

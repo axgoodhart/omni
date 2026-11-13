@@ -25,18 +25,7 @@ export async function refresh() {
 }
 export async function loadDesk() {
   state.desk = await api('/api/desk'); if (state.view === 'desk') renderDesk();
-  const deskNeeds = document.getElementById('desk-needs');
-  const emptyVisual = document.getElementById('emptyVisual');
-  const panelNeeds = document.getElementById('panel-needs');
-
-
-  if (deskNeeds.firstElementChild === emptyVisual) {
-    panelNeeds.classList.add('mini');
-  }else {
-    panelNeeds.classList.remove('mini');
-  }
-
- }
+}
 
 export async function loadThread() {
   const thread = state.view === 'loop' ? 'loop' : state.mode;
@@ -171,7 +160,8 @@ function showTip(el) {
   const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
   const x = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
   const y = r.bottom + h + 16 > window.innerHeight ? r.top - h - 8 : r.bottom + 8;
-
+  tip.style.left = `${x}px`;
+  tip.style.top = `${Math.max(8, y)}px`;
 }
 function hideTip() { tipFor = null; tip.hidden = true; }
 document.addEventListener('mouseover', (e) => { const el = e.target.closest?.('[data-tip]'); if (!el) { if (tipFor) hideTip(); } else if (el !== tipFor) showTip(el); });

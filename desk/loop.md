@@ -4,7 +4,7 @@ paused: false
 quiet:
   from: 00:00
   to: 09:00
-max_open: 2
+max_open: 3
 via: both
 levels:
   high:
@@ -31,6 +31,7 @@ levels:
     second_times: 2
     stop: true
     stop_text: false
+notify: true
 ---
 
 How Omnii behaves. Change a value here or on the Config page and Omnii follows it on its next scan. Omnii never edits this file.

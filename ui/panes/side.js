@@ -20,7 +20,7 @@ export function openDrawer(name) {
   tab = name;
   $('#drawer').hidden = false;
   $('#drawer-title').innerHTML = `<span class="ph" tabindex="0" data-tip="${esc(HELP[name] ?? '')}">${ic(ICONS[name] ?? 'info')}<span>${esc(TITLES[name] ?? name)}</span></span>`;
-  document.querySelectorAll('.tab').forEach((t) => { t.hidden = t.id !== `tab-${name}`; });
+  document.querySelectorAll('#drawer > .tab').forEach((t) => { t.hidden = t.id !== `tab-${name}`; });
   if (name === 'mode' && formFor !== state.mode) renderModeTab();
   if (name === 'desk') renderDeskFiles();
 }
@@ -40,7 +40,7 @@ async function renderDeskFiles(file) {
   try { ({ files } = await api('/api/desk/files')); if (!files.includes(deskFile)) deskFile = files[0] ?? deskFile; ({ text } = await api(`/api/desk/files/${deskFile.split('/').map(encodeURIComponent).join('/')}`)); }
   catch (e) { box.innerHTML = `<div class="muted">${esc(e.message)}</div>`; return; }
   box.innerHTML = `<div class="row">${files.map((f) => `<button class="${f === deskFile ? '' : 'ghost'} tiny" data-f="${esc(f)}">${esc(f.replace(/\.md$/, ''))}</button>`).join('')}</div>
-<textarea id="desk-raw" class="code" rows="22" spellcheck="false">${esc(text)}</textarea>
+<textarea id="desk-raw" class="code" aria-label="${esc(deskFile)}" rows="22" spellcheck="false">${esc(text)}</textarea>
 <div class="row"><button id="desk-save">Save</button><span id="desk-status" class="muted"></span></div>`;
   box.querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => renderDeskFiles(b.dataset.f)));
   $('#desk-save').addEventListener('click', async () => {
@@ -80,16 +80,16 @@ function renderMemory(all, mode) {
       <div><span class="name">${esc(c.name)}</span> <span class="state">${inserted.has(c.name) ? 'inserted' : 'on the shelf'} · ${c.files.length} note${c.files.length === 1 ? '' : 's'}</span></div>
       <button class="${inserted.has(c.name) ? 'ghost' : ''}">${inserted.has(c.name) ? 'Eject' : 'Insert'}</button>
       <div class="desc">${esc(c.description)}</div>
-      <div class="files">${c.files.length ? c.files.map((f) => `<a data-f="${esc(f)}">${esc(f)}</a>`).join(' · ') : 'no notes yet'}</div>
+      <div class="files">${c.files.length ? c.files.map((f) => `<button type="button" class="file-link" data-f="${esc(f)}">${esc(f)}</button>`).join(' · ') : 'no notes yet'}</div>
     </div>`).join('') || '<div class="muted">No cartridges yet.</div>') +
-    `<h3>New cartridge</h3><form id="new-cartridge" class="row"><input id="cart-name" placeholder="name, e.g. work" required><input id="cart-desc" placeholder="what goes in it"><button>Create</button></form>`;
+    `<h3>New cartridge</h3><form id="new-cartridge" class="row"><input id="cart-name" aria-label="Cartridge name" placeholder="name, e.g. work" required><input id="cart-desc" aria-label="Cartridge description" placeholder="what goes in it"><button>Create</button></form>`;
   box.querySelectorAll('.cart > button').forEach((b) => b.addEventListener('click', async () => {
     const name = b.closest('.cart').dataset.name;
     const next = inserted.has(name) ? [...inserted].filter((n) => n !== name) : [...inserted, name];
     await api(`/api/threads/${encodeURIComponent(state.mode)}/cartridges`, { method: 'PUT', body: { cartridges: next } });
     await refresh();
   }));
-  box.querySelectorAll('.files a').forEach((a) => a.addEventListener('click', async () => {
+  box.querySelectorAll('.files .file-link').forEach((a) => a.addEventListener('click', async () => {
     const name = a.closest('.cart').dataset.name;
     const { content } = await api(`/api/cartridges/${encodeURIComponent(name)}/files/${a.dataset.f.split('/').map(encodeURIComponent).join('/')}`);
     let pre = a.closest('.cart').querySelector('pre');
@@ -141,6 +141,8 @@ ${check('f-carts', state.data.cartridges.map((c) => c.name), (c) => (data.cartri
 </div>`;
 
   const list = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
+  box.querySelectorAll('label.f').forEach((label) => { if (label.nextElementSibling?.matches('input, textarea, select')) label.htmlFor = label.nextElementSibling.id; });
+  for (const [id, label] of [['f-paths', 'Paths never to touch'], ['f-types', 'File types never to touch'], ['f-skill-list', 'Chosen skills'], ['f-raw', 'Mode file']]) box.querySelector(`#${id}`).setAttribute('aria-label', label);
   const checked = (id) => [...box.querySelectorAll(`#${id} input:checked`)].map((i) => i.value);
   const toggleTools = () => box.querySelectorAll('#f-tools input').forEach((i) => { i.disabled = $('#f-default-tools').checked; });
   $('#f-default-tools').addEventListener('change', toggleTools); toggleTools();

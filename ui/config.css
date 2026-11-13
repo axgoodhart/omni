@@ -1,0 +1,75 @@
+.cfg {
+    --lab: 12rem;
+    max-width: 1440px; margin: 0 auto; padding-bottom: var(--space-8);
+    font-family: var(--control);
+}
+.cfg > .sec { max-width: none; margin: 0 0 var(--space-8); }
+.cfg > .sec > .sec-head {
+    flex-wrap: wrap; gap: var(--space-4); padding: 0 0 var(--space-4); border-color: var(--line);
+    color: var(--text); font: 600 var(--font-section)/1.15 var(--heading);
+}
+.cfg .sec-right { flex-wrap: wrap; gap: var(--space-5); color: var(--dim); font: 400 var(--font-label)/1.4 var(--control); letter-spacing: .04em; }
+.cfg > .sec .line { min-height: 76px; grid-template-columns: minmax(150px, var(--lab)) minmax(0, 1fr) auto; gap: var(--space-4) var(--space-5); padding: var(--space-4) 0; border-color: var(--hair); }
+.cfg .lab { color: var(--text-2); font: 500 var(--font-label)/1.4 var(--control); letter-spacing: .1em; }
+.cfg .lab b { color: var(--text); font: 500 var(--font-control)/1.25 var(--control); letter-spacing: 0; }
+.cfg .cells { gap: var(--space-4) var(--space-5); }
+.cfg .fact { color: var(--text-2); font: 400 var(--font-body)/1.45 var(--control); }
+.cfg .fact.dim, .cfg .status { color: var(--dim); font: 400 var(--font-label)/1.45 var(--control); letter-spacing: 0; }
+.cfg .field { width: min(28rem, 100%); min-height: var(--control-h); padding: var(--space-2) var(--space-3); border: var(--border-field) solid var(--line); border-radius: var(--radius-field); background: var(--raised); color: var(--text-2); font: 400 var(--font-body)/1.3 var(--control); }
+.cfg .field.time { min-width: 132px; width: auto; color: var(--value); }
+.cfg .field:hover, .cfg .field:focus { border-color: var(--signal); background: var(--ground); color: var(--text); }
+.cfg .field:focus-visible { outline: none; box-shadow: var(--ring); }
+.cfg .field::placeholder { color: var(--dim); }
+.cfg .table { display: block; }
+.cfg .table > .line.heads { display: none; }
+.cfg .table > .line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); padding: var(--space-5) 0; }
+.cfg .table > .line > * { min-height: var(--control-h); padding: 0; border: 0; }
+.cfg .table > .line > .lab { flex: 0 0 150px; }
+.cfg .table > .line > .cell { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); grid-column: auto; padding: 0; }
+.cfg .table .cell[data-h]:not([data-h=""])::before { content: attr(data-h); color: var(--dim); font: 500 var(--font-label)/1.2 var(--control); letter-spacing: .1em; text-transform: uppercase; }
+.cfg .table .cell[data-h=""]::before { display: none; }
+.cfg .letters { display: flex; gap: var(--space-2); }
+.cfg .letters button { display: grid; place-items: center; min-width: var(--control-h); min-height: var(--control-h); padding: 0; border: var(--border-control) solid var(--line); border-radius: var(--radius-control); background: var(--surface); color: var(--text-2); font: 600 var(--font-control)/1 var(--control); }
+.cfg .letters button[aria-checked="true"] { border-color: var(--signal); background: var(--go-deep); color: var(--text); box-shadow: var(--glow); }
+.cfg .letters button:hover { border-color: var(--signal); color: var(--text); }
+.cfg .letters button:focus-visible { outline: none; box-shadow: var(--ring); }
+.cfg .kind-field { min-width: 150px; width: 180px; }
+.cfg .plate-name { flex: 1 1 220px; width: auto; min-width: 0; min-height: var(--control-h); margin: 0; padding: var(--space-2) var(--space-3); border: var(--border-field) solid transparent; border-radius: var(--radius-field); background: transparent; color: var(--text); font: 500 var(--font-control)/1.3 var(--control); }
+.cfg .plate-name:hover, .cfg .plate-name:focus { border-color: var(--signal-dim); background: var(--raised); color: var(--text); }
+.cfg .plate-name:focus-visible { outline: none; box-shadow: var(--ring); }
+.cfg .plate .plate-gutter { flex: 0 0 var(--space-5); color: var(--dim); }
+.cfg .plate .cell[data-h="Progress"] { flex: 1 1 180px; max-width: 280px; }
+.cfg .plate .line > .icon-btn { align-self: center; opacity: 1; }
+.cfg .plate .line.add .plate-name { flex-basis: calc(100% - 64px); }
+.cfg .table > .line.off > :nth-child(n+3) { opacity: .4; }
+.cfg :is([data-remove], [data-strike], [data-unallow]) { color: var(--stop); }
+.cfg :is([data-remove], [data-strike], [data-unallow]):hover { border-color: var(--stop); background: var(--stop-fill); color: var(--stop); }
+.cfg .act { min-height: var(--control-h); border-radius: var(--radius-control); font: 400 var(--font-body)/1.3 var(--control); text-transform: none; letter-spacing: 0; }
+.cfg .rules-foot { padding-top: var(--space-4); border-color: var(--hair); }
+.cfg .notifications { margin: var(--space-8) 0; }
+.cfg .notifications .page { max-width: none; padding: 0 0 var(--space-5); }
+.cfg .notifications .page-head h1 { font-size: var(--font-section); }
+.cfg .notifications .page-rule { height: 4px; }
+.cfg .notifications .sec-title { font-size: var(--font-section); }
+.cfg .notifications .hours { padding: var(--space-7) 0; }
+.cfg .notifications .hours-title { flex-basis: 260px; font-size: var(--font-section); }
+.cfg .notifications .simple-row { gap: var(--space-6) var(--space-7); }
+@container cfg (max-width: 700px) {
+    .cfg > .sec .line { grid-template-columns: 1fr; }
+    .cfg .line > .status { justify-self: start; text-align: left; }
+    .cfg .sec-right { width: 100%; margin-left: 0; }
+    .cfg .table > .line { gap: var(--space-4) var(--space-5); }
+    .cfg .table > .line > .lab { flex-basis: 100%; }
+    .cfg .table > .line > .cell { flex: 1 1 160px; }
+    .cfg .plate .plate-name { flex-basis: calc(100% - 64px); }
+    .cfg .plate .cell[data-h="Type"] { flex-basis: 180px; }
+}
+@container cfg (max-width: 360px) {
+    .cfg .table > .line > .cell { flex-basis: 100%; }
+    .cfg .plate .cell[data-h="Progress"] { max-width: none; }
+}
+@media (max-width: 760px) {
+    .settings { padding-right: 0; }
+    .cfg .notifications .snooze-ctl { gap: var(--space-3); }
+    .cfg .notifications .snooze-rest { padding-left: 80px; }
+}

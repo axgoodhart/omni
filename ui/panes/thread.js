@@ -15,7 +15,7 @@ export function renderThread() {
     answer: new Map(parts.filter((p) => p.type === 'approval').map((p) => [p.approvalId, p])),
   };
   box.innerHTML = msgs.length ? msgs.map(renderMessage).join('') : intro();
-  box.querySelectorAll('.step-line').forEach((b) => b.addEventListener('click', () => { const pre = b.nextElementSibling; pre.hidden = !pre.hidden; }));
+  box.querySelectorAll('.step-line').forEach((b) => b.addEventListener('click', () => { const pre = b.nextElementSibling; pre.hidden = !pre.hidden; b.setAttribute('aria-expanded', String(!pre.hidden)); }));
   if (streaming) box.appendChild(streaming);
   box.scrollTop = box.scrollHeight;
 }
@@ -53,7 +53,7 @@ function step(c) {
   const r = seen.result.get(c.toolCallId), id = seen.asked.get(c.toolCallId), a = id ? seen.answer.get(id) : null;
   const asked = id ? (a ? (a.approved ? 'you allowed it' : 'you said no') : 'request open') : '';
   const out = r && !(a && !a.approved) ? describeResult(c.toolName, c.input, r.output) : '';
-  return `<div class="step"><button type="button" class="step-line">${esc(describeCall(c.toolName, c.input))}${out ? ` — ${esc(out)}` : ''}${asked ? `<span class="asked">${asked}</span>` : ''}</button><pre hidden>${esc(JSON.stringify({ asked: c.input, got: r?.output ?? null }, null, 2))}</pre></div>`;
+  return `<div class="step"><button type="button" class="step-line" aria-expanded="false">${esc(describeCall(c.toolName, c.input))}${out ? ` — ${esc(out)}` : ''}${asked ? `<span class="asked">${asked}</span>` : ''}</button><pre hidden>${esc(JSON.stringify({ asked: c.input, got: r?.output ?? null }, null, 2))}</pre></div>`;
 }
 
 export function startStreaming() {
@@ -68,13 +68,14 @@ export function onDelta(text) { if (!streaming) startStreaming(); buffer += text
 export function stopStreaming() { streaming?.remove(); streaming = null; buffer = ''; }
 
 const form = $('#composer'), input = $('#input'), send = $('#send');
+input.setAttribute('aria-label', 'Message');
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const text = input.value.trim();
   if (!text || !state.mode || state.busy) return;
   input.value = ''; state.busy = true; send.disabled = true;
   const box = $('#messages');
-  if (box.querySelector('.intro')) box.innerHTML = '';
+  if (box.querySelector('.intro, .empty-visual')) box.innerHTML = '';
   const u = document.createElement('div'); u.className = 'msg user'; u.textContent = text; box.appendChild(u);
   startStreaming();
   try { await api(`/api/threads/${encodeURIComponent(state.mode)}/messages`, { method: 'POST', body: { text } }); }
