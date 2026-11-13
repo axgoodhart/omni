@@ -1,6 +1,6 @@
 # Omnii design
 
-Dark, quiet, typographic. A paper-coloured text on near-black, one mint accent, one amber warning. The page is a set of rows; the rows do the work, nothing decorates them.
+Dark, quiet, typographic. Serif headings name things; Jost labels and controls make their state easy to read. The existing panes retain the near-black, paper and mint language below. Notifications has the scoped black, green, teal and blue component language documented at the end of this file.
 
 ## Tokens (`ui/app.css` `:root`)
 
@@ -49,3 +49,53 @@ Explanations never sit in the layout. Each section has one (i) at the right of i
 ## Motion
 
 One: the pencil, remove button and gutter icons fade in on hover (150ms). Sliders and pills change state instantly.
+
+## Notifications
+
+The Notifications surface is an Operate page within Config. Its implementation is `ui/panes/notifications.js`; its component styles and tunable design tokens are in `ui/notifications.css`, scoped under `.notifications`. Other Config sections and panes keep the preceding rules. The notification controls deliberately use lit edges, functional glows and 1.5px borders; these are scoped exceptions to the incumbent rules above.
+
+### Colour and effects
+
+| Role | Scoped token | Value |
+|---|---|---|
+| Page / tracks / resting fields | `--ground`, `--surface`, `--raised` | `#000`, `#0c0e0e`, `#202524` |
+| Row hairline / control edge | `--hair`, `--line` | `#262b2a`, `#3a403f` |
+| Main / supporting / quiet text | `--text`, `--text-2`, `--dim` | `#f2f4f3`, `#c9cecc`, `#747c7a` |
+| Included or on / interior | `--go`, `--go-deep` | `#0b842c`, `#082a15` |
+| Resting glyph / lit edge / resting green edge | `--leaf`, `--signal`, `--signal-dim` | `#22b04d`, `#3cf07c`, `#1c5e33` |
+| Numeric value | `--value` | `#7fd6cc` |
+| Secondary chain / interior | `--tier2`, `--tier2-deep` | `#3d8bff`, `#0b1c38` |
+| Remove text / fill | `--stop`, `--stop-fill` | `#ff5d78`, `#3d0d17` |
+| Keyboard focus | `--ring` | `0 0 0 2px #000, 0 0 0 4px #9fe9ff` |
+
+Green means on or included, teal marks values, blue identifies the secondary chain, and red only removes. Filled glyphs, LEDs, words and priority tile size also communicate state. Green and blue controls use their respective `--glow` / `--glow-2`; focus rings take precedence over a lit glow. Pressed buttons dim to 75% brightness.
+
+### Typography and geometry
+
+`--heading: var(--display)` preserves `"Warbler Variable", Georgia, serif` for the page title, section title and Available Hours title. `--control: "Jost", system-ui, sans-serif` covers all other words, numbers and labels. There is no Josefin Sans or baseline nudge. SF Symbols use the scoped `--symbols` stack with SF Pro and Symbols Nerd Font fallbacks.
+
+| Element | Type / size |
+|---|---|
+| Page title | Serif, weight 600, `clamp(36px, 5vw, 64px)`, line-height 1 |
+| Section / Available Hours title | Serif, weight 600, 40px / 32px |
+| Sentence / channel / stepper | Jost 22px |
+| Area field / menu option | Jost 21px / 19px |
+| Mode / pager and add reminder / caption | Jost 28px / 24px / 18px |
+| Resting numeric readout | Jost 46px; bold number and regular unit |
+| Chain labels | Jost 14px, weight 600, uppercase, `.14em` tracking |
+
+Inline controls are 44px tall with 12px corners; fields and menus have 4px corners. Large and small switches are 168×52px and 116×30px. Priority buttons retain a 56×56px hit box; their face is 52px when included and 36px when excluded. The area field and menu are 250px wide; icon tiles are 64px square.
+
+The page is at most 1440px wide with `56px clamp(16px, 2.8vw, 64px) 120px` padding. Available Hours and reminder rows wrap instead of squeezing their controls. Below 768px, page padding starts at 32px, titles and advanced blocks use full rows, and priority tabs sit across the page. Touch devices show editable controls continuously.
+
+### Behaviour and motion
+
+The Notifications master switch controls notification delivery while the scan loop continues. Its off state dims the body and makes it inert. Available Hours shows the complement of stored quiet hours, with Sunday-first available days and a READY switch. The two native range inputs move in 30-minute steps and retain at least an hour between endpoints; the caption states the complete schedule. READY off permits delivery at any hour. An empty available-day set keeps delivery quiet every day.
+
+Simple mode shows the High rule's repeats and snooze. Changing either writes the same value to every included priority; at least one priority and one channel remain selected. Reminder days and area apply across the reminder rules. Advanced mode edits the selected priority's primary and secondary chains separately. A secondary has its own wait, channels, repeats and snooze; setting its repeat count to zero removes it. Mode choice persists in `omnii.notifications.mode` and never changes rule data. Existing durations outside the new stepper range stay visible until deliberately edited.
+
+Repeats run from 1–9 by 1. Snooze runs from 5–120 minutes by 5; the wait before a secondary runs from 5–240 minutes by 5. These limits live in the `stepper()` calls in `ui/panes/notifications.js`. Settings writes retain the existing change log and Undo interaction. The single reminder's add-reminder, add-priority and archive affordances explain their current limits with a toast.
+
+Each `.mx` holds a resting readout and editable controls in the same reserved box. Pointer hover or keyboard focus reveals `.m-in` controls while `.m-out` readouts recede; the surrounding row does not reflow. Readouts are decorative and hidden from assistive technology. Advanced numeric values remain visible while only their skins and buttons open. On devices without hover, controls stay open; reduced motion uses opacity alone. Adding `.always` to the Notifications root exposes all controls without a user-facing toggle.
+
+The morph is the main motion. Its tunable variables are at the top of `ui/notifications.css`: `--bloom-t: .55s` for scale/filter, `--fade-t: .2s` for opacity, `--hold: .6s` before closing, `--step-d: .04s` between staggered parts, and `--bloom: cubic-bezier(.3, 1.5, .55, 1)` for the opening curve. Switches and values change immediately; small hover effects use 150ms.

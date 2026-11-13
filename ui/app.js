@@ -137,7 +137,7 @@ function connect() {
     const e = JSON.parse(ev.data);
     const shownThread = state.view === 'loop' ? 'loop' : state.mode;
     if (e.thread === 'loop' && DESK_EVENTS.includes(e.type)) { deskSoon(); if (state.view === 'settings' && e.type === 'desk.reloaded') renderSettings(); }
-    if (e.type === 'checkin.opened' && state.view !== 'desk') openDrawer('approvals');
+    if (e.type === 'checkin.opened' && e.data.desk !== false && state.view !== 'desk') openDrawer('approvals');
     if (e.thread && e.thread !== shownThread && state.view !== 'loop') { if (['approval.requested', 'approval.resolved', 'usage', 'mode.reloaded', 'inbound', 'outbound'].includes(e.type)) refreshSoon(); return; }
     if (!e.id) { pushLive(e); if (e.type === 'text.delta') onDelta(e.data.text); return; }
     state.events.push(e); pushEvent(e);

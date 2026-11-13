@@ -2,54 +2,38 @@ import { $, api, esc, ic, ibtn, sliderHTML, wireSliders, progressHTML, progressW
 import { state, deskSoon, showView } from '../app.js';
 import { openDrawer } from './side.js';
 import { showInterview } from './interview.js';
+import { renderNotifications, wireNotifications } from './notifications.js';
 
 /** Config: quiet sections, one row per thing, every choice visible and small. Explanations live in the (i) per section and on each row's label. */
 let S = null;
-const pad = (n) => String(n).padStart(2, '0');
 const hm = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const ago = (ts) => { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
-const toMs = (s) => [...String(s).matchAll(/(\d+(?:\.\d+)?)\s*([mhdw]?)/g)].reduce((t, [, n, u]) => t + Number(n) * ({ h: 3_600_000, d: 86_400_000, w: 604_800_000 }[u] ?? 60_000), 0);
-const durWord = (s) => { const m = /^(\d+(?:\.\d+)?)([mhdw]?)$/.exec(String(s)); if (!m) return s; const n = Number(m[1]), one = n === 1, u = { m: 'min', h: one ? 'hour' : 'hours', d: one ? 'day' : 'days', w: one ? 'week' : 'weeks' }[m[2] || 'm']; return `${n === 0.5 ? '½' : n} ${u}`; };
 const LEVELS = ['high', 'medium', 'low'];
 const NAME = { high: 'High', medium: 'Medium', low: 'Low' };
-const TIMES = ['none', 'once', 'twice', 'three times'];
 const RULE_KIND = { shell: 'Command', write_file: 'Files', imessage_send: 'Texts' };
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const KINDS = ['make', 'research', 'build', 'story', 'grow', 'open'];
 const TRUST = ['Email replies', 'Website changes', 'Submissions'];
 
-// ==== NUDGE PICKS (per priority: the quick nudges, then the slower ones) ====
-const PICKS = {
-  high: [['5m', '15m', '30m', '1h', '2h', '4h'], ['30m', '1h', '90m', '2h', '4h', '8h']],
-  medium: [['15m', '30m', '1h', '2h', '4h', '8h'], ['12h', '1d', '2d', '3d', '5d', '7d']],
-  low: [['1d', '2d', '3d', '5d', '7d'], ['1w', '2w', '3w', '4w']],
-};
-// ==== REACH GLYPHS (SF Symbols, set in SF Pro) ====
-const LAMP = '􁌞';   // lamp.desk.fill: the desk
-const BUBBLE = '􁒘'; // ellipsis.message: a text
-// ==== QUIET TRACK ====
-const Q0 = 17 * 60; // the day track starts at 5 PM so the night sits in the middle
-const QN = 96;      // 15-minute steps
-
 export async function renderSettings() {
   S = await api('/api/settings');
-  const L = S.loop, P = S.priorities, W = S.watches, st = S.status, texting = !!state.data?.imessage;
+  paintSettings();
+}
+
+function paintSettings() {
+  const L = S.loop, W = S.watches, st = S.status, texting = !!state.data?.imessage;
   const waiting = S.waiting.filter((c) => c.state === 'open');
   const box = $('#view-settings');
+  const focus = box.contains(document.activeElement) ? document.activeElement.dataset.nFocus : null;
   box.innerHTML = `
 <div class="cfg">
   ${sec('autorenew', 'Loop', 'Every row on this page is a rule Omnii follows. Change one and Omnii follows it on its next scan. Omnii never edits this page; only you do.',
     line("Scans every", cells(slider('loop.every_min', L.every_min, 1, 120, 'min', 'wide')), 'How often Omnii scans your plate.')
-    + line('Quiet hours', cells(quiet(L.quiet)), "Omnii doesn't text you in these hours, and nothing is nudged or filed until they end. Drag either end."),
+    + line('Out at once', cells(pills('loop.max_open', L.max_open, [1, 2, 3, 4, 5].map((n) => [n, String(n)]))), 'How many questions Omnii may have out to you at the same time.', waiting.length ? `${waiting.length} open` : 'none open')
+    + (waiting.length ? line('Open requests', cells(fact(waiting.map((c) => `${esc(c.title.replace(/[:.\s]+$/, '').slice(0, 40))} (asked ${hm(c.created)})`).join('; ')))) : ''),
     { right: pills('loop.paused', L.paused, [[false, 'Active'], [true, 'Paused']], L.paused ? 'warn' : '') + (st.paused ? '<span class="warn">Paused</span>' : st.last ? `<span>Last ${hm(st.last.at)} · next ${st.next ? hm(st.next) : '–'}</span>` : '<span>Not looked yet</span>') })}
 
-  ${sec('notifications', 'Reach', 'Where questions reach you, and how many may be out at once. The rest wait their turn.',
-    line('Questions go to', cells(reach('loop.via', L.via) +(!texting && L.via !== 'desk' ? fact('Texting is off, so everything goes to the desk.', 'dim') : '')), 'Where questions may reach you at all. Each priority below can narrow this, never widen it.')
-    + line('Out at once', cells(pills('loop.max_open', L.max_open, [1, 2, 3, 4, 5].map((n) => [n, String(n)]))), 'How many questions Omnii may have out to you at the same time.', waiting.length ? `${waiting.length} open` : "none open")
-    + (waiting.length ? line("Open requests", cells(fact(waiting.map((c) => `${esc(c.title.replace(/[:.\s]+$/, '').slice(0, 40))} (asked ${hm(c.created)})`).join('; ')))) : ''))}
-
-  ${sec('low_priority', 'Priorities', "What happens when you don't answer: a few quick nudges, then slower ones, then filed or kept going. Ignoring a question is allowed; filed ones stay in the desk history.",
-    heads(['', ' ', 'Premiere Cycle', 'Secondary Cycle', 'Continue?', 'Confirm']) + LEVELS.map(level).join(''), { cls: 'levels', table: true })}
+  ${renderNotifications(S, texting)}
 
   ${sec('repeat', 'Rhythms', 'Routines Omnii keeps for you. Logging one from the desk or by text counts for the day.',
     heads(['', '', 'Days', 'Time', 'Priority', 'Last'])
@@ -91,8 +75,10 @@ export async function renderSettings() {
 
   <footer class="rules-foot">${ibtn('description', 'Open the files. Everything here is a plain file in desk/; every change you make is written in the log as "you changed X from A to B".', 'data-k="open.files" data-json="null"', 'small act')}</footer>
 </div>
-<div id="toast" class="toast" hidden></div>`;
+<div id="toast" class="toast" role="status" hidden></div>`;
   wire(box);
+  wireNotifications(box.querySelector('.notifications'), S, { save, saveMany, toast, rerender: paintSettings });
+  if (focus) box.querySelector(`[data-n-focus="${CSS.escape(focus)}"]`)?.focus({ preventScroll: true });
 }
 
 // ---- layout: a section is a title line over rows; a row is label · controls · status
@@ -111,22 +97,9 @@ const choice = (k, cur, opts, cls, tip = () => '') => `<span class="${cls}" role
 const pills = (k, cur, opts, cls = '') => choice(k, cur, opts, `pills ${cls}`);
 const days = (k, on) => `<span class="pills multi days" data-k="${k}">${DAYS.map((d) => `<button type="button" aria-pressed="${on.includes(d)}" data-day="${d}">${d}</button>`).join('')}</span>`;
 const slider = (k, v, min, max, unit, cls = '') => sliderHTML({ min, max, step: 1, value: v, word: `${v} ${unit}`, attrs: `data-k="${k}" data-unit="${esc(unit)}"`, cls });
-const scale = (k, cur, picks) => { const list = [...new Set([...picks, cur])].sort((a, b) => toMs(a) - toMs(b)); return sliderHTML({ min: 0, max: list.length - 1, step: 1, value: list.indexOf(cur), word: durWord(cur), attrs: `data-k="${k}" data-picks="${esc(JSON.stringify(list))}"` }); };
 const time = (k, v) => `<input class="field time" type="time" data-k="${k}" value="${esc(v)}">`;
 const text = (k, v, ph) => `<input class="field" type="text" data-k="${k}" value="${esc(v ?? '')}" placeholder="${esc(ph)}">`;
 const btn = (k, v, label) => `<button type="button" class="ghost tiny act" data-k="${k}" data-json='${esc(JSON.stringify(v))}'>${esc(label)}</button>`;
-const reach = (k, via) => `<span class="reach" data-k="${k}">${[['desk', LAMP, 'Desk'], ['phone', BUBBLE, 'Text']].map(([w, g, name]) => `<button type="button" class="glyph" data-w="${w}" aria-pressed="${via === 'both' || via === w}" aria-label="${name}" data-tip="${name}">${g}</button>`).join('')}</span>`;
-const dots = (k, n, zero = false) => `<button type="button" class="dots" data-k="${k}" data-n="${n}"${zero ? ' data-zero="1"' : ''} aria-label="${TIMES[n]}" data-tip="${TIMES[n]}">${[1, 2, 3].map((i) => `<i${i <= n ? ' class="on"' : ''}></i>`).join('')}</button>`;
-
-function level(l) {
-  const R = S.loop.levels[l], k = (f) => `loop.levels.${l}.${f}`;
-  return line(`<b>${NAME[l]}</b>`,
-    cell(' ', reach(k('via'), R.via))
-    + cell('Premiere Cycle', scale(k('first_after'), R.first_after, PICKS[l][0]) + dots(k('first_times'), R.first_times))
-    + cell('Secondary Cycle', scale(k('second_after'), R.second_after, PICKS[l][1]) + dots(k('second_times'), R.second_times, true), R.second_times === 0 && R.stop ? 'skipped' : '')
-    + cell('Continue?', pills(k('stop'), R.stop, [[true, 'File it'], [false, 'Keep on']])) + cell('Confirm', R.stop ? pills(k('stop_text'), R.stop_text, [[true, 'Text me'], [false, 'Log only']]) : ''),
-    `${NAME[l]} priority: where its questions reach you (the lamp is the desk, the bubble is a text); the quick nudges after Omnii asks, and how many; the slower nudges that follow, and how many or none; then whether it is filed as unanswered or keeps the slower pace; and whether Omnii texts you when it files one. Click the dots to change how many.`);
-}
 function rhythm(key, name, tip, last) {
   const p = S.priorities[key], k = (f) => `priorities.${key}.${f}`;
   return line(`<b>${name}</b>`,
@@ -145,24 +118,35 @@ function island(i) {
   </div>`;
 }
 
-// ---- quiet hours: one day on a track, the quiet stretch between two handles, each handle labelled with its time
-const qIdx = (t) => { const [h, m] = t.split(':').map(Number); return Math.round(((h * 60 + m - Q0 + 1440) % 1440) / 15); };
-const qHm = (i) => { const m = (Q0 + i * 15) % 1440; return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`; };
-const ampm = (t) => { const [h, m] = t.split(':').map(Number); return `${h % 12 || 12}${m ? `:${pad(m)}` : ''} ${h < 12 ? 'AM' : 'PM'}`; };
-function quiet(q) {
-  const from = q?.from ?? '22:00', to = q?.to ?? '08:00', a = qIdx(from), b = Math.max(a + 1, qIdx(to) || QN), off = q ? '' : 'disabled';
-  return pills('loop.quiet', q ? { from, to } : null, [[{ from, to }, 'On'], [null, 'Off']])
-    + `<span class="qh${q ? "" : " off"}" style="--a:${a};--b:${b}"><span class="q-end">5<br>PM</span><span class="q-track"><i></i><b class="q-at" data-q="from">${ampm(from)}</b><b class="q-at" data-q="to">${ampm(to)}</b><input type="range" min="0" max="${QN}" value="${a}" aria-label="Quiet hours start" ${off}><input type="range" min="0" max="${QN}" value="${b}" aria-label="Quiet hours end" ${off}></span><span class="q-end">5<br>PM</span></span>`;
-}
-
-async function save(key, value) {
+const save = (key, value) => saveMany([{ key, value }]);
+let saving = false;
+async function saveMany(changes) {
+  if (saving) return;
+  saving = true;
+  const box = $('#view-settings'), focus = document.activeElement?.dataset.nFocus;
+  box.inert = true;
+  box.setAttribute('aria-busy', 'true');
   try {
-    const r = await api('/api/settings', { method: 'PUT', body: { key, value } });
-    const label = S.labels[key] ?? key.split('.').slice(-1)[0];
-    toast(`Saved: ${label} is now ${show(r.to)}${S.status.next && !S.loop.paused ? '. Takes effect on the next scan.' : '.'}`, r.from === undefined ? null : () => save(key, r.from));
-    deskSoon();
-    await renderSettings();
-  } catch (e) { toast(e.message); }
+    const saved = [];
+    let error;
+    try {
+      for (const change of changes) saved.push(await api('/api/settings', { method: 'PUT', body: change }));
+    } catch (e) { error = e; }
+    try { await renderSettings(); } catch (e) { error ??= e; }
+    if (saved.length) deskSoon();
+    const undo = saved.filter((r) => r.from !== undefined).reverse().map((r) => ({ key: r.key, value: r.from }));
+    const last = saved.at(-1);
+    const label = last ? (S.labels?.[last.key] ?? last.key.split('.').at(-1)) : '';
+    toast(error ? error.message : saved.length > 1 ? 'Saved reminder settings.' : `Saved: ${label} is now ${show(last.to)}.`, undo.length ? () => saveMany(undo) : null);
+  } finally {
+    saving = false;
+    box.inert = false;
+    box.removeAttribute('aria-busy');
+    if (focus) {
+      const target = box.querySelector('[data-n-focus="' + CSS.escape(focus) + '"]');
+      (target?.disabled ? target.closest('.step')?.querySelector('button:not(:disabled)') : target)?.focus({ preventScroll: true });
+    }
+  }
 }
 const show = (v) => v === null ? 'off' : typeof v === 'boolean' ? (v ? 'yes' : 'no') : typeof v === 'object' ? (Array.isArray(v) ? v.join(', ') : `${v.from} to ${v.to}`) : String(v);
 let toastTimer = null;
@@ -177,33 +161,14 @@ function wire(box) {
   box.querySelectorAll('[role=radiogroup][data-k] button').forEach((b) => b.addEventListener('click', () => {
     if (b.getAttribute('aria-checked') !== 'true') save(b.parentElement.dataset.k, JSON.parse(b.dataset.v));
   }));
-  box.querySelectorAll('.reach').forEach((el) => el.querySelectorAll('.glyph').forEach((b) => b.addEventListener('click', () => {
-    const lit = (w) => el.querySelector(`[data-w="${w}"]`).getAttribute('aria-pressed') === 'true' !== (w === b.dataset.w); // the clicked one flips
-    const desk = lit('desk'), phone = lit('phone');
-    if (!desk && !phone) return toast('Questions need somewhere to go: keep the lamp or the bubble lit.');
-    save(el.dataset.k, desk && phone ? 'both' : desk ? 'desk' : 'phone');
-  })));
-  box.querySelectorAll('.dots').forEach((b) => b.addEventListener('click', () => {
-    const n = b.dataset.zero ? (Number(b.dataset.n) + 1) % 4 : (Number(b.dataset.n) % 3) + 1; // quick: 1 2 3; slower: 1 2 3 0
-    b.dataset.n = n; b.dataset.tip = TIMES[n]; b.setAttribute('aria-label', TIMES[n]);
-    b.querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i < n));
-    clearTimeout(b.saveTimer); b.saveTimer = setTimeout(() => save(b.dataset.k, n), 600); // a few clicks in a row save once
-  }));
   box.querySelectorAll('[data-unallow]').forEach((b) => b.addEventListener('click', () => save('allowed.remove', Number(b.dataset.unallow))));
   box.querySelectorAll('.pills.multi').forEach((el) => el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
     const on = [...el.querySelectorAll('[aria-pressed="true"]')].map((x) => x.dataset.day);
     save(el.dataset.k, b.getAttribute('aria-pressed') === 'true' ? on.filter((d) => d !== b.dataset.day) : [...on, b.dataset.day]);
   })));
   wireSliders(box,
-    (el, v) => el.dataset.picks ? durWord(JSON.parse(el.dataset.picks)[v]) : el.dataset.unit ? `${v} ${el.dataset.unit}` : progressWord(v),
-    (el, v) => save(el.dataset.k, el.dataset.picks ? JSON.parse(el.dataset.picks)[v] : v));
-  box.querySelectorAll(".qh").forEach((el) => {
-    const [fa, ta] = el.querySelectorAll('input'), [fl, tl] = el.querySelectorAll('.q-at');
-    const show = () => { el.style.setProperty('--a', fa.value); el.style.setProperty('--b', ta.value); fl.textContent = ampm(qHm(+fa.value)); tl.textContent = ampm(qHm(+ta.value)); };
-    fa.addEventListener('input', () => { if (+fa.value >= +ta.value) fa.value = +ta.value - 1; show(); });
-    ta.addEventListener('input', () => { if (+ta.value <= +fa.value) ta.value = +fa.value + 1; show(); });
-    [fa, ta].forEach((i) => i.addEventListener('change', () => save('loop.quiet', { from: qHm(+fa.value), to: qHm(+ta.value) })));
-  });
+    (el, v) => el.dataset.unit ? [v, el.dataset.unit].join(' ') : progressWord(v),
+    (el, v) => save(el.dataset.k, v));
   box.querySelectorAll('input[data-k]').forEach((el) => el.addEventListener('change', () => save(el.dataset.k, el.value)));
   const add = $('#plate-add');
   const addIsland = async () => { const name = add.value.trim(); if (!name) return; add.value = ''; await api('/api/islands', { method: 'POST', body: { name } }); deskSoon(); renderSettings(); };

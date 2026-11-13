@@ -61,7 +61,7 @@ export function renderSide() {
 
 function renderApprovals(pending) {
   const badge = $('#approval-count'); if (badge) badge.textContent = pending.length || '';
-  const live = state.desk?.checkins?.live ?? [];
+  const live = (state.desk?.checkins?.live ?? []).filter((c) => c.onDesk !== false);
   $('#tab-approvals').innerHTML = (live.map(checkinHTML).join('') || '<div class="muted">No check-ins open.</div>') +
     `<h3 data-tip="An agent is about to do something risky and wants your yes or no first.">Approvals</h3>` +
     (pending.length ? pending.map((p) => askCard(p, `In the ${p.thread} conversation.`)).join('') : '<div class="muted">No requests.</div>');

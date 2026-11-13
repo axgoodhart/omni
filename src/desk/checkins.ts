@@ -50,30 +50,35 @@ export const latestOpen = (): Checkin | null => open().at(-1) ?? null;
 
 export const text = (c: Checkin) => c.kind === 'nudge' || !c.options.length ? c.title : `${c.title}\n${c.options.map((o) => `${o.k}) ${o.label}`).join('\n')}`;
 
-/** `text`: whether to text it at all (the level's rule). `holdUntil`: quiet hours; it sits on the desk, the text goes out later. */
-export type Delivery = { text: boolean; holdUntil?: number | null };
+/** Delivery follows the reminder's channels; held texts wait for the current available hours. */
+export type Delivery = { text: boolean; desk?: boolean; holdUntil?: number | null };
 export function ask(input: { kind?: 'ask' | 'nudge'; priority: Level; title: string; options?: Option[]; island?: string | null; dedupe?: string | null }, d: Delivery = { text: true }): Checkin {
   const held = d.text && d.holdUntil && d.holdUntil > Date.now() ? d.holdUntil : null;
   const c: Checkin = { id: randomUUID().slice(0, 8), kind: input.kind ?? 'ask', priority: input.priority, island: input.island ?? null, dedupe: input.dedupe ?? null, title: input.title, options: input.options ?? [], state: 'open', created: Date.now(), snoozedUntil: null, reminders: 0, lastSent: Date.now(), heldUntil: held, texted: false, answer: null, answered: null, via: null, archivedReason: null };
   q.ins.run(c.id, c.kind, c.priority, c.island, c.dedupe, c.title, JSON.stringify(c.options), c.state, c.created, c.lastSent, c.heldUntil);
-  emit('checkin.opened', 'loop', { id: c.id, kind: c.kind, priority: c.priority, island: c.island, title: c.title, options: c.options.map((o) => `${o.k}) ${o.label}`), text: d.text, heldUntil: held });
+  emit('checkin.opened', 'loop', { id: c.id, kind: c.kind, priority: c.priority, island: c.island, title: c.title, options: c.options.map((o) => `${o.k}) ${o.label}`), desk: d.desk !== false, text: d.text, heldUntil: held });
   if (d.text && !held) void send(c, 'opened');
   return c;
 }
 async function send(c: Checkin, why: string) {
+  const cfg = loopcfg.get();
+  if (!loopcfg.reach(cfg, c.priority, true, c.island, c.reminders > cfg.levels[c.priority].first_times).phone) return;
+  const hold = loopcfg.quietEnds(cfg, profile.get().timezone);
+  if (hold) { c.heldUntil = hold; save(c); return; }
   if (!outbound.channels().includes('imessage')) { if (c.heldUntil) { c.heldUntil = null; save(c); } return; }
   try { await outbound.send('imessage', null, text(c)); c.texted = true; c.heldUntil = null; save(c); emit('checkin.sent', 'loop', { id: c.id, why }); }
   catch (e) { emit('checkin.send_error', 'loop', { id: c.id, error: (e as Error).message }); }
 }
 /** Quiet hours are over: text what was held. The wait before the next nudge starts now. */
-export function releaseHeld(): Checkin[] {
-  const due = live().filter((c) => c.heldUntil && c.heldUntil <= Date.now() && c.state === 'open');
+export function releaseHeld(allowed: (c: Checkin) => boolean): Checkin[] {
+  const due = live().filter((c) => c.heldUntil && c.state === 'open' && allowed(c));
   for (const c of due) { c.lastSent = Date.now(); save(c); void send(c, 'quiet hours over'); }
   return due;
 }
 /** A text that isn't a question, e.g. that one was filed. */
 export async function notify(line: string, why: string) {
-  if (!outbound.channels().includes('imessage')) return;
+  const cfg = loopcfg.get();
+  if (!cfg.notify || loopcfg.quietEnds(cfg, profile.get().timezone) || !outbound.channels().includes('imessage')) return;
   try { await outbound.send('imessage', null, line); emit('checkin.notified', 'loop', { line, why }); }
   catch (e) { emit('checkin.send_error', 'loop', { error: (e as Error).message }); }
 }
@@ -81,7 +86,7 @@ export async function notify(line: string, why: string) {
 export function remind(c: Checkin, why: string, d: Delivery = { text: true }) {
   const held = d.text && d.holdUntil && d.holdUntil > Date.now() ? d.holdUntil : null;
   c.state = 'open'; c.snoozedUntil = null; c.reminders += 1; c.lastSent = Date.now(); c.heldUntil = held; save(c);
-  emit('checkin.reminded', 'loop', { id: c.id, title: c.title, reminders: c.reminders, why, text: d.text, heldUntil: held });
+  emit('checkin.reminded', 'loop', { id: c.id, title: c.title, reminders: c.reminders, why, desk: d.desk !== false, text: d.text, heldUntil: held });
   if (d.text && !held) void send(c, why);
 }
 export function snooze(c: Checkin, until: number, via: string) {

@@ -41,7 +41,7 @@ export function start() {
 }
 export function stop() { job?.stop(); job = null; }
 deskStore.onChange((f) => { if (f === 'loop.md') start(); });
-export const status = () => { const c = loopcfg.get(); return { running, paused: c.paused, everyMin: c.every_min, quiet: c.quiet, maxOpen: c.max_open, last, next: c.paused ? null : job?.nextRun()?.getTime() ?? null, busy: modes.names().filter((m) => runner.busy(m)) }; };
+export const status = () => { const c = loopcfg.get(); return { running, paused: c.paused, notify: c.notify, everyMin: c.every_min, quiet: c.quiet, maxOpen: c.max_open, last, next: c.paused ? null : job?.nextRun()?.getTime() ?? null, busy: modes.names().filter((m) => runner.busy(m)) }; };
 
 const opt = (k: string, label: string, action: Option['action']): Option => ({ k, label, action });
 const discuss = opt('d', 'Discuss', { type: 'discuss' });
@@ -55,16 +55,6 @@ export type Tick = {
   inaction: { what: string; why: string }[];
 };
 
-/** Quiet hours: when they end, as a timestamp, or null if not in them now. */
-function quietEnds(cfg: loopcfg.LoopCfg, tz: string): number | null {
-  if (!cfg.quiet) return null;
-  const now = parts(tz), from = hmToMinutes(cfg.quiet.from), to = hmToMinutes(cfg.quiet.to), m = now.minutes;
-  const inQuiet = from < to ? m >= from && m < to : m >= from || m < to;
-  if (!inQuiet) return null;
-  const untilTo = to - m; // minutes until "to", today or tomorrow
-  return Date.now() + (untilTo > 0 ? untilTo : untilTo + 1440) * 60_000;
-}
-
 /** One scan, recorded as one activity. */
 export const tick = (why: string) => activity("scan", "loop", () => tickNow(why));
 async function tickNow(why: string) {
@@ -77,12 +67,13 @@ async function tickNow(why: string) {
     start(); // picks up a changed every_min
     const prof = profile.get(), tz = prof.timezone, now = parts(tz), pr = priorities.get();
     const hm = (ts: number) => fmtHm(ts, tz);
-    const qEnd = quietEnds(cfg, tz);
+    const qEnd = loopcfg.quietEnds(cfg, tz);
     T.status.quiet = cfg.quiet ? (qEnd ? `quiet until ${hm(qEnd)}; texts are held` : `texts allowed; quiet from ${cfg.quiet.from} to ${cfg.quiet.to}`) : 'no quiet hours';
     const canText = outbound.channels().includes('imessage');
-    const deliver = (level: Level): checkins.Delivery => ({ text: loopcfg.reach(cfg, level, canText).phone, holdUntil: qEnd });
-    const room = () => checkins.open().length < cfg.max_open;
-    const heldBack = (what: string) => T.inaction.push({ what, why: `held back: you already have ${checkins.open().length} question${checkins.open().length === 1 ? '' : 's'} out (your limit is ${cfg.max_open})` });
+    const deliver = (level: Level, island: string | null = null, secondary = false): checkins.Delivery => { const reach = loopcfg.reach(cfg, level, canText, island, secondary); return { text: reach.phone, desk: reach.desk && !qEnd, holdUntil: qEnd }; };
+    const openCount = () => checkins.open().filter((c) => loopcfg.included(cfg, c.priority, c.island, tz)).length;
+    const room = () => openCount() < cfg.max_open;
+    const heldBack = (what: string) => { const count = openCount(); T.inaction.push({ what, why: `held back: you already have ${count} question${count === 1 ? '' : 's'} out (your limit is ${cfg.max_open})` }); };
 
     if (cfg.paused) {
       T.paused = true;
@@ -92,8 +83,8 @@ async function tickNow(why: string) {
     }
 
     // ---- 1. texts held through quiet hours; snoozes that came due
-    for (const c of checkins.releaseHeld()) T.decisions.push(`Quiet hours over: texted you the question "${clean(c.title)}"`);
-    for (const c of checkins.live().filter((c) => c.state === 'snoozed' && (c.snoozedUntil ?? 0) <= Date.now())) { checkins.remind(c, 'snooze over', deliver(c.priority)); T.decisions.push(`Reminded you, as you asked: "${clean(c.title)}"`); }
+    if (!qEnd) for (const c of checkins.releaseHeld((c) => loopcfg.reach(cfg, c.priority, canText, c.island, c.reminders > cfg.levels[c.priority].first_times).phone)) T.decisions.push(`Quiet hours over: texted you the question "${clean(c.title)}"`);
+    for (const c of checkins.live().filter((c) => !qEnd && loopcfg.included(cfg, c.priority, c.island, tz) && c.state === 'snoozed' && (c.snoozedUntil ?? 0) <= Date.now())) { checkins.remind(c, 'snooze over', deliver(c.priority, c.island, c.reminders >= cfg.levels[c.priority].first_times)); T.decisions.push(`Reminded you, as you asked: "${clean(c.title)}"`); }
 
     // ---- 2. medicine: its own status line
     const medKey = `medicine:${now.date}`;
@@ -149,7 +140,7 @@ async function tickNow(why: string) {
         opt('b', 'Draft a submission for it', { type: 'handoff', mode: 'drafter', text: `Draft a submission for the finished piece "${f}" (desk_view export/${f}). Read desk_view profile and a sample of desk_view writing to match the user's voice. Write the draft with deliver to out/submissions as "${f.replace(/\.[^.]+$/, '')}-submission.md". Say what you wrote.` }),
         opt('c', "It's not finished", { type: 'archive', reason: 'not finished' }),
         discuss,
-      ] }, deliver(level));
+      ] }, deliver(level, isl?.slug ?? null));
       asked.push(f);
       T.decisions.push(`Asked you what to do with a new file in the export folder: ${f}`);
     }
@@ -196,7 +187,7 @@ async function tickNow(why: string) {
           opt('b', 'Draft a submission', { type: 'handoff', mode: 'drafter', text: `Draft a submission for "${i.name}" (desk_view islands/${i.slug}). Match the user's voice from desk_view profile and desk_view writing. Write it with deliver to out/submissions as "${i.slug}-submission.md". Say what you wrote.` }),
           opt('c', "Nothing, it's done", { type: 'none' }),
           discuss,
-        ] }, deliver(level));
+        ] }, deliver(level, i.slug));
         T.decisions.push(`Asked you about "${i.name}": finished`);
       }
       if (carry.length > 1) T.inaction.push({ what: `${carry.length - 1} more finished islands`, why: 'one of these per scan' });
@@ -208,11 +199,12 @@ async function tickNow(why: string) {
     // ---- 7. nudges by priority: the quick ones, then the slower ones, then filed (or slower nudges for good). Quiet hours pause the count.
     for (const c of checkins.live()) {
       const R = cfg.levels[c.priority], what = clean(c.title), total = R.first_times + R.second_times;
+      if (!loopcfg.included(cfg, c.priority, c.island, tz)) { T.waiting.push({ what, since: c.created, next: 'notifications held by your reminder settings' }); continue; }
       const held = () => (c.heldUntil && c.heldUntil > Date.now() ? ` (text held until ${hm(c.heldUntil)})` : '');
       if (c.state === 'snoozed') { T.waiting.push({ what, since: c.created, next: `paused at your request until ${hm(c.snoozedUntil ?? Date.now())}` }); continue; }
       const step = () => {
         const n = c.reminders, quick = n < R.first_times, files = R.stop && n >= total;
-        const at = c.lastSent + duration(quick ? R.first_after : R.second_after, 90 * 60_000);
+        const at = c.lastSent + duration(quick ? R.first_after : n === R.first_times ? R.second_after : R.second_snooze, 90 * 60_000);
         return { at, quick, files, label: files ? `files as unanswered at ${hm(at)}` : `${quick ? 'quick' : 'slower'} nudge ${n + 1}${R.stop ? ` of ${total}` : ''} at ${hm(at)}` };
       };
       const s = step();
@@ -221,11 +213,11 @@ async function tickNow(why: string) {
       if (s.files) {
         checkins.archive(c, 'unanswered');
         T.decisions.push(`Filed as unanswered after ${total} nudge${total === 1 ? '' : 's'}: "${what}"`);
-        if (R.stop_text && deliver(c.priority).text) { void checkins.notify(`Filed without an answer: "${what}". It stays in the desk's history.`, 'filed'); T.decisions.push(`Texted you that "${what}" was filed`); }
+        if (R.stop_text && deliver(c.priority, c.island, R.second_times > 0).text) { void checkins.notify(`Filed without an answer: "${what}". It stays in the desk's history.`, 'filed'); T.decisions.push(`Texted you that "${what}" was filed`); }
         continue;
       }
       const silentMin = Math.round((Date.now() - c.lastSent) / 60_000);
-      checkins.remind(c, s.quick ? 'quick nudge' : 'slower nudge', deliver(c.priority));
+      checkins.remind(c, s.quick ? 'quick nudge' : 'slower nudge', deliver(c.priority, c.island, !s.quick));
       T.decisions.push(`Nudged you (${s.quick ? 'quick' : 'slower'}, ${c.reminders}${R.stop ? ` of ${total}` : ''}) after ${silentMin} minutes of silence: "${what}"`);
       T.waiting.push({ what, since: c.created, next: step().label + held() });
     }

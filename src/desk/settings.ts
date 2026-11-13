@@ -39,6 +39,8 @@ const asDur = (v: unknown) => { const s = String(v).trim(); if (!/^\d+(\.\d+)?\s
 const asVia = (v: unknown) => { if (!loopcfg.VIA.includes(v as loopcfg.Via)) throw new Error('use desk, phone or both'); return v as loopcfg.Via; };
 const asDays = (v: unknown) => { const D = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']; const list = Array.isArray(v) ? v : String(v).toLowerCase().split(/[\s,]+/); return list.map((x) => String(x).slice(0, 3).toLowerCase()).filter((x) => D.includes(x)); };
 const asLevel = (v: unknown) => { if (!priorities.LEVELS.includes(v as priorities.Level)) throw new Error('priority is high, medium or low'); return v as priorities.Level; };
+const asWeek = (v: unknown) => { if (!Array.isArray(v) || v.length !== 7 || v.some((d) => typeof d !== 'boolean')) throw new Error('use seven day switches, Sunday through Saturday'); return [...v] as boolean[]; };
+const asLevels = (v: unknown) => { if (!Array.isArray(v) || !v.length) throw new Error('keep at least one priority included'); return [...new Set(v.map(asLevel))]; };
 
 /** Change one setting. Returns what it was and what it is now. */
 export function set(key: string, value: unknown, by = 'web') {
@@ -51,12 +53,16 @@ export function set(key: string, value: unknown, by = 'web') {
       from = pick(before.loop, rest);
       if (v === 'every_min') to = Math.max(1, Math.min(120, Number(value) || 5));
       else if (v === 'paused') to = asBool(value);
+      else if (v === 'notify') to = asBool(value);
+      else if (v === 'notify_levels') to = asLevels(value);
+      else if (v === 'days' || v === 'quiet.days') to = asWeek(value);
+      else if (v === 'area') { if (value !== 'all' && !islands.KINDS.includes(value as islands.Kind)) throw new Error('choose all areas or an island kind'); to = value; }
       else if (v === 'max_open') to = Math.max(1, Math.min(5, Number(value) || 1));
-      else if (v === 'quiet') to = value ? { from: asTime((value as any).from), to: asTime((value as any).to) } : null;
+      else if (v === 'quiet') to = value ? { from: asTime((value as any).from), to: asTime((value as any).to), days: asWeek((value as any).days ?? before.loop.quiet?.days ?? loopcfg.days(undefined)) } : null;
       else if (v === 'quiet.from' || v === 'quiet.to') to = asTime(value);
-      else if (v === 'via' || v.endsWith('.via')) to = asVia(value);
-      else if (v.endsWith('_after')) to = asDur(value);
-      else if (v.endsWith('_times')) to = Math.max(v.endsWith('second_times') ? 0 : 1, Math.min(3, Math.round(Number(value)) || 0));
+      else if (v === 'via' || v.endsWith('.via') || v.endsWith('.second_via')) to = asVia(value);
+      else if (v.endsWith('_after') || v.endsWith('.second_snooze')) to = asDur(value);
+      else if (v.endsWith('_times')) to = Math.max(v.endsWith('second_times') ? 0 : 1, Math.min(9, Math.round(Number(value)) || 0));
       else if (v.endsWith('.stop') || v.endsWith('.stop_text')) to = asBool(value);
       else throw new Error(`unknown setting ${key}`);
       if (v === 'quiet' && to === null) { const { data, body } = store.readFm('loop.md'); data.quiet = null; store.writeFm('loop.md', data, body); }
@@ -136,10 +142,12 @@ export function removeIsland(slug: string, by = 'web') {
 const LEVEL_LABELS = Object.fromEntries(priorities.LEVELS.flatMap((l) => [
   [`loop.levels.${l}.via`, `where ${l}-priority questions go`], [`loop.levels.${l}.first_after`, `${l} priority: wait before each quick nudge`], [`loop.levels.${l}.first_times`, `${l} priority: number of quick nudges`],
   [`loop.levels.${l}.second_after`, `${l} priority: wait before each slower nudge`], [`loop.levels.${l}.second_times`, `${l} priority: number of slower nudges`], [`loop.levels.${l}.stop`, `${l} priority: file after the slower nudges`], [`loop.levels.${l}.stop_text`, `${l} priority: text you when it's filed`],
+  [`loop.levels.${l}.second_via`, `${l} priority: secondary channels`], [`loop.levels.${l}.second_snooze`, `${l} priority: secondary snooze`],
 ]));
 /** Plain-English labels for the change log. */
 export const LABELS: Record<string, string> = {
   'loop.every_min': 'how often Omnii scans (minutes)', 'loop.paused': 'paused', 'loop.max_open': 'how many questions Omnii may have out at once', 'loop.quiet': 'quiet hours', 'loop.quiet.from': 'quiet hours start', 'loop.quiet.to': 'quiet hours end', 'loop.via': 'where questions reach you',
+  'loop.notify': 'notifications', 'loop.notify_levels': 'reminder priorities', 'loop.days': 'reminder days', 'loop.area': 'reminder area', 'loop.quiet.days': 'available days',
   ...LEVEL_LABELS,
   'priorities.medicine.time': 'medicine time', 'priorities.medicine.priority': 'medicine priority', 'priorities.medicine.enabled': 'medicine rhythm on', 'priorities.chores.days': 'apartment days', 'priorities.chores.time': 'apartment time', 'priorities.chores.priority': 'apartment priority', 'priorities.chores.enabled': 'apartment rhythm on',
   'allowed.remove': 'an always-allowed action', 'watches.export.path': 'finished-work folder', 'watches.mail.unsub_threshold': 'messages per week before Omnii asks about unsubscribing', 'profile.name': 'your name', 'profile.timezone': 'your timezone', 'profile.writing': 'where your writing lives', 'profile.site': 'where your site lives', 'reach.handle': 'the number Omnii texts', 'mail.host': 'mail server', 'mail.user': 'mail address', 'mail.pass': 'mail app password',

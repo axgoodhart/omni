@@ -29,7 +29,7 @@ import * as logbook from '../desk/logbook.ts';
 import * as loopcfg from '../desk/loopcfg.ts';
 const logbookLast = (kind: string) => logbook.last(kind);
 /** Live check-ins, each marked with whether it belongs on the desk (a phone-only priority doesn't, while texting works). */
-const liveForDesk = () => { const cfg = loopcfg.get(), canText = outbound.channels().includes('imessage'); return checkins.live().map((c) => ({ ...c, onDesk: loopcfg.reach(cfg, c.priority, canText).desk })); };
+const liveForDesk = () => { const cfg = loopcfg.get(), canText = outbound.channels().includes('imessage'), quiet = loopcfg.quietEnds(cfg, profile.get().timezone); return checkins.live().map((c) => ({ ...c, onDesk: !quiet && loopcfg.reach(cfg, c.priority, canText, c.island, c.reminders > cfg.levels[c.priority].first_times).desk })); };
 
 export const api = new Hono();
 const bad = (c: any, e: unknown, status = 400) => c.json({ error: (e as Error).message ?? String(e) }, status);
@@ -48,7 +48,7 @@ api.get('/api/state', (c) => c.json({
   channels: outbound.channels(),
   tools: { defaults: DEFAULT_TOOLS, info: TOOL_INFO },
   imessage: outbound.channels().includes('imessage'),
-  desk: { open: checkins.open().length, loop: loop.status(), interviewNeeded: interview.needed(), islands: islands.list().map(({ notes, ...i }) => i) },
+  desk: { open: liveForDesk().filter((c) => c.state === 'open' && c.onDesk).length, loop: loop.status(), interviewNeeded: interview.needed(), islands: islands.list().map(({ notes, ...i }) => i) },
 }));
 
 // ---- desk ----
