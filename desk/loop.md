@@ -1,5 +1,5 @@
 ---
-every_min: 15
+every_min: 17
 paused: false
 quiet:
   from: 00:00
